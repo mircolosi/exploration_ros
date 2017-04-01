@@ -91,7 +91,7 @@ void Graph2occupancy::computeMap(){
     size = Eigen::Vector2i((boundingBox(0, 1) - boundingBox(0, 0))/ _resolution,
          (boundingBox(1, 1) - boundingBox(1, 0))/ _resolution);
     } 
-  //std::cout << "Map size: " << size.transpose() << std::endl;
+  std::cout << "Map size: " << size.transpose() << std::endl;
   if(size.x() == 0 || size.y() == 0) {
     std::cout << "Zero map size ... quitting!" << std::endl;
    return;
@@ -159,8 +159,8 @@ void Graph2occupancy::computeMap(){
 
 void Graph2occupancy::publishMap(const int id) {
 
-
-  assert(_mapImage && "Cannot publish: undefined occupancy grid");
+  //Not recognised in mrslam project.... 
+  //assert(_mapImage && "Cannot publish: undefined occupancy grid");
 
   _pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
 

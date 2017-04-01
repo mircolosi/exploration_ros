@@ -35,6 +35,7 @@
 #include "mrslam/graph_comm.h"
 #include "ros_handler.h"
 #include "graph_ros_publisher.h"
+#include "graph2occupancy.h"
 
 using namespace g2o;
 
@@ -63,7 +64,7 @@ int main(int argc, char **argv)
   int idRobot;
   int nRobots;
   std::string outputFilename;
-  std::string odometryTopic, scanTopic, fixedFrame;
+  std::string odometryTopic, scanTopic, occupancyTopic, fixedFrame;
   arg.param("resolution",  resolution, 0.025, "resolution of the matching grid");
   arg.param("maxScore",    maxScore, 0.15,     "score of the matcher, the higher the less matches");
   arg.param("kernelRadius", kernelRadius, 0.2,  "radius of the convolution kernel");
@@ -78,6 +79,7 @@ int main(int argc, char **argv)
   arg.param("logData",  logData, 0,   "to log computation times, transmition overload and ground truth map");
   arg.param("odometryTopic", odometryTopic, "odom", "odometry ROS topic");
   arg.param("scanTopic", scanTopic, "scan", "scan ROS topic");
+  arg.param("occupancyTopic", occupancyTopic, "grid", "occupancy grid ROS topic");
   arg.param("fixedFrame", fixedFrame, "odom", "fixed frame to visualize the graph with ROS Rviz");
   arg.param("o", outputFilename, "", "file where to save output");
   arg.parseArgs(argc, argv);
@@ -129,6 +131,7 @@ int main(int argc, char **argv)
   }
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
+  Graph2occupancy occupancyPublisher(gslam.graph(),occupancyTopic, resolution);
 
   ////////////////////
   //Setting up network
@@ -179,6 +182,8 @@ int main(int argc, char **argv)
 
       //Publish graph to visualize it on Rviz
       graphPublisher.publishGraph();
+      occupancyPublisher.computeMap();
+      occupancyPublisher.publishMap(1);
 
     }
     

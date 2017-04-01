@@ -1,6 +1,7 @@
 
 #include <iostream> 
 #include <opencv2/highgui/highgui.hpp>
+#include <assert.h>
 
 #include "ros/ros.h"
 #include "nav_msgs/OccupancyGrid.h"
