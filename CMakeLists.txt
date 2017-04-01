@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(cg_mrslam)
+project(mrslam_exploration)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -84,7 +84,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES cg_mrslam
+#  LIBRARIES mrslam_exploration
    CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
@@ -98,19 +98,19 @@ catkin_package(
 # include_directories(include)
 
 ## Declare a cpp library
-# add_library(cg_mrslam
-#   src/${PROJECT_NAME}/cg_mrslam.cpp
+# add_library(mrslam_exploration
+#   src/${PROJECT_NAME}/mrslam_exploration.cpp
 # )
 
 ## Declare a cpp executable
-# add_executable(cg_mrslam_node src/cg_mrslam_node.cpp)
+# add_executable(mrslam_exploration_node src/mrslam_exploration_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(cg_mrslam_node cg_mrslam_generate_messages_cpp)
+# add_dependencies(mrslam_exploration_node mrslam_exploration_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(cg_mrslam_node
+# target_link_libraries(mrslam_exploration_node
 #   ${catkin_LIBRARIES}
 # )
 
@@ -168,7 +168,7 @@ target_link_libraries(srslam
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(srslam cg_mrslam_generate_messages_cpp)
+add_dependencies(srslam mrslam_exploration_generate_messages_cpp)
 
 add_executable(sim_mrslam
   src/sim_mrslam.cpp 
@@ -199,7 +199,7 @@ target_link_libraries(sim_mrslam
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(sim_mrslam cg_mrslam_generate_messages_cpp)
+add_dependencies(sim_mrslam mrslam_exploration_generate_messages_cpp)
 
 add_executable(real_mrslam
   src/real_mrslam.cpp 
@@ -230,7 +230,7 @@ target_link_libraries(real_mrslam
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(real_mrslam cg_mrslam_generate_messages_cpp)
+add_dependencies(real_mrslam mrslam_exploration_generate_messages_cpp)
 
 add_executable(bag_mrslam
   src/bag_mrslam.cpp 
@@ -261,7 +261,7 @@ target_link_libraries(bag_mrslam
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(bag_mrslam cg_mrslam_generate_messages_cpp)
+add_dependencies(bag_mrslam mrslam_exploration_generate_messages_cpp)
 
 add_executable(comm_publisher
   src/comm_publisher.cpp 
@@ -270,7 +270,7 @@ target_link_libraries(comm_publisher
   ${catkin_LIBRARIES}  
   ${G2O_STUFF_LIBRARY}
 )
-add_dependencies(comm_publisher cg_mrslam_generate_messages_cpp)
+add_dependencies(comm_publisher mrslam_exploration_generate_messages_cpp)
 
 #############
 ## Install ##
@@ -287,7 +287,7 @@ add_dependencies(comm_publisher cg_mrslam_generate_messages_cpp)
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS cg_mrslam cg_mrslam_node
+# install(TARGETS mrslam_exploration mrslam_exploration_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -312,7 +312,7 @@ add_dependencies(comm_publisher cg_mrslam_generate_messages_cpp)
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_cg_mrslam.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_mrslam_exploration.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
