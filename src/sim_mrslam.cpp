@@ -131,7 +131,9 @@ int main(int argc, char **argv)
   }
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-  Graph2occupancy occupancyPublisher(gslam.graph(),occupancyTopic, resolution);
+
+
+  Graph2occupancy occupancyPublisher(idRobot, gslam.graph(),occupancyTopic, resolution);
 
   ////////////////////
   //Setting up network

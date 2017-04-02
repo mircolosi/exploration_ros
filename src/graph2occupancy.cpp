@@ -5,21 +5,23 @@ using namespace Eigen;
 using namespace g2o;
 
 
-Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, string topicName, float resolution, float usableRange) {
-  _graph = graph;
-  _topicName = topicName;
-  _resolution = resolution;
-  _usableRange = usableRange;
+Graph2occupancy::Graph2occupancy(int idRobot, OptimizableGraph *graph, string topicName, float resolution, float usableRange) {
+	_graph = graph;
+  	_resolution = resolution;
+  	_usableRange = usableRange;
 
+  	std::stringstream fullTopicName;
+  	fullTopicName << "/robot_" << idRobot << "/" << topicName;
+	_topicName = fullTopicName.str();
 
-
+ 	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
 
 }
 
 
 void Graph2occupancy::computeMap(){
 
-  // Sort verteces
+  	// Sort verteces
     vector<int> vertexIds(_graph->vertices().size());
     int k = 0;
     for(OptimizableGraph::VertexIDMap::iterator it = _graph->vertices().begin(); it != _graph->vertices().end(); ++it) {
@@ -161,9 +163,6 @@ void Graph2occupancy::publishMap(const int id) {
 
   //Not recognised in mrslam project.... 
   //assert(_mapImage && "Cannot publish: undefined occupancy grid");
-
-  _pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
-
   
   nav_msgs::OccupancyGrid gridMsg;
 

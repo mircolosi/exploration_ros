@@ -34,7 +34,7 @@ class Graph2occupancy {
 	
 public:
 
-	Graph2occupancy(OptimizableGraph *graph, string topicName, float resolution = 0.05, float usableRange = -1);
+	Graph2occupancy(int idRobot, OptimizableGraph *graph, string topicName, float resolution = 0.05, float usableRange = -1);
 
 	void computeMap ();
 
