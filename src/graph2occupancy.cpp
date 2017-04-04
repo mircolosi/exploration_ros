@@ -5,10 +5,22 @@ using namespace Eigen;
 using namespace g2o;
 
 
-Graph2occupancy::Graph2occupancy(int idRobot, OptimizableGraph *graph, string topicName, float resolution, float usableRange) {
+Graph2occupancy::Graph2occupancy(int idRobot, OptimizableGraph *graph, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
+	
 	_graph = graph;
   	_resolution = resolution;
+  	_threshold = threhsold;
+  	_rows = rows;
+  	_cols = cols;
+  	_maxRange = maxRange;
   	_usableRange = usableRange;
+  	_gain = gain;
+  	_squareSize = squareSize;
+  	_angle = angle;
+  	_freeThreshold = freeThrehsold;
+
+
+
 
   	std::stringstream fullTopicName;
   	fullTopicName << "/robot_" << idRobot << "/" << topicName;
@@ -132,51 +144,71 @@ void Graph2occupancy::computeMap(){
    ************************************************************************/
 
   _mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
+  _mapRVIZ = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
   _mapImage.setTo(cv::Scalar(0));
-  for(int c = 0; c < _map.cols(); c++) {
-    for(int r = 0; r < _map.rows(); r++) {
-      if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
-  _mapImage.at<unsigned char>(r, c) = 205;
-      } else {
-  float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
-  if (_freeThreshold && fraction < _freeThreshold)
-    _mapImage.at<unsigned char>(r, c) = 254;
-  else if (_threshold && fraction > _threshold)
-    _mapImage.at<unsigned char>(r, c) = 0;
-  else {
-    float val = 255*(1-fraction);
-    _mapImage.at<unsigned char>(r, c) = (unsigned char)val;
-    //_mapImage.at<unsigned char>(r, c) = 205;
-  }
-      }
-    }
-  }
+  _mapRVIZ.setTo(cv::Scalar(0));
 
+  	for(int c = 0; c < _map.cols(); c++) {
+    	for(int r = 0; r < _map.rows(); r++) {
+      		if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
+  				_mapImage.at<unsigned char>(r, c) = 127; //Unknown
+  				_mapRVIZ.at<unsigned char>(r, c) = 50;    }
+      		else {
+  				float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
+  				if (_freeThreshold && fraction < _freeThreshold){
+    				_mapImage.at<unsigned char>(r, c) = 255; //Free
+					_mapRVIZ.at<unsigned char>(r, c) = 0; }
+  				else if (_threshold && fraction > _threshold){
+    				_mapImage.at<unsigned char>(r, c) = 0; //Occupied
+					_mapRVIZ.at<unsigned char>(r, c) = 100; }
+  				else {
+				    //float val = 255*(1-fraction);
+				   // _mapImage.at<unsigned char>(r, c) = (unsigned char)val;
+				   // _mapRVIZ.at<unsigned char>(r, c) = (unsigned char)val;
+				   _mapImage.at<unsigned char>(r, c) = 255; //Same color as free
+				   _mapRVIZ.at<unsigned char>(r, c) = 0;  		}
 
-
+  	
+      		}
+    			}
+  					}
 
 
 }
 
 
-void Graph2occupancy::publishMap(const int id) {
+void Graph2occupancy::publishMap() {
 
   //Not recognised in mrslam project.... 
   //assert(_mapImage && "Cannot publish: undefined occupancy grid");
   
+
   nav_msgs::OccupancyGrid gridMsg;
 
 
   //header (uint32 seq, time stamp, string frame_id)
-  gridMsg.header.seq = id;
-
+  //gridMsg.header.seq = id;
+  gridMsg.header.frame_id = _topicName;
+  
   //info (time map_load_time  float32 _resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
   gridMsg.info.resolution = _resolution;
-  gridMsg.info.width = _mapImage.cols;
-  gridMsg.info.height = _mapImage.rows;
+  gridMsg.info.width = _mapRVIZ.cols;
+  gridMsg.info.height = _mapRVIZ.rows;
+
+
+  geometry_msgs::Pose poseMsg;
+  poseMsg.position.x = 0.0;
+  poseMsg.position.y = 0.0;
+  poseMsg.position.z = 0.0;
+  poseMsg.orientation.x = 0.0;
+  poseMsg.orientation.y = 1.0; //Used to pitch-rotate the map 
+  poseMsg.orientation.z = 0.0;
+  poseMsg.orientation.w = 0.0;
+
+  gridMsg.info.origin = poseMsg;
 
   //data (int8[] data)
-  gridMsg.data = _mapImage.reshape(1,1);
+  gridMsg.data = _mapRVIZ.reshape(1,1);
 
 
   _pubOccupGrid.publish(gridMsg);

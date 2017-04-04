@@ -5,6 +5,7 @@
 
 #include "ros/ros.h"
 #include "nav_msgs/OccupancyGrid.h"
+#include "geometry_msgs/Pose.h"
 
 #include "g2o/core/hyper_graph.h"
 
@@ -34,11 +35,11 @@ class Graph2occupancy {
 	
 public:
 
-	Graph2occupancy(int idRobot, OptimizableGraph *graph, string topicName, float resolution = 0.05, float usableRange = -1);
+	Graph2occupancy(int idRobot, OptimizableGraph *graph, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
 
 	void computeMap ();
 
-	void publishMap (const int id);
+	void publishMap ();
 
 	void setResolution (const float resolution);
 	void setThreshold (const float threshold);
@@ -76,17 +77,18 @@ protected:
 	OptimizableGraph *_graph;
 	FrequencyMap _map;
 	cv::Mat _mapImage;
+	cv::Mat _mapRVIZ;
 
 	float _resolution;
-	float _threshold = 0;
-	float _rows = 0;
-	float _cols = 0;
-	float _maxRange = -1.0;
+	float _threshold;
+	float _rows;
+	float _cols;
+	float _maxRange;
 	float _usableRange;
-	float _gain = -1.0;
-	float _squareSize = 1.0;
-	float _angle = 0;
-	float _freeThreshold = 0;
+	float _gain;
+	float _squareSize;
+	float _angle;
+	float _freeThreshold;
 
 	string _topicName;
 

@@ -130,10 +130,22 @@ int main(int argc, char **argv)
     gtgraph.setInitialData(currEst, rlaser);
   }
   
+//map parameters
+	float threhsold = 0.65; 
+	float rows = 0;
+	float cols = 0;	
+	float maxRange = 8;
+	float usableRange = 8;
+	float gain = 3.0;
+	float squareSize = 0;
+	float angle = 0.0;
+	float freeThrehsold = 0.196;
+
+
+  Graph2occupancy occupancyPublisher(idRobot, gslam.graph(),occupancyTopic, resolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
+ 
+  
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-
-
-  Graph2occupancy occupancyPublisher(idRobot, gslam.graph(),occupancyTopic, resolution);
 
   ////////////////////
   //Setting up network
@@ -185,7 +197,7 @@ int main(int argc, char **argv)
       //Publish graph to visualize it on Rviz
       graphPublisher.publishGraph();
       occupancyPublisher.computeMap();
-      occupancyPublisher.publishMap(1);
+      occupancyPublisher.publishMap();
 
     }
     
