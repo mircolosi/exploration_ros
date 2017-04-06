@@ -5,35 +5,37 @@ using namespace Eigen;
 using namespace g2o;
 
 
-Graph2occupancy::Graph2occupancy(int idRobot, OptimizableGraph *graph, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
-	
-	_graph = graph;
-  	_resolution = resolution;
-  	_threshold = threhsold;
-  	_rows = rows;
-  	_cols = cols;
-  	_maxRange = maxRange;
-  	_usableRange = usableRange;
-  	_gain = gain;
-  	_squareSize = squareSize;
-  	_angle = angle;
-  	_freeThreshold = freeThrehsold;
+Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
+  
+    _graph = graph;
+    _mapImage = image;
+    _resolution = resolution;
+    _threshold = threhsold;
+    _rows = rows;
+    _cols = cols;
+    _maxRange = maxRange;
+    _usableRange = usableRange;
+    _gain = gain;
+    _squareSize = squareSize;
+    _angle = angle;
+    _freeThreshold = freeThrehsold;
 
 
 
 
-  	std::stringstream fullTopicName;
-  	fullTopicName << "/robot_" << idRobot << "/" << topicName;
-	_topicName = fullTopicName.str();
+    std::stringstream fullTopicName;
+    //fullTopicName << "/robot_" << idRobot << "/" << topicName;
+    fullTopicName << topicName;
+    _topicName = fullTopicName.str();
 
- 	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
+    _pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
 
 }
 
 
 void Graph2occupancy::computeMap(){
 
-  	// Sort verteces
+    // Sort verteces
     vector<int> vertexIds(_graph->vertices().size());
     int k = 0;
     for(OptimizableGraph::VertexIDMap::iterator it = _graph->vertices().begin(); it != _graph->vertices().end(); ++it) {
@@ -143,35 +145,35 @@ void Graph2occupancy::computeMap(){
    *                  Convert frequency map into int[8]                   *
    ************************************************************************/
 
-  _mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
+  *_mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
   _mapRVIZ = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
-  _mapImage.setTo(cv::Scalar(0));
+  _mapImage->setTo(cv::Scalar(0));
   _mapRVIZ.setTo(cv::Scalar(0));
 
-  	for(int c = 0; c < _map.cols(); c++) {
-    	for(int r = 0; r < _map.rows(); r++) {
-      		if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
-  				_mapImage.at<unsigned char>(r, c) = 127; //Unknown
-  				_mapRVIZ.at<unsigned char>(r, c) = 50;    }
-      		else {
-  				float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
-  				if (_freeThreshold && fraction < _freeThreshold){
-    				_mapImage.at<unsigned char>(r, c) = 255; //Free
-					_mapRVIZ.at<unsigned char>(r, c) = 0; }
-  				else if (_threshold && fraction > _threshold){
-    				_mapImage.at<unsigned char>(r, c) = 0; //Occupied
-					_mapRVIZ.at<unsigned char>(r, c) = 100; }
-  				else {
-				    //float val = 255*(1-fraction);
-				   // _mapImage.at<unsigned char>(r, c) = (unsigned char)val;
-				   // _mapRVIZ.at<unsigned char>(r, c) = (unsigned char)val;
-				   _mapImage.at<unsigned char>(r, c) = 255; //Same color as free
-				   _mapRVIZ.at<unsigned char>(r, c) = 0;  		}
+    for(int c = 0; c < _map.cols(); c++) {
+      for(int r = 0; r < _map.rows(); r++) {
+          if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
+          _mapImage->at<unsigned char>(r, c) = 127; //Unknown
+          _mapRVIZ.at<unsigned char>(r, c) = 50;    }
+          else {
+          float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
+          if (_freeThreshold && fraction < _freeThreshold){
+              _mapImage->at<unsigned char>(r, c) = 255; //Free
+              _mapRVIZ.at<unsigned char>(r, c) = 0; }
+          else if (_threshold && fraction > _threshold){
+              _mapImage->at<unsigned char>(r, c) = 0; //Occupied
+              _mapRVIZ.at<unsigned char>(r, c) = 100; }
+          else {
+            //float val = 255*(1-fraction);
+           // _mapImage.at<unsigned char>(r, c) = (unsigned char)val;
+           // _mapRVIZ.at<unsigned char>(r, c) = (unsigned char)val;
+           _mapImage->at<unsigned char>(r, c) = 255; //Same color as free
+           _mapRVIZ.at<unsigned char>(r, c) = 0;      }
 
-  	
-      		}
-    			}
-  					}
+    
+          }
+          }
+            }
 
 
 }
@@ -200,9 +202,9 @@ void Graph2occupancy::publishMap() {
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 0.0;
+  poseMsg.orientation.x = 1.0;
   poseMsg.orientation.y = 1.0; //Used to pitch-rotate the map 
-  poseMsg.orientation.z = 0.0;
+  poseMsg.orientation.z = 0.0; //Rotate along x
   poseMsg.orientation.w = 0.0;
 
   gridMsg.info.origin = poseMsg;
@@ -296,7 +298,7 @@ void Graph2occupancy::showMap() {}
 void Graph2occupancy::saveMap(string outputFileName) {
 
 
-  cv::imwrite(outputFileName + ".png", _mapImage);
+  cv::imwrite(outputFileName + ".png", *_mapImage);
 
 
   std::ofstream ofs(string(outputFileName + ".yaml").c_str());

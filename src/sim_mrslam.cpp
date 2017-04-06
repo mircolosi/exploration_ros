@@ -35,7 +35,8 @@
 #include "mrslam/graph_comm.h"
 #include "ros_handler.h"
 #include "graph_ros_publisher.h"
-#include "graph2occupancy.h"
+#include "exploration/graph2occupancy.h"
+#include "exploration/frontier_detector.h"
 
 using namespace g2o;
 
@@ -131,6 +132,7 @@ int main(int argc, char **argv)
   }
   
 //map parameters
+  float mapResolution = 0.05;
 	float threhsold = 0.65; 
 	float rows = 0;
 	float cols = 0;	
@@ -141,11 +143,17 @@ int main(int argc, char **argv)
 	float angle = 0.0;
 	float freeThrehsold = 0.196;
 
+  std::string frontierPointsTopic = "points";
+  std::string markersTopic = "markers";
+  occupancyTopic = "map";
+  int threhsoldSize = 40;
+  int threhsoldNeighbors = 10;
 
-  Graph2occupancy occupancyPublisher(idRobot, gslam.graph(),occupancyTopic, resolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
- 
+  cv::Mat mapImage;
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
+  Graph2occupancy occupancyPublisher(gslam.graph(), &mapImage, idRobot, occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
+  FrontierDetector frontierPublisher(&mapImage, mapResolution, frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
 
   ////////////////////
   //Setting up network
@@ -198,6 +206,9 @@ int main(int argc, char **argv)
       graphPublisher.publishGraph();
       occupancyPublisher.computeMap();
       occupancyPublisher.publishMap();
+      frontierPublisher.computeFrontiers();
+      frontierPublisher.publishFrontierPoints();
+      frontierPublisher.publishCentroidMarkers();
 
     }
     

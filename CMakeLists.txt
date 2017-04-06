@@ -177,9 +177,10 @@ add_executable(sim_mrslam
   src/sim_mrslam.cpp 
   src/ros_handler.cpp
   src/graph_ros_publisher.cpp
-  src/graph2occupancy.cpp
-  src/frequency_map.cpp
-  src/grid_line_traversal.cpp
+  src/exploration/graph2occupancy.cpp
+  src/exploration/frequency_map.cpp
+  src/exploration/grid_line_traversal.cpp
+  src/exploration/frontier_detector.cpp
   src/matcher/scan_matcher.cpp
   src/matcher/chargrid.cpp
   src/slam/closure_checker.cpp
