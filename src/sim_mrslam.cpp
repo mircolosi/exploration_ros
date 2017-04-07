@@ -153,7 +153,7 @@ int main(int argc, char **argv)
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
   Graph2occupancy occupancyPublisher(gslam.graph(), &mapImage, idRobot, occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  FrontierDetector frontierPublisher(&mapImage, mapResolution, frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
+  FrontierDetector frontierPublisher(&mapImage,idRobot, mapResolution, frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
 
   ////////////////////
   //Setting up network

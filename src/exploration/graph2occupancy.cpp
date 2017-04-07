@@ -24,8 +24,8 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int id
 
 
     std::stringstream fullTopicName;
-    //fullTopicName << "/robot_" << idRobot << "/" << topicName;
-    fullTopicName << topicName;
+    fullTopicName << "/robot_" << idRobot << "/" << topicName;
+    //fullTopicName << topicName;
     _topicName = fullTopicName.str();
 
     _pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);

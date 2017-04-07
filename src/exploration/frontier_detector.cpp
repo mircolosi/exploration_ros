@@ -2,17 +2,30 @@
 
 using namespace sensor_msgs;
 
-FrontierDetector::FrontierDetector (cv::Mat *image, float resolution, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors){
+FrontierDetector::FrontierDetector (cv::Mat *image, int idRobot, float resolution, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors){
 
 	_mapImage = image;
+	_idRobot = idRobot;
 	_mapResolution = resolution;
 	_sizeThreshold = thresholdSize;
 	_neighborsThreshold = thresholdNeighbors;
-	_topicPointsName = namePoints;
-	_topicMarkersName = nameMarkers;
+
+	std::stringstream fullPointsTopicName;
+    std::stringstream fullMarkersTopicName;
+
+    fullPointsTopicName << "/robot_" << _idRobot << "/" << namePoints;
+    fullMarkersTopicName << "/robot_" << _idRobot << "/" << nameMarkers;
+
+   	_topicPointsName = fullPointsTopicName.str();
+	_topicMarkersName = fullMarkersTopicName.str();
 
 	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
 	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
+
+
+	std::stringstream fullFixedFrameId;
+	fullFixedFrameId << "/robot_" << _idRobot << "/map";
+	_fixedFrameId = fullFixedFrameId.str();
 
 }
 
@@ -97,7 +110,7 @@ void FrontierDetector::publishFrontierPoints(){
 
 	sensor_msgs::PointCloud2Ptr pointsMsg = boost::make_shared<sensor_msgs::PointCloud2>();
 	
-	pointsMsg->header.frame_id = "map";
+	pointsMsg->header.frame_id = _fixedFrameId;
 	pointsMsg->is_bigendian = false;
 	pointsMsg->is_dense = false;
 
@@ -142,7 +155,7 @@ void FrontierDetector::publishCentroidMarkers(){
 
 	for (int i = 0; i < centroids.size(); i++){
 		visualization_msgs::Marker marker;
-		marker.header.frame_id = "map";
+		marker.header.frame_id = _fixedFrameId;
 		marker.header.stamp = ros::Time();
 		//marker.ns = "my_namespace";
 		marker.id = i;
