@@ -116,10 +116,10 @@ void Graph2occupancy::computeMap(){
   
 
   //Eigen::Vector2f offset(-size.x() * _resolution / 2.0f, -size.y() * _resolution / 2.0f);
-  Eigen::Vector2f offset(boundingBox(0, 0),boundingBox(1, 0));
+  _offset<<boundingBox(0, 0),boundingBox(1, 0);
   FrequencyMapCell unknownCell;
   
-  _map = FrequencyMap(_resolution, offset, size, unknownCell);
+  _map = FrequencyMap(_resolution, _offset, size, unknownCell);
 
   for(size_t i = 0; i < vertexIds.size(); ++i) {
     OptimizableGraph::Vertex *_v = _graph->vertex(vertexIds[i]);
@@ -167,8 +167,8 @@ void Graph2occupancy::computeMap(){
             //float val = 255*(1-fraction);
            // _mapImage.at<unsigned char>(r, c) = (unsigned char)val;
            // _mapRVIZ.at<unsigned char>(r, c) = (unsigned char)val;
-           _mapImage->at<unsigned char>(r, c) = 255; //Same color as free
-           _mapRVIZ.at<unsigned char>(r, c) = 0;      }
+           _mapImage->at<unsigned char>(r, c) = 127; //Same color as unknown
+           _mapRVIZ.at<unsigned char>(r, c) = 50;      }
 
     
           }
@@ -288,6 +288,10 @@ void Graph2occupancy::publishMap() {
   }
   string Graph2occupancy::getTopicName (){
     return _topicName;
+  }
+
+  Eigen::Vector2f Graph2occupancy::getOffset(){
+    return _offset;
   }
 
 

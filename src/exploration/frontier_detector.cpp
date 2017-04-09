@@ -30,16 +30,8 @@ FrontierDetector::FrontierDetector (cv::Mat *image, int idRobot, float resolutio
 }
 
 
-
 void FrontierDetector::computeFrontiers(){
-
-
-	//1 compute frontier cells
-	//2 Group frontier cells into contiguous regions
-	//3 Crop regions which are too small
-	//4 Compute centroid of each region
-
-
+	
 	_frontiers.clear();
 	_regions.clear();
 
@@ -49,16 +41,16 @@ void FrontierDetector::computeFrontiers(){
 
     		if (_mapImage->at<unsigned char>(r, c) == _freeColor ){ 
 
-    			std::array<float,2> coord = {r,c};
+    			std::array<int,2> coord = {r,c};
 
-    			if (_mapImage->at<unsigned char>(r + 1, c) == _unknownColor ){ 
-    				_frontiers.push_back(coord);	}
-    			else if (_mapImage->at<unsigned char>(r - 1, c) == _unknownColor ) {
-    				_frontiers.push_back(coord);		}
-    			else if (_mapImage->at<unsigned char>(r, c + 1) == _unknownColor ) {
-    				_frontiers.push_back(coord);		}    			
-    			else if (_mapImage->at<unsigned char>(r, c - 1) == _unknownColor ) {
-    				_frontiers.push_back(coord);		}
+
+    			if (hasColoredNeighbor(r,c, _occupiedColor)[0] != INT_MAX)
+    				continue;
+
+    			std::array<int,2> coordN = hasColoredNeighbor(r,c, _unknownColor);
+    		   	if ((coordN[0] != INT_MAX)&&(hasColoredNeighbor(coordN[0], coordN[1], _occupiedColor)[0] == INT_MAX)){
+    				_frontiers.push_back(coord);	
+    					}
     		
     						}
 
@@ -76,7 +68,7 @@ void FrontierDetector::computeFrontiers(){
 			for (int j = i + 1; j < _frontiers.size(); j++){
 
 	    		for (int k = 0; k < region.size(); k++){
-	    			if (hasNeighbor(region[k], _frontiers[j])){
+	    			if (isNeighbor(region[k], _frontiers[j])){
 	    				region.push_back(_frontiers[j]);
 	    				break;								}
 	    											}
@@ -97,12 +89,110 @@ void FrontierDetector::computeFrontiers(){
 
 
 
+void FrontierDetector::computeCentroids(){
 
-void FrontierDetector::rankRegions(){
-	//Reorder the _regions vector
-	//Assign a score to each region, according to its dimension and the number of close regions...
-	//Weight the score according to the distance 
-	//Move toward best centroid.
+	_centroids.clear();
+
+	for (int i = 0; i < _regions.size(); i++){
+
+		int accX = 0;
+		int accY = 0;
+
+		for (int j = 0; j <_regions[i].size(); j++){
+			accX+=_regions[i][j][0];
+			accY+=_regions[i][j][1];
+										}
+
+
+		int meanX = round(accX/_regions[i].size());
+		int meanY = round(accY/_regions[i].size());
+
+		std::array<int,2> centroid = {meanX, meanY};
+
+		_centroids.push_back(centroid);
+
+						}
+
+
+	//Make all the centroids reachable
+	for (int i = 0; i < _centroids.size(); i++){
+		if (_mapImage->at<unsigned char>(_centroids[i][0], _centroids[i][1]) != 255 ){  //If the centroid is in a non-free cell
+			float distance = std::numeric_limits<float>::max();
+			std::array<int,2> closestPoint;
+
+			for (int j = 0; j < _regions[i].size(); j++){
+
+				int dx = _centroids[i][0] - _regions[i][j][0];
+				int dy = _centroids[i][1] - _regions[i][j][1];
+
+				float dist = sqrt(dx*dx + dy*dy);
+
+				if (dist < distance){
+					distance = dist;
+					closestPoint = _regions[i][j];
+								}
+
+						}
+
+			_centroids[i] = closestPoint;
+
+
+		}
+
+
+
+	}
+
+}
+
+
+
+
+
+void FrontierDetector::rankRegions(SE2 actualPose, Eigen::Vector2f offset){
+	Vector2D translation = actualPose.translation();
+	Eigen::Rotation2Dd rotation = actualPose.rotation().angle();
+
+	std::vector<float> scores(_centroids.size());
+
+	int mapX = (abs(translation[0] - offset[0]))/(0.05);
+	int mapY = (abs(translation[1] - offset[1]))/(0.05);
+	Eigen::Vector2f mapCoord(mapX, mapY);
+
+
+	for (int i = 0; i < _centroids.size(); i++){
+
+		int dx = mapCoord[0] - _centroids[i][0];
+		int dy = mapCoord[1] - _centroids[i][1];
+
+		float distance = sqrt(dx*dx + dy*dy);
+
+		scores[i] = 1/distance;
+		//scores[i] = _regions[i].size();
+	}
+
+
+	std::vector<coordWithScore> vec;
+
+	for (int i = 0; i < _centroids.size(); i ++){
+		coordWithScore val;
+
+		val.coord = _centroids[i];
+		val.score = scores[i];
+
+		vec.push_back(val);
+
+	}
+
+
+	sort(vec.begin(),vec.end());
+
+	for (int i = 0; i < _centroids.size(); i ++){
+		_centroids[i] = vec[i].coord;
+	}
+
+
+
 }
 
 
@@ -150,10 +240,12 @@ void FrontierDetector::publishFrontierPoints(){
 void FrontierDetector::publishCentroidMarkers(){
 	visualization_msgs::MarkerArray markersMsg;
 
-	coordVector centroids = computeCentroids();
+	float num = _centroids.size();
 
+	for (int i = 0; i < num; i++){
 
-	for (int i = 0; i < centroids.size(); i++){
+		float scaleFactor = (num - i + 1)/num;
+
 		visualization_msgs::Marker marker;
 		marker.header.frame_id = _fixedFrameId;
 		marker.header.stamp = ros::Time();
@@ -161,20 +253,29 @@ void FrontierDetector::publishCentroidMarkers(){
 		marker.id = i;
 		marker.type = visualization_msgs::Marker::SPHERE;
 		marker.action = visualization_msgs::Marker::ADD;
-		marker.pose.position.x = centroids[i][0] * _mapResolution;
-		marker.pose.position.y = centroids[i][1] * _mapResolution;
+		marker.pose.position.x = _centroids[i][0] * _mapResolution;
+		marker.pose.position.y = _centroids[i][1] * _mapResolution;
 		marker.pose.position.z = 0;
 		marker.pose.orientation.x = 0.0;
 		marker.pose.orientation.y = 0.0;
 		marker.pose.orientation.z = 0.0;
 		marker.pose.orientation.w = 1.0;
-		marker.scale.x = 0.4;
-		marker.scale.y = 0.4;
-		marker.scale.z = 0.4;
+		marker.scale.x = 0.4 * scaleFactor;
+		marker.scale.y = 0.4 * scaleFactor;
+		marker.scale.z = 0.4 * scaleFactor;
 		marker.color.a = 1.0; 
+		if (i == 0){
+		marker.color.r = 0.0;
+		marker.color.g = 0.0;
+		marker.color.b = 1.0;
+	}
+	else {
 		marker.color.r = 0.0;
 		marker.color.g = 1.0;
 		marker.color.b = 0.0;
+
+	}
+
 
 		markersMsg.markers.push_back(marker);
 	}
@@ -184,33 +285,6 @@ void FrontierDetector::publishCentroidMarkers(){
 }
 
 
-coordVector FrontierDetector::computeCentroids(){
-
-	coordVector centroids;
-
-	for (int i = 0; i < _regions.size(); i++){
-
-		float accX = 0;
-		float accY = 0;
-
-		for (int j = 0; j <_regions[i].size(); j++){
-			accX+=_regions[i][j][0];
-			accY+=_regions[i][j][1];
-										}
-
-
-		float meanX = accX/_regions[i].size();
-		float meanY = accY/_regions[i].size();
-
-		std::array<float,2> centroid = {meanX, meanY};
-
-		centroids.push_back(centroid);
-
-						}
-
-return centroids;
-
-}
 
 
 coordVector FrontierDetector::getFrontierPoints(){
@@ -220,7 +294,7 @@ regionVector FrontierDetector::getFrontierRegions(){
 	return _regions;	}
 
 
-bool FrontierDetector::hasNeighbor(std::array<float,2> coordI, std::array<float,2> coordJ){
+bool FrontierDetector::isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ){
 
 	if ((coordI[0] != coordJ[0]) || (coordI[1] != coordJ[1])){
 		if ((abs(coordI[0] - coordJ[0]) <= _neighborsThreshold)&&(abs(coordI[1] - coordJ[1]) <= _neighborsThreshold)){
@@ -238,7 +312,43 @@ bool FrontierDetector::hasNeighbor(std::array<float,2> coordI, std::array<float,
 		return false;*/
 }
 
-bool FrontierDetector::included(std::array<float,2> coord , regionVector regions){
+
+std::array<int,2> FrontierDetector::hasColoredNeighbor(int r, int c, int color){
+
+	int rN = INT_MAX;
+	int cN = INT_MAX;
+
+	std::array<int,2> coordN = {rN,cN};
+
+    if (_mapImage->at<unsigned char>(r + 1, c) == color ){
+    	coordN = {r+1,c};
+    	return coordN;
+    }
+
+    if (_mapImage->at<unsigned char>(r - 1, c) == color ){
+    	coordN = {r-1,c};
+    	return coordN;
+    }
+
+   	if (_mapImage->at<unsigned char>(r, c + 1) == color ){
+   		coordN = {r,c+1};
+   		return coordN;
+   	}
+
+   	if (_mapImage->at<unsigned char>(r, c - 1) == color ){
+   		coordN = {r,c-1};
+   		return coordN;
+   	}
+
+   	return coordN;
+
+
+
+
+
+}
+
+bool FrontierDetector::included(std::array<int,2> coord , regionVector regions){
 	for (int i = 0; i < _regions.size(); i++){
 		for (int j = 0; j < _regions[i].size(); j++){
 			if (_regions[i][j] == coord){
@@ -249,3 +359,5 @@ bool FrontierDetector::included(std::array<float,2> coord , regionVector regions
 	return false;
 
 }
+
+

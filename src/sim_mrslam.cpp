@@ -133,7 +133,7 @@ int main(int argc, char **argv)
   
 //map parameters
   float mapResolution = 0.05;
-	float threhsold = 0.65; 
+	float threhsold = 0.55; 
 	float rows = 0;
 	float cols = 0;	
 	float maxRange = 8;
@@ -141,13 +141,13 @@ int main(int argc, char **argv)
 	float gain = 3.0;
 	float squareSize = 0;
 	float angle = 0.0;
-	float freeThrehsold = 0.196;
+	float freeThrehsold = 0.3;
 
   std::string frontierPointsTopic = "points";
   std::string markersTopic = "markers";
   occupancyTopic = "map";
-  int threhsoldSize = 40;
-  int threhsoldNeighbors = 10;
+  int threhsoldSize = 50;
+  int threhsoldNeighbors = 5;
 
   cv::Mat mapImage;
   
@@ -204,12 +204,23 @@ int main(int argc, char **argv)
 
       //Publish graph to visualize it on Rviz
       graphPublisher.publishGraph();
+
       occupancyPublisher.computeMap();
+      Eigen::Vector2f offset = occupancyPublisher.getOffset();
+
       occupancyPublisher.publishMap();
+      
+
+      SE2 lastPose = gslam.lastVertex()->estimate();
+      
       frontierPublisher.computeFrontiers();
+      frontierPublisher.computeCentroids();
+      frontierPublisher.rankRegions(lastPose, offset);
+
       frontierPublisher.publishFrontierPoints();
       frontierPublisher.publishCentroidMarkers();
 
+       
     }
     
     loop_rate.sleep();

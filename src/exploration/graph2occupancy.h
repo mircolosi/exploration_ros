@@ -66,6 +66,8 @@ public:
 	float getFreeThreshold ();
 	string getTopicName ();
 
+	Eigen::Vector2f getOffset();
+
 
 
 	void showMap();
@@ -78,6 +80,8 @@ protected:
 	FrequencyMap _map;
 	cv::Mat * _mapImage;
 	cv::Mat _mapRVIZ;
+
+	Eigen::Vector2f _offset;
 
 	float _resolution;
 	float _threshold;
