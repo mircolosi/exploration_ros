@@ -32,6 +32,7 @@
 #include "ros/ros.h"
 #include "tf/tf.h"
 
+
 #include "sensor_msgs/PointCloud.h"
 #include "geometry_msgs/PoseArray.h"
 #include "geometry_msgs/Point32.h"
@@ -56,10 +57,15 @@ class GraphRosPublisher
   void publishGraph();
 
  protected:
+
+  float worldToMapX(float value);
+  float worldToMapY (float value);
+
   ros::NodeHandle _nh;
 
   ros::Publisher _pubtj;
   ros::Publisher _publm;
+ 
   
   OptimizableGraph* _graph;
   string _fixedFrame;

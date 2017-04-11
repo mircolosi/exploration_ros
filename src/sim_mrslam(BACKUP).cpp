@@ -39,7 +39,6 @@
 #include "exploration/frontier_detector.h"
 
 using namespace g2o;
-using namespace cv;
 
 //Log files
 int logData;
@@ -163,7 +162,6 @@ int main(int argc, char **argv)
   gc.init_network(&rh);
 
   ros::Rate loop_rate(10);
-  bool first = true;
   while (ros::ok()){
     ros::spinOnce();
 
@@ -172,27 +170,6 @@ int main(int argc, char **argv)
     currEst *= relodom;
 
     odomPosk_1 = odomPosk;
-
-    if (first){
-      graphPublisher.publishGraph();
-
-      occupancyPublisher.computeMap();
-      Eigen::Vector2f offset = occupancyPublisher.getOffset();
-
-      occupancyPublisher.publishMap();
-      
-
-      SE2 lastPose = gslam.lastVertex()->estimate();
-      
-      frontierPublisher.computeFrontiers();
-      frontierPublisher.computeCentroids();
-      frontierPublisher.rankRegions(lastPose, offset);
-
-      frontierPublisher.publishFrontierPoints();
-      frontierPublisher.publishCentroidMarkers();
-
-      first = false;
-    }
 
     if((distanceSE2(gslam.lastVertex()->estimate(), currEst) > 0.25) || 
        (fabs(gslam.lastVertex()->estimate().rotation().angle()-currEst.rotation().angle()) > M_PI_4)){
@@ -230,7 +207,6 @@ int main(int argc, char **argv)
 
       occupancyPublisher.computeMap();
       Eigen::Vector2f offset = occupancyPublisher.getOffset();
-      std::cout<<offset<<std::endl;
 
       occupancyPublisher.publishMap();
       
@@ -244,12 +220,8 @@ int main(int argc, char **argv)
       frontierPublisher.publishFrontierPoints();
       frontierPublisher.publishCentroidMarkers();
 
-
-
        
     }
-
-    occupancyPublisher.publishTF();
     
     loop_rate.sleep();
   }

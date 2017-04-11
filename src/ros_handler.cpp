@@ -115,7 +115,8 @@ void RosHandler::init(){
     //Init ground-truth
     for (int r = 0; r < _nRobots; r++){
       std::stringstream nametopic;
-      nametopic << "/robot_" << r << "/base_pose_ground_truth";
+      //nametopic << "/robot_" << r << "/base_pose_ground_truth";
+       nametopic << "base_pose_ground_truth";
       nav_msgs::Odometry::ConstPtr gtmsg = ros::topic::waitForMessage<nav_msgs::Odometry>(nametopic.str());
       _gtPoses[r] = SE2(-gtmsg->pose.pose.position.y, gtmsg->pose.pose.position.x, tf::getYaw(gtmsg->pose.pose.orientation)+M_PI_2);
     }
@@ -137,7 +138,8 @@ void RosHandler::run(){
     //subscribe ground truth
     for (int r = 0; r < _nRobots; r++){
       std::stringstream nametopic;
-      nametopic << "/robot_" << r << "/base_pose_ground_truth";
+      //nametopic << "/robot_" << r << "/base_pose_ground_truth";
+      nametopic << "base_pose_ground_truth";
       _subgt[r] = _nh.subscribe<nav_msgs::Odometry>(nametopic.str(), 1000, boost::bind(&RosHandler::groundTruthCallback, this, _1, &_gtPoses[r]));
     }
   } else if (_typeExperiment == REAL_EXPERIMENT){

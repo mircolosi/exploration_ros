@@ -13,8 +13,11 @@ FrontierDetector::FrontierDetector (cv::Mat *image, int idRobot, float resolutio
 	std::stringstream fullPointsTopicName;
     std::stringstream fullMarkersTopicName;
 
-    fullPointsTopicName << "/robot_" << _idRobot << "/" << namePoints;
-    fullMarkersTopicName << "/robot_" << _idRobot << "/" << nameMarkers;
+    //fullPointsTopicName << "/robot_" << _idRobot << "/" << namePoints;
+    //fullMarkersTopicName << "/robot_" << _idRobot << "/" << nameMarkers;
+    fullPointsTopicName << namePoints;
+    fullMarkersTopicName << nameMarkers;
+
 
    	_topicPointsName = fullPointsTopicName.str();
 	_topicMarkersName = fullMarkersTopicName.str();
@@ -24,7 +27,8 @@ FrontierDetector::FrontierDetector (cv::Mat *image, int idRobot, float resolutio
 
 
 	std::stringstream fullFixedFrameId;
-	fullFixedFrameId << "/robot_" << _idRobot << "/map";
+	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
+	fullFixedFrameId << "map";
 	_fixedFrameId = fullFixedFrameId.str();
 
 }

@@ -6,6 +6,7 @@
 #include "ros/ros.h"
 #include "nav_msgs/OccupancyGrid.h"
 #include "geometry_msgs/Pose.h"
+#include "tf/transform_broadcaster.h"
 
 #include "g2o/core/hyper_graph.h"
 
@@ -40,6 +41,8 @@ public:
 	void computeMap ();
 
 	void publishMap ();
+	void publishTF ();
+
 
 	void setResolution (const float resolution);
 	void setThreshold (const float threshold);
@@ -52,6 +55,7 @@ public:
 	void setAngle (const float angle);
 	void setFreeThreshold (const float freeThrehsold);
 	void setTopicName (const string topicName);
+
 
 
 	float getResolution ();
@@ -98,6 +102,8 @@ protected:
 
 	ros::NodeHandle _nh;
 	ros::Publisher _pubOccupGrid;
+
+	tf::TransformBroadcaster _tfBroadcaster;
 	
 
 

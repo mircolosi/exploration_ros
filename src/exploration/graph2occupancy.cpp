@@ -24,11 +24,13 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int id
 
 
     std::stringstream fullTopicName;
-    fullTopicName << "/robot_" << idRobot << "/" << topicName;
-    //fullTopicName << topicName;
+    //fullTopicName << "/robot_" << idRobot << "/" << topicName;
+    fullTopicName << topicName;
     _topicName = fullTopicName.str();
 
     _pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
+
+
 
 }
 
@@ -178,12 +180,29 @@ void Graph2occupancy::computeMap(){
 
 }
 
+void Graph2occupancy::publishTF() {
+
+  tf::Transform transform1;
+  transform1.setOrigin(tf::Vector3(-_offset[0],-_offset[1], 0.0));
+  transform1.setRotation(tf::Quaternion(0,0,0,1));
+  _tfBroadcaster.sendTransform(tf::StampedTransform(transform1, ros::Time::now(), "map", "trajectory"));
+
+  tf::Transform transform2;
+  transform2.setOrigin(tf::Vector3(4.0 -_offset[0],-19.0 -_offset[1], 0.0));
+  tf::Quaternion q;
+  q.setRPY(0, 0, M_PI_2);
+  transform2.setRotation(q);
+  _tfBroadcaster.sendTransform(tf::StampedTransform(transform2, ros::Time::now(), "map", "odom"));
+
+}
+
 
 void Graph2occupancy::publishMap() {
 
   //Not recognised in mrslam project.... 
   //assert(_mapImage && "Cannot publish: undefined occupancy grid");
-  
+
+
 
   nav_msgs::OccupancyGrid gridMsg;
 
@@ -202,8 +221,8 @@ void Graph2occupancy::publishMap() {
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 1.0;
-  poseMsg.orientation.y = 1.0; //Used to pitch-rotate the map 
+  poseMsg.orientation.x = 1.0;//1
+  poseMsg.orientation.y = 1.0; //1//Used to pitch-rotate the map 
   poseMsg.orientation.z = 0.0; //Rotate along x
   poseMsg.orientation.w = 0.0;
 
