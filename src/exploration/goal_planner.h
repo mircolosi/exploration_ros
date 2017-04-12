@@ -10,6 +10,8 @@
 #include <nav_msgs/GetMap.h>
 
 
+#include "actionlib_msgs/GoalStatus.h"
+
 #include "mrslam/mr_graph_slam.h" //Search for SE2 class
 #include "frontier_detector.h"
 
@@ -22,6 +24,9 @@ class GoalPlanner {
 
 public:
  
+	void goalStatusCallback(const actionlib_msgs::GoalStatus::ConstPtr& msg);
+
+
 	GoalPlanner(int idRobot, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5, int threhsoldNeighbors = 1);
 
 
@@ -39,6 +44,9 @@ public:
 	bool requestMap(); 	
 
 
+	bool waitForGoal();
+
+	int getGoalStatus();
 
 
 protected:
@@ -67,12 +75,16 @@ protected:
 
 	coordVector _goalPoints;
 
+	actionlib_msgs::GoalStatus _status;
+
 	std::string _fixedFrameId;
 	std::string _topicGoalName;
 
 	ros::NodeHandle _nh;
 	MoveBaseClient * _ac;
 	ros::ServiceClient _mapClient;
+	ros::Publisher  _pubGoal;
+	ros::Subscriber _subGoalStatus;
 
 
 };

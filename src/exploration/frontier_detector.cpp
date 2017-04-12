@@ -77,16 +77,11 @@ void FrontierDetector::computeFrontiers(){
 	_frontiers.clear();
 	_regions.clear();
 
-	std::cout<<_mapImage.cols * _mapImage.rows<< " Size" <<std::endl;
-
-	cv::imwrite("file.png", _mapImage);
-	int count = 0;
 
 	for(int c = 0; c < _mapImage.cols; c++) {
     	for(int r = 0; r < _mapImage.rows; r++) {
 
     		if (_mapImage.at<unsigned char>(r, c) == _freeColor ){ 
-    			count++;
     			std::array<int,2> coord = {r,c};
 
 
@@ -127,8 +122,6 @@ void FrontierDetector::computeFrontiers(){
     							}
     				
     					}
-
-std::cout<<"BIANCO: "<<count<<std::endl;
 
 
 

@@ -1,4 +1,6 @@
 
+ #include <unistd.h>
+
 #include "ros_handler.h"
 #include "ros/ros.h"
 
@@ -10,7 +12,7 @@
 float mapX;
 float mapY;
 float theta;
-
+int status;
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
@@ -21,6 +23,11 @@ void actualPoseCallback(const geometry_msgs::Pose2D msg){
 	mapY = msg.y;
 	theta = msg.theta;
 
+
+}
+
+void goalStatusCallback(const actionlib_msgs::GoalStatus msg){
+	status = msg.status;
 
 }
 
@@ -42,11 +49,14 @@ ros::init(argc, argv, "frontier_planner");
 
 ros::NodeHandle nh;
 
+
+
 ros::Subscriber actualPoseSubscriber = nh.subscribe(actualPoseTopic,1000,actualPoseCallback);
+//ros::Subscriber actualStatusSubscriber = nh.subscribe("/move_base/status", 1000, goalStatusCallback);
 
 GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
 
-
+ros::Duration(2.5).sleep(); // sleep 
 
 ros::Rate loop_rate(10);
 
@@ -54,19 +64,20 @@ while (ros::ok()){
 	
 	ros::spinOnce();
 
-	//Deve creare all inizio il frame map, non sempre andare avanti a caso per 0.25m può andare bene.
-
 	goalPlanner.requestMap();
 	goalPlanner.computeFrontiers(mapX, mapY, theta);
 	goalPlanner.publishFrontiers();
 
 
-
+	//goalPlanner.publishGoal();
+	//goalPlanner.waitForGoal();
 
 
 
 
 	loop_rate.sleep();
+
+	return 0;
 }
 
 

@@ -1,7 +1,10 @@
 #include "goal_planner.h"
 
 
+void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatus::ConstPtr& msg){
+	_status = *msg;
 
+}
 
 GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize, int threhsoldNeighbors){
 
@@ -25,7 +28,14 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
 
+	_pubGoal = _nh.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 1);
 
+
+	/*actionlib_msgs::GoalStatus::ConstPtr statusMsg = ros::topic::waitForMessage<actionlib_msgs::GoalStatus>("/move_base/status");
+    _status = *statusMsg;
+
+	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatus>("/move_base/status", 1000, &GoalPlanner::goalStatusCallback, this);
+*/
 
 }
 
@@ -53,30 +63,6 @@ bool GoalPlanner::requestMap(){
       		    currentCell++;
       		}
       	}
-
-
-/*
-  int count255 = 0;
-  int count127 = 0;
-  int count0 = 0;
-
-
-
-  for(int c = 0; c < _mapImage.cols; c++) {
-      for(int r = 0; r < _mapImage.rows; r++) {
-        if (_mapImage.at<unsigned char>(r, c) == 0)
-      count255++;
-        else if (_mapImage.at<unsigned char>(r, c) == 50)
-        count127++;
-      else if (_mapImage.at<unsigned char>(r, c) == 100)
-        count0++;
-      }
-      } 
-  std::cout<<count255 << " CONTA255 "<<std::endl;
-    std::cout<<count127 << " CONTA127 "<<std::endl;
-      std::cout<<count0 << " CONTA0 "<<std::endl;
-
-*/
 
 
 		return true;
@@ -122,7 +108,7 @@ void GoalPlanner::publishGoal(){
 
 
 
-	move_base_msgs::MoveBaseGoal goal;
+	/*move_base_msgs::MoveBaseGoal goal;
 
 	std::array<int,2> goalCoord = _centroids[0];
 
@@ -131,13 +117,65 @@ void GoalPlanner::publishGoal(){
 
 
   	goal.target_pose.pose.position.x = 0.5;
+  	goal.target_pose.pose.orientation.w = 1.0;
   	//goal.target_pose.pose.position.x = goalCoord[0];
   	//goal.target_pose.pose.position.x = goalCoord[1];
   	
 
   	_ac->sendGoal(goal);
 
+  		_ac->waitForResult();
+
+	if(_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+    	ROS_INFO("Hooray, the base moved 1 meter forward");
+    	//return true;
+	}
+  	else{
+    	ROS_INFO("The base failed to move forward 1 meter for some reason");
+    	//return false;
+  	}*/
+
+
+  	geometry_msgs::PoseStamped goalMsg;
+  
+
+  	goalMsg.header.frame_id = "base_link";
+  	goalMsg.header.stamp = ros::Time::now();
+  	
+  	goalMsg.pose.position.x = 0.5;
+  	goalMsg.pose.orientation.w = 1.0;
+
+	_pubGoal.publish(goalMsg);
   	_goalPoints = _regions[0];
+
+
+  	if (_status.status == 3)
+  		std::cout<<"GOAAAAAAL"<<std::endl;
+
+}
+
+
+
+
+bool GoalPlanner::waitForGoal(){
+
+/*
+	_ac->waitForResult();
+
+	if(_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+    	ROS_INFO("Hooray, the base moved 1 meter forward");
+    	return true;
+	}
+  	else{
+    	ROS_INFO("The base failed to move forward 1 meter for some reason");
+    	return false;
+  	}
+
+*/
+
+
+
+
 
 }
 
@@ -145,4 +183,8 @@ void GoalPlanner::publishGoal(){
 
 cv::Mat GoalPlanner::getImageMap(){
 	return _mapImage;
+}
+
+int GoalPlanner::getGoalStatus(){
+	return _status.status;
 }
