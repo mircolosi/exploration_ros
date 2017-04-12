@@ -38,22 +38,6 @@ GraphRosPublisher::GraphRosPublisher(OptimizableGraph* graph, string fixedFrame)
 
 
 
-float GraphRosPublisher::worldToMapX(float pointX){
-  float newPoint;
-  newPoint = (pointX - 4);
-
-return newPoint;
-
-}
-
-float GraphRosPublisher::worldToMapY(float pointY){
-  float newPoint;
-  newPoint = (pointY + 19);
-
-return newPoint;
-
-}
-
 void GraphRosPublisher::publishGraph(){
 
   assert(_graph && "Cannot publish: undefined graph");
@@ -67,10 +51,6 @@ void GraphRosPublisher::publishGraph(){
   for (OptimizableGraph::VertexIDMap::iterator it=_graph->vertices().begin(); it!=_graph->vertices().end(); ++it) {
     VertexSE2* v = (VertexSE2*) (it->second);
 
-    float pointx = worldToMapX(v->estimate().translation().x());
-    float pointy = worldToMapY(v->estimate().translation().y());
-    //traj.poses[i].position.x = pointx;
-    //traj.poses[i].position.y = pointy;
     traj.poses[i].position.x = v->estimate().translation().x();
     traj.poses[i].position.y = v->estimate().translation().y();
     traj.poses[i].position.z = 0;

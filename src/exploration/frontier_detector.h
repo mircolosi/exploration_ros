@@ -32,20 +32,39 @@ struct coordWithScore {
       }
 };
 
+struct regionWithScore {
+	coordVector region;
+	float score;
+
+	bool operator <(const regionWithScore& rws)const
+      {
+         return score > rws.score;
+      }
+};
+
 
 class FrontierDetector {
 
 public:
-	FrontierDetector (cv::Mat *image, int idRobot, float resolution, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5, int threhsoldNeighbors = 1);
+
+	FrontierDetector();
+	FrontierDetector (cv::Mat image, int idRobot, float resolution, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5, int threhsoldNeighbors = 1);
+
+
+	void init(int idRobot, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5, int threhsoldNeighbors = 1);
+
 
 	void computeFrontiers();
 	
-	void rankRegions(SE2 actualPose, Eigen::Vector2f offset);
+	void rankRegions(float mapX, float mapY, float theta);
 	
 	void computeCentroids();
 
+	void setOccupancyMap(cv::Mat image, float resolution);
+
 	coordVector getFrontierPoints();
 	regionVector getFrontierRegions();
+	coordVector getFrontierCentroids();
 
 
 
@@ -61,16 +80,17 @@ protected:
 	std::array<int,2> hasColoredNeighbor(int r, int c, int color);
 	bool included(std::array<int,2> coord , regionVector regions);
 
-	cv::Mat * _mapImage;
+	cv::Mat  _mapImage;
 
 	int _idRobot;
 	float _mapResolution;
 	int _sizeThreshold;
 	int _neighborsThreshold;
+	float _mixtureParam = 0.8;
 
-	int _freeColor = 255;
-	int _occupiedColor = 0;
-	int _unknownColor = 127;
+	int _freeColor = 0;
+	int _occupiedColor = 100;
+	int _unknownColor = 50;
 
 	coordVector _frontiers;
 	regionVector _regions;

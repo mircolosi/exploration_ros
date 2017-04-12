@@ -36,7 +36,7 @@
 #include "ros_handler.h"
 #include "graph_ros_publisher.h"
 #include "exploration/graph2occupancy.h"
-#include "exploration/frontier_detector.h"
+#include "exploration/goal_planner.h"
 
 using namespace g2o;
 using namespace cv;
@@ -153,9 +153,10 @@ int main(int argc, char **argv)
   cv::Mat mapImage;
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-  Graph2occupancy occupancyPublisher(gslam.graph(), &mapImage, idRobot, occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  FrontierDetector frontierPublisher(&mapImage,idRobot, mapResolution, frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
-
+  Graph2occupancy occupancyPublisher(gslam.graph(), &mapImage, idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
+  //FrontierDetector frontierPublisher(&mapImage,idRobot, mapResolution, frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
+  //GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
+  
   ////////////////////
   //Setting up network
   std::string base_addr = "127.0.0.";
@@ -163,7 +164,6 @@ int main(int argc, char **argv)
   gc.init_network(&rh);
 
   ros::Rate loop_rate(10);
-  bool first = true;
   while (ros::ok()){
     ros::spinOnce();
 
@@ -172,27 +172,6 @@ int main(int argc, char **argv)
     currEst *= relodom;
 
     odomPosk_1 = odomPosk;
-
-    if (first){
-      graphPublisher.publishGraph();
-
-      occupancyPublisher.computeMap();
-      Eigen::Vector2f offset = occupancyPublisher.getOffset();
-
-      occupancyPublisher.publishMap();
-      
-
-      SE2 lastPose = gslam.lastVertex()->estimate();
-      
-      frontierPublisher.computeFrontiers();
-      frontierPublisher.computeCentroids();
-      frontierPublisher.rankRegions(lastPose, offset);
-
-      frontierPublisher.publishFrontierPoints();
-      frontierPublisher.publishCentroidMarkers();
-
-      first = false;
-    }
 
     if((distanceSE2(gslam.lastVertex()->estimate(), currEst) > 0.25) || 
        (fabs(gslam.lastVertex()->estimate().rotation().angle()-currEst.rotation().angle()) > M_PI_4)){
@@ -225,29 +204,21 @@ int main(int argc, char **argv)
 	gtgraph.saveGraph(buf2);
       }
 
-      //Publish graph to visualize it on Rviz
       graphPublisher.publishGraph();
 
-      occupancyPublisher.computeMap();
-      Eigen::Vector2f offset = occupancyPublisher.getOffset();
-      std::cout<<offset<<std::endl;
 
-      occupancyPublisher.publishMap();
+
       
 
       SE2 lastPose = gslam.lastVertex()->estimate();
-      
-      frontierPublisher.computeFrontiers();
-      frontierPublisher.computeCentroids();
-      frontierPublisher.rankRegions(lastPose, offset);
-
-      frontierPublisher.publishFrontierPoints();
-      frontierPublisher.publishCentroidMarkers();
-
-
+      occupancyPublisher.publishMapPose(lastPose);
 
        
     }
+
+          occupancyPublisher.computeMap();
+      Eigen::Vector2f offset = occupancyPublisher.getOffset();
+      occupancyPublisher.publishMap();
 
     occupancyPublisher.publishTF();
     

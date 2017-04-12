@@ -2,13 +2,16 @@
 
 using namespace sensor_msgs;
 
-FrontierDetector::FrontierDetector (cv::Mat *image, int idRobot, float resolution, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors){
 
-	_mapImage = image;
-	_idRobot = idRobot;
-	_mapResolution = resolution;
-	_sizeThreshold = thresholdSize;
-	_neighborsThreshold = thresholdNeighbors;
+FrontierDetector::FrontierDetector(){}
+
+FrontierDetector::FrontierDetector (cv::Mat image, int idRobot, float resolution, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors):
+	_mapImage(image),_idRobot(idRobot),_mapResolution(resolution), _sizeThreshold(thresholdSize), _neighborsThreshold(thresholdNeighbors)
+{
+	
+	
+	
+
 
 	std::stringstream fullPointsTopicName;
     std::stringstream fullMarkersTopicName;
@@ -34,17 +37,56 @@ FrontierDetector::FrontierDetector (cv::Mat *image, int idRobot, float resolutio
 }
 
 
+void FrontierDetector::init (int idRobot, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors){
+	
+	
+	_idRobot = idRobot;
+	_sizeThreshold = thresholdSize;
+	_neighborsThreshold = thresholdNeighbors;
+
+
+	std::stringstream fullPointsTopicName;
+    std::stringstream fullMarkersTopicName;
+
+    //fullPointsTopicName << "/robot_" << _idRobot << "/" << namePoints;
+    //fullMarkersTopicName << "/robot_" << _idRobot << "/" << nameMarkers;
+    fullPointsTopicName << namePoints;
+    fullMarkersTopicName << nameMarkers;
+
+
+   	_topicPointsName = fullPointsTopicName.str();
+	_topicMarkersName = fullMarkersTopicName.str();
+
+	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
+	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
+
+
+	std::stringstream fullFixedFrameId;
+	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
+	fullFixedFrameId << "map";
+	_fixedFrameId = fullFixedFrameId.str();
+
+}
+
+
+
 void FrontierDetector::computeFrontiers(){
 	
+
+
 	_frontiers.clear();
 	_regions.clear();
 
+	std::cout<<_mapImage.cols * _mapImage.rows<< " Size" <<std::endl;
 
-	for(int c = 0; c < _mapImage->cols; c++) {
-    	for(int r = 0; r < _mapImage->rows; r++) {
+	cv::imwrite("file.png", _mapImage);
+	int count = 0;
 
-    		if (_mapImage->at<unsigned char>(r, c) == _freeColor ){ 
+	for(int c = 0; c < _mapImage.cols; c++) {
+    	for(int r = 0; r < _mapImage.rows; r++) {
 
+    		if (_mapImage.at<unsigned char>(r, c) == _freeColor ){ 
+    			count++;
     			std::array<int,2> coord = {r,c};
 
 
@@ -86,6 +128,8 @@ void FrontierDetector::computeFrontiers(){
     				
     					}
 
+std::cout<<"BIANCO: "<<count<<std::endl;
+
 
 
 }
@@ -120,7 +164,7 @@ void FrontierDetector::computeCentroids(){
 
 	//Make all the centroids reachable
 	for (int i = 0; i < _centroids.size(); i++){
-		if (_mapImage->at<unsigned char>(_centroids[i][0], _centroids[i][1]) != 255 ){  //If the centroid is in a non-free cell
+		if (_mapImage.at<unsigned char>(_centroids[i][0], _centroids[i][1]) != 255 ){  //If the centroid is in a non-free cell
 			float distance = std::numeric_limits<float>::max();
 			std::array<int,2> closestPoint;
 
@@ -153,16 +197,23 @@ void FrontierDetector::computeCentroids(){
 
 
 
-void FrontierDetector::rankRegions(SE2 actualPose, Eigen::Vector2f offset){
-	Vector2D translation = actualPose.translation();
-	Eigen::Rotation2Dd rotation = actualPose.rotation().angle();
+void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
 
 	std::vector<float> scores(_centroids.size());
 
-	int mapX = (abs(translation[0] - offset[0]))/(0.05);
-	int mapY = (abs(translation[1] - offset[1]))/(0.05);
 	Eigen::Vector2f mapCoord(mapX, mapY);
 
+
+	std::vector<coordWithScore> vecCentroidScore;
+	std::vector<regionWithScore> vecRegionScore;
+
+	int maxSize = 0;
+
+	for (int i = 0; i < _centroids.size(); i++){
+		if (_regions[i].size() > maxSize){
+			maxSize = _regions[i].size();
+		}
+	}
 
 	for (int i = 0; i < _centroids.size(); i++){
 
@@ -171,28 +222,28 @@ void FrontierDetector::rankRegions(SE2 actualPose, Eigen::Vector2f offset){
 
 		float distance = sqrt(dx*dx + dy*dy);
 
-		scores[i] = 1/distance;
-		//scores[i] = _regions[i].size();
+		scores[i] = (_mixtureParam)*1/distance + (1 - _mixtureParam)*_regions[i].size()/maxSize ;
+
+		coordWithScore centroidScore;
+		regionWithScore regionScore;
+
+		centroidScore.coord = _centroids[i];
+		centroidScore.score = scores[i];
+
+		regionScore.region = _regions[i];
+		regionScore.score = scores[i];
+
+		vecCentroidScore.push_back(centroidScore);
+		vecRegionScore.push_back(regionScore);
 	}
 
 
-	std::vector<coordWithScore> vec;
+	sort(vecCentroidScore.begin(),vecCentroidScore.end());
+	sort(vecRegionScore.begin(),vecRegionScore.end());
 
 	for (int i = 0; i < _centroids.size(); i ++){
-		coordWithScore val;
-
-		val.coord = _centroids[i];
-		val.score = scores[i];
-
-		vec.push_back(val);
-
-	}
-
-
-	sort(vec.begin(),vec.end());
-
-	for (int i = 0; i < _centroids.size(); i ++){
-		_centroids[i] = vec[i].coord;
+		_centroids[i] = vecCentroidScore[i].coord;
+		_regions[i] = vecRegionScore[i].region;	
 	}
 
 
@@ -289,6 +340,12 @@ void FrontierDetector::publishCentroidMarkers(){
 }
 
 
+void FrontierDetector::setOccupancyMap(cv::Mat image, float resolution){
+
+	_mapImage = image;
+	_mapResolution = resolution;
+}
+
 
 
 coordVector FrontierDetector::getFrontierPoints(){
@@ -296,6 +353,9 @@ coordVector FrontierDetector::getFrontierPoints(){
 
 regionVector FrontierDetector::getFrontierRegions(){
 	return _regions;	}
+
+coordVector FrontierDetector::getFrontierCentroids(){
+	return _centroids;	}
 
 
 bool FrontierDetector::isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ){
@@ -324,22 +384,22 @@ std::array<int,2> FrontierDetector::hasColoredNeighbor(int r, int c, int color){
 
 	std::array<int,2> coordN = {rN,cN};
 
-    if (_mapImage->at<unsigned char>(r + 1, c) == color ){
+    if (_mapImage.at<unsigned char>(r + 1, c) == color ){
     	coordN = {r+1,c};
     	return coordN;
     }
 
-    if (_mapImage->at<unsigned char>(r - 1, c) == color ){
+    if (_mapImage.at<unsigned char>(r - 1, c) == color ){
     	coordN = {r-1,c};
     	return coordN;
     }
 
-   	if (_mapImage->at<unsigned char>(r, c + 1) == color ){
+   	if (_mapImage.at<unsigned char>(r, c + 1) == color ){
    		coordN = {r,c+1};
    		return coordN;
    	}
 
-   	if (_mapImage->at<unsigned char>(r, c - 1) == color ){
+   	if (_mapImage.at<unsigned char>(r, c - 1) == color ){
    		coordN = {r,c-1};
    		return coordN;
    	}

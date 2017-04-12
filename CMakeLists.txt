@@ -174,6 +174,24 @@ target_link_libraries(srslam
 )
 add_dependencies(srslam cg_mrslam_generate_messages_cpp)
 
+add_executable(frontier_planner
+  src/frontier_planner.cpp
+  src/exploration/frontier_detector.cpp
+  src/exploration/goal_planner.cpp
+)
+target_link_libraries(frontier_planner
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}    
+  ${CSPARSE_LIBRARY}
+  ${G2O_TYPES_DATA}
+  ${G2O_SOLVER_CSPARSE_EXTENSION}
+  ${G2O_SOLVER_CSPARSE}
+  ${G2O_CORE_LIBRARY}
+  ${G2O_STUFF_LIBRARY}
+  ${G2O_TYPES_SLAM2D}
+)
+add_dependencies(frontier_planner cg_mrslam_generate_messages_cpp)
+
 add_executable(sim_mrslam
   src/sim_mrslam.cpp 
   src/ros_handler.cpp
@@ -182,6 +200,7 @@ add_executable(sim_mrslam
   src/exploration/frequency_map.cpp
   src/exploration/grid_line_traversal.cpp
   src/exploration/frontier_detector.cpp
+  src/exploration/goal_planner.cpp
   src/matcher/scan_matcher.cpp
   src/matcher/chargrid.cpp
   src/slam/closure_checker.cpp

@@ -58,8 +58,6 @@ class GraphRosPublisher
 
  protected:
 
-  float worldToMapX(float value);
-  float worldToMapY (float value);
 
   ros::NodeHandle _nh;
 

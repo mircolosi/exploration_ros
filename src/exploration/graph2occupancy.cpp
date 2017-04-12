@@ -5,7 +5,84 @@ using namespace Eigen;
 using namespace g2o;
 
 
-Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
+
+bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res ){
+
+  //nav_msgs::GetMap::Response res;
+
+  //header (uint32 seq, time stamp, string frame_id)
+ res.map.header.frame_id = _topicName;
+  
+  //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
+  res.map.info.map_load_time = ros::Time::now();
+  res.map.info.resolution = _resolution;
+  res.map.info.width = _mapRVIZ.cols;
+  res.map.info.height = _mapRVIZ.rows;
+
+
+  geometry_msgs::Pose poseMsg;
+  poseMsg.position.x = 0.0;
+  poseMsg.position.y = 0.0;
+  poseMsg.position.z = 0.0;
+  poseMsg.orientation.x = 0.0;
+  poseMsg.orientation.y = 0.0; //Used to pitch-rotate the map 
+  poseMsg.orientation.z = 0.0; //Rotate along x
+  poseMsg.orientation.w = 0.0;
+
+  res.map.info.origin = poseMsg;
+
+  //data (int8[] data)
+  res.map.data.resize(res.map.info.width * res.map.info.height);
+
+
+  res.map.data = _mapRVIZ.reshape(1,1);
+  
+  /*int count255 = 0;
+  int count127 = 0;
+  int count0 = 0;
+  std::cout<<_mapImage->cols * _mapImage->rows << " prima "<<std::endl;
+
+      std::cout<<"MAP->"<<std::endl;
+
+  for(int c = 0; c < _mapImage->cols; c++) {
+      for(int r = 0; r < _mapImage->rows; r++) {
+        if (_mapImage->at<unsigned char>(r, c) == 255)
+      count255++;
+        else if (_mapImage->at<unsigned char>(r, c) == 127)
+        count127++;
+      else if (_mapImage->at<unsigned char>(r, c) == 0)
+        count0++;
+      }
+      } 
+  std::cout<<count255 << " CONTA255 "<<std::endl;
+    std::cout<<count127 << " CONTA127 "<<std::endl;
+      std::cout<<count0 << " CONTA0 "<<std::endl;
+      std::cout<<"RESPONSE->"<<std::endl;
+
+       count255 = 0;
+   count127 = 0;
+  count0 = 0;
+
+
+  for (int i = 0; i < res.map.data.size(); i++){
+    if (res.map.data[i] == 0)
+      count255++;
+    else if (res.map.data[i] == 50)
+    count127++;
+    else if (res.map.data[i] == 100)
+    count0++;
+  }
+  std::cout<<count255 << " CONTA255 "<<std::endl;
+    std::cout<<count127 << " CONTA127 "<<std::endl;
+      std::cout<<count0 << " CONTA0 "<<std::endl;
+*/
+
+
+  return true;
+}
+
+
+Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, SE2 gtPose, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
   
     _graph = graph;
     _mapImage = image;
@@ -20,6 +97,8 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int id
     _angle = angle;
     _freeThreshold = freeThrehsold;
 
+    _groundTruthPose = gtPose;
+
 
 
 
@@ -31,6 +110,10 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int id
     _pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
 
 
+    _pubActualCoord = _nh.advertise<geometry_msgs::Pose2D>("map_pose",1);
+
+
+    _server = _nh.advertiseService("map", &Graph2occupancy::mapCallback, this);
 
 }
 
@@ -109,7 +192,7 @@ void Graph2occupancy::computeMap(){
     size = Eigen::Vector2i((boundingBox(0, 1) - boundingBox(0, 0))/ _resolution,
          (boundingBox(1, 1) - boundingBox(1, 0))/ _resolution);
     } 
-  std::cout << "Map size: " << size.transpose() << std::endl;
+ // std::cout << "Map size: " << size.transpose() << std::endl;
   if(size.x() == 0 || size.y() == 0) {
     std::cout << "Zero map size ... quitting!" << std::endl;
    return;
@@ -175,7 +258,37 @@ void Graph2occupancy::computeMap(){
     
           }
           }
-            }
+            } 
+/*int count = 0;
+              for(int c = 0; c < _mapImage->cols; c++) {
+      for(int r = 0; r < _mapImage->rows; r++) {
+        if (_mapImage->at<unsigned char>(r, c) == 0)
+      count++;
+      }
+      } 
+  std::cout<<count << " CONTA3 "<<std::endl;*/
+
+
+
+}
+
+
+void Graph2occupancy::publishMapPose(SE2 actualPose){
+
+  geometry_msgs::Pose2D poseMsg;
+
+  Vector2D translation = actualPose.translation();
+
+  int mapX = (abs(translation[0] - _offset[0]))/_resolution;
+  int mapY = (abs(translation[1] - _offset[1]))/_resolution;
+
+  poseMsg.x = mapX;
+  poseMsg.y = mapY;
+  poseMsg.theta = actualPose.rotation().angle();
+
+
+  _pubActualCoord.publish(poseMsg);
+
 
 
 }
@@ -187,8 +300,13 @@ void Graph2occupancy::publishTF() {
   transform1.setRotation(tf::Quaternion(0,0,0,1));
   _tfBroadcaster.sendTransform(tf::StampedTransform(transform1, ros::Time::now(), "map", "trajectory"));
 
+
+
+  float gtX = _groundTruthPose.translation().x();
+  float gtY = _groundTruthPose.translation().y();
+
   tf::Transform transform2;
-  transform2.setOrigin(tf::Vector3(4.0 -_offset[0],-19.0 -_offset[1], 0.0));
+  transform2.setOrigin(tf::Vector3(gtX -_offset[0],gtY -_offset[1], 0.0));
   tf::Quaternion q;
   q.setRPY(0, 0, M_PI_2);
   transform2.setRotation(q);
@@ -202,7 +320,7 @@ void Graph2occupancy::publishMap() {
   //Not recognised in mrslam project.... 
   //assert(_mapImage && "Cannot publish: undefined occupancy grid");
 
-
+ 
 
   nav_msgs::OccupancyGrid gridMsg;
 
@@ -211,7 +329,8 @@ void Graph2occupancy::publishMap() {
   //gridMsg.header.seq = id;
   gridMsg.header.frame_id = _topicName;
   
-  //info (time map_load_time  float32 _resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
+  //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
+  gridMsg.info.map_load_time = ros::Time::now();
   gridMsg.info.resolution = _resolution;
   gridMsg.info.width = _mapRVIZ.cols;
   gridMsg.info.height = _mapRVIZ.rows;
@@ -221,8 +340,8 @@ void Graph2occupancy::publishMap() {
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 1.0;//1
-  poseMsg.orientation.y = 1.0; //1//Used to pitch-rotate the map 
+  poseMsg.orientation.x = 1.0;
+  poseMsg.orientation.y = 1.0; //Used to pitch-rotate the map 
   poseMsg.orientation.z = 0.0; //Rotate along x
   poseMsg.orientation.w = 0.0;
 
@@ -236,6 +355,28 @@ void Graph2occupancy::publishMap() {
 
 
 
+
+ 
+
+  //header (uint32 seq, time stamp, string frame_id)
+  //gridMsg.header.seq = id;
+  _resp.map.header.frame_id = _topicName;
+  
+  //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
+  _resp.map.info.map_load_time = ros::Time::now();
+  _resp.map.info.resolution = _resolution;
+  _resp.map.info.width = _mapRVIZ.cols;
+  _resp.map.info.height = _mapRVIZ.rows;
+
+
+  _resp.map.info.origin = poseMsg;
+
+  //data (int8[] data)
+  _resp.map.data = _mapRVIZ.reshape(1,1);
+
+ //nav_msgs::OccupancyGrid gridMsg = res->map;
+
+  //_pubOccupGrid.publish(gridMsg);
 
 }
 

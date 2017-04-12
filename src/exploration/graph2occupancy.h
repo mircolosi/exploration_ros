@@ -5,7 +5,10 @@
 
 #include "ros/ros.h"
 #include "nav_msgs/OccupancyGrid.h"
+#include <nav_msgs/GetMap.h>
+
 #include "geometry_msgs/Pose.h"
+#include "geometry_msgs/Pose2D.h"
 #include "tf/transform_broadcaster.h"
 
 #include "g2o/core/hyper_graph.h"
@@ -26,9 +29,13 @@
 #include "frequency_map.h"
 
 
+#define MAP_IDX(sx, i, j) ((sx) * (j) + (i))
+
 using namespace std;
 using namespace Eigen;
 using namespace g2o;
+
+
 
 
 
@@ -36,12 +43,15 @@ class Graph2occupancy {
 	
 public:
 
-	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
+	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, SE2 gtPose, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
 
 	void computeMap ();
 
 	void publishMap ();
+	void publishMapPose (SE2 actualPose);
 	void publishTF ();
+
+	bool mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res);
 
 
 	void setResolution (const float resolution);
@@ -86,6 +96,7 @@ protected:
 	cv::Mat _mapRVIZ;
 
 	Eigen::Vector2f _offset;
+	SE2 _groundTruthPose;
 
 	float _resolution;
 	float _threshold;
@@ -102,8 +113,13 @@ protected:
 
 	ros::NodeHandle _nh;
 	ros::Publisher _pubOccupGrid;
+	ros::Publisher _pubActualCoord;
+	ros::ServiceServer _server;
 
 	tf::TransformBroadcaster _tfBroadcaster;
+
+
+	nav_msgs::GetMap::Response _resp;
 	
 
 
