@@ -1,8 +1,19 @@
 #include "goal_planner.h"
 
 
-void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatus::ConstPtr& msg){
-	_status = *msg;
+void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg){
+	_statusMsg = *msg;
+
+	if (msg->status_list.size()==1)
+		_status = _statusMsg.status_list[0].status;
+	else if (msg->status_list.size()>1){
+		std::cout<<"MORE THAN 1 GOAL !!!!"<<std::endl;
+		_status = _statusMsg.status_list[0].status;
+
+	}
+
+
+	//std::cout<<_status<<std::endl;
 
 }
 
@@ -13,11 +24,6 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 
 
 	_frontiersDetector.init(idRobot, namePoints, nameMarkers, threhsoldSize, threhsoldNeighbors );
-
-
-	 MoveBaseClient _ac("move_base", true);
-
-
 
 	std::stringstream fullFixedFrameId;
 	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
@@ -30,12 +36,10 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 
 	_pubGoal = _nh.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 1);
 
+	_pubGoalCancel = _nh.advertise<actionlib_msgs::GoalID>("move_base/cancel",1);
 
-	/*actionlib_msgs::GoalStatus::ConstPtr statusMsg = ros::topic::waitForMessage<actionlib_msgs::GoalStatus>("/move_base/status");
-    _status = *statusMsg;
+	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatusArray>("/move_base/status", 1000, &GoalPlanner::goalStatusCallback, this);
 
-	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatus>("/move_base/status", 1000, &GoalPlanner::goalStatusCallback, this);
-*/
 
 }
 
@@ -75,19 +79,27 @@ bool GoalPlanner::requestMap(){
 
 
 
-void GoalPlanner::computeFrontiers(float mapX, float mapY, float theta){
+void GoalPlanner::computeFrontiers(){
 
 
 	_frontiersDetector.setOccupancyMap(_mapImage, _mapResolution);
 
 	_frontiersDetector.computeFrontiers();
     _frontiersDetector.computeCentroids();
-    _frontiersDetector.rankRegions(mapX, mapY, theta);
+
 
     _points = _frontiersDetector.getFrontierPoints();
     _regions = _frontiersDetector.getFrontierRegions();
     _centroids = _frontiersDetector.getFrontierCentroids();
 
+
+}
+
+void GoalPlanner::rankFrontiers(float mapX, float mapY, float theta){
+	
+	_frontiersDetector.rankRegions(mapX, mapY, theta);
+	_regions = _frontiersDetector.getFrontierRegions();
+    _centroids = _frontiersDetector.getFrontierCentroids();
 
 }
 
@@ -101,7 +113,7 @@ void GoalPlanner::publishFrontiers(){
 }
 
 
-void GoalPlanner::publishGoal(){
+void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame){
 
 
 
@@ -117,37 +129,24 @@ void GoalPlanner::publishGoal(){
   	goal.target_pose.pose.orientation.w = 1.0;
   	//goal.target_pose.pose.position.x = goalCoord[0];
   	//goal.target_pose.pose.position.x = goalCoord[1];
-  	
-
-  	_ac->sendGoal(goal);
-
-  		_ac->waitForResult();
-
-	if(_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
-    	ROS_INFO("Hooray, the base moved 1 meter forward");
-    	//return true;
-	}
-  	else{
-    	ROS_INFO("The base failed to move forward 1 meter for some reason");
-    	//return false;
-  	}*/
-
+  	*/
 
   	geometry_msgs::PoseStamped goalMsg;
   
 
-  	goalMsg.header.frame_id = "base_link";
+  	goalMsg.header.frame_id = frame;
   	goalMsg.header.stamp = ros::Time::now();
   	
-  	goalMsg.pose.position.x = 0.5;
+  	goalMsg.pose.position.x = goalCoord[0];
+  	goalMsg.pose.position.y = goalCoord[1];
   	goalMsg.pose.orientation.w = 1.0;
 
 	_pubGoal.publish(goalMsg);
   	_goalPoints = _regions[0];
 
 
-  	if (_status.status == 3)
-  		std::cout<<"GOAAAAAAL"<<std::endl;
+
+
 
 }
 
@@ -156,19 +155,25 @@ void GoalPlanner::publishGoal(){
 
 bool GoalPlanner::waitForGoal(){
 
-/*
-	_ac->waitForResult();
+	std::cout<<_goalPoints.size()<<" POINTS"<<std::endl;
+	
+	ros::Rate loop_rate(10);
+  	while (isGoalReached() == false){
 
-	if(_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
-    	ROS_INFO("Hooray, the base moved 1 meter forward");
-    	return true;
-	}
-  	else{
-    	ROS_INFO("The base failed to move forward 1 meter for some reason");
-    	return false;
-  	}
+  		ros::spinOnce();
 
-*/
+  		//These are needed just for visualization.......
+  		requestMap();
+  		computeFrontiers();
+		publishFrontiers();
+
+
+  		loop_rate.sleep();
+  	}  	
+
+
+  	
+
 
 }
 
@@ -185,17 +190,37 @@ bool GoalPlanner::isGoalReached(){
 		}
 	}
 
-	if ((_goalPoints.size() - countDiscovered < 25)||(_status.status == 3)){
+	if (_status == 3){
 		ROS_INFO("Hooray, the goal has been reached");
+		return true;
+
+	}
+
+	if (_status == 4){
+		actionlib_msgs::GoalID cancelGoalsMsg;
+		//Sending it empty cancels all the goals
+		_pubGoalCancel.publish(cancelGoalsMsg);
+		ROS_ERROR("The robot failed to reach the goal...Aborting");
 		return true;
 	}
 
-	ROS_INFO("The base failed to move to the goal for some reason");
+/*	if (_goalPoints.size() - countDiscovered < 10){
+		ROS_INFO("The area has been explored");
+
+		actionlib_msgs::GoalID cancelGoalsMsg;
+		//Sending it empty cancels all the goals
+		_pubGoalCancel.publish(cancelGoalsMsg);
+		return true;
+	}*/
+
 	return false;
 
 }
 
 
+coordVector GoalPlanner::getCentroids(){
+	return _centroids;
+}
 
 
 cv::Mat GoalPlanner::getImageMap(){
@@ -203,5 +228,9 @@ cv::Mat GoalPlanner::getImageMap(){
 }
 
 int GoalPlanner::getGoalStatus(){
-	return _status.status;
+	return _status;
+}
+
+float GoalPlanner::getResolution(){
+	return _mapResolution;
 }

@@ -25,11 +25,17 @@ void actualPoseCallback(const geometry_msgs::Pose2D msg){
 
 
 }
+/*
+void goalStatusCallback(const actionlib_msgs::GoalStatusArray msg){
 
-void goalStatusCallback(const actionlib_msgs::GoalStatus msg){
-	status = msg.status;
 
-}
+	if (msg.status_list.size()==1)
+		status = msg.status_list[0].status;
+	else if (msg.status_list.size()>1)
+		std::cout<<"GOAL SIZE: "<<msg.status_list.size()<<std::endl;
+
+
+}*/
 
 
 int main (int argc, char **argv){
@@ -52,11 +58,12 @@ ros::NodeHandle nh;
 
 
 ros::Subscriber actualPoseSubscriber = nh.subscribe(actualPoseTopic,1000,actualPoseCallback);
-//ros::Subscriber actualStatusSubscriber = nh.subscribe("/move_base/status", 1000, goalStatusCallback);
 
 GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
 
-ros::Duration(2.5).sleep(); // sleep 
+ros::Duration(2.5).sleep(); 
+
+int goalNum = 5; 
 
 ros::Rate loop_rate(10);
 while (ros::ok()){
@@ -64,12 +71,30 @@ while (ros::ok()){
 	ros::spinOnce();
 
 	goalPlanner.requestMap();
-	goalPlanner.computeFrontiers(mapX, mapY, theta);
+	goalPlanner.computeFrontiers();
+	goalPlanner.rankFrontiers(mapX, mapY, theta);
 	goalPlanner.publishFrontiers();
 
+	coordVector centroids;
+	float resolution;
+	centroids = goalPlanner.getCentroids();
+	resolution = goalPlanner.getResolution();
 
-	//goalPlanner.publishGoal();
-	//goalPlanner.waitForGoal();
+	int goalX = round(centroids[0][0]*resolution);
+	int goalY = round(centroids[0][1]*resolution);
+
+
+
+	std::array<int,2> coordGoal = {goalX,goalY};
+	std::string frame = "map";
+
+	/*if (goalNum > 0){
+		std::cout<<"At: "<<mapX<<" "<<mapY<<" GOAL-> "<<centroids[0][0]<< " " <<centroids[0][1] <<std::endl; 
+		goalPlanner.publishGoal(coordGoal, frame);
+		goalPlanner.waitForGoal();
+		goalNum = goalNum - 1;
+	}*/
+	
 
 
 
@@ -78,18 +103,6 @@ while (ros::ok()){
 
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 	return 0;
 }
