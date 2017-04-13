@@ -1,6 +1,7 @@
 #include "frontier_detector.h"
 
 using namespace sensor_msgs;
+using namespace cv;
 
 
 FrontierDetector::FrontierDetector(){}
@@ -27,6 +28,7 @@ FrontierDetector::FrontierDetector (cv::Mat image, int idRobot, float resolution
 
 	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
 	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
+	_pubClearMarkers = _nh.advertise<visualization_msgs::Marker>(_topicMarkersName,1);
 
 
 	std::stringstream fullFixedFrameId;
@@ -72,11 +74,8 @@ void FrontierDetector::init (int idRobot, std::string namePoints, std::string na
 
 void FrontierDetector::computeFrontiers(){
 	
-
-
 	_frontiers.clear();
 	_regions.clear();
-
 
 	for(int c = 0; c < _mapImage.cols; c++) {
     	for(int r = 0; r < _mapImage.rows; r++) {
@@ -87,8 +86,15 @@ void FrontierDetector::computeFrontiers(){
 
     			if (hasColoredNeighbor(r,c, _occupiedColor)[0] != INT_MAX)
     				continue;
-
+    																
     			std::array<int,2> coordN = hasColoredNeighbor(r,c, _unknownColor);
+    			 
+    				
+
+    			if ((coordN[0] != INT_MAX)&&(isSurrounded(coordN, _freeColor))){
+    				continue;
+    			}
+
     		   	if ((coordN[0] != INT_MAX)&&(hasColoredNeighbor(coordN[0], coordN[1], _occupiedColor)[0] == INT_MAX)){
     				_frontiers.push_back(coord);	
     					}
@@ -109,7 +115,7 @@ void FrontierDetector::computeFrontiers(){
 			for (int j = i + 1; j < _frontiers.size(); j++){
 
 	    		for (int k = 0; k < region.size(); k++){
-	    			if (isNeighbor(region[k], _frontiers[j])){
+	    			if ((isNeighbor(region[k], _frontiers[j]))&&(included(_frontiers[j], _regions) == false)){
 	    				region.push_back(_frontiers[j]);
 	    				break;								}
 	    											}
@@ -122,7 +128,6 @@ void FrontierDetector::computeFrontiers(){
     							}
     				
     					}
-
 
 
 }
@@ -157,7 +162,7 @@ void FrontierDetector::computeCentroids(){
 
 	//Make all the centroids reachable
 	for (int i = 0; i < _centroids.size(); i++){
-		if (_mapImage.at<unsigned char>(_centroids[i][0], _centroids[i][1]) != 255 ){  //If the centroid is in a non-free cell
+		if (_mapImage.at<unsigned char>(_centroids[i][0], _centroids[i][1]) != _freeColor ){  //If the centroid is in a non-free cell
 			float distance = std::numeric_limits<float>::max();
 			std::array<int,2> closestPoint;
 
@@ -184,6 +189,11 @@ void FrontierDetector::computeCentroids(){
 
 	}
 
+    for (int i = 0; i < _regions.size(); i ++){
+    }
+
+
+
 }
 
 
@@ -191,6 +201,7 @@ void FrontierDetector::computeCentroids(){
 
 
 void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
+
 
 	std::vector<float> scores(_centroids.size());
 
@@ -200,7 +211,7 @@ void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
 	std::vector<coordWithScore> vecCentroidScore;
 	std::vector<regionWithScore> vecRegionScore;
 
-	int maxSize = 0;
+	float maxSize = 0;
 
 	for (int i = 0; i < _centroids.size(); i++){
 		if (_regions[i].size() > maxSize){
@@ -213,7 +224,10 @@ void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
 		int dx = mapCoord[0] - _centroids[i][0];
 		int dy = mapCoord[1] - _centroids[i][1];
 
-		float distance = sqrt(dx*dx + dy*dy);
+		float distance = sqrt(dx*dx + dy*dy)*_mapResolution;
+		if (distance < 1)
+			distance = 1;
+
 
 		scores[i] = (_mixtureParam)*1/distance + (1 - _mixtureParam)*_regions[i].size()/maxSize ;
 
@@ -238,6 +252,7 @@ void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
 		_centroids[i] = vecCentroidScore[i].coord;
 		_regions[i] = vecRegionScore[i].region;	
 	}
+
 
 
 
@@ -286,13 +301,15 @@ void FrontierDetector::publishFrontierPoints(){
 
 
 void FrontierDetector::publishCentroidMarkers(){
+
 	visualization_msgs::MarkerArray markersMsg;
 
-	float num = _centroids.size();
+	
 
-	for (int i = 0; i < num; i++){
+	for (int i = 0; i < _centroids.size(); i++){
 
-		float scaleFactor = (num - i + 1)/num;
+		//float scaleFactor = (_centroids.size() - i + 1)/_centroids.size();
+		float scaleFactor = 1;
 
 		visualization_msgs::Marker marker;
 		marker.header.frame_id = _fixedFrameId;
@@ -301,6 +318,7 @@ void FrontierDetector::publishCentroidMarkers(){
 		marker.id = i;
 		marker.type = visualization_msgs::Marker::SPHERE;
 		marker.action = visualization_msgs::Marker::ADD;
+		marker.lifetime = ros::Duration(0.1);
 		marker.pose.position.x = _centroids[i][0] * _mapResolution;
 		marker.pose.position.y = _centroids[i][1] * _mapResolution;
 		marker.pose.position.z = 0;
@@ -308,9 +326,9 @@ void FrontierDetector::publishCentroidMarkers(){
 		marker.pose.orientation.y = 0.0;
 		marker.pose.orientation.z = 0.0;
 		marker.pose.orientation.w = 1.0;
-		marker.scale.x = 0.4 * scaleFactor;
-		marker.scale.y = 0.4 * scaleFactor;
-		marker.scale.z = 0.4 * scaleFactor;
+		marker.scale.x = 0.25 * scaleFactor;
+		marker.scale.y = 0.25 * scaleFactor;
+		marker.scale.z = 0.25 * scaleFactor;
 		marker.color.a = 1.0; 
 		if (i == 0){
 		marker.color.r = 0.0;
@@ -327,6 +345,23 @@ void FrontierDetector::publishCentroidMarkers(){
 
 		markersMsg.markers.push_back(marker);
 	}
+
+/*
+	if (_centroids.size()< _lastMarkersNumber){
+		int diff = _lastMarkersNumber - _centroids.size();
+		for (int i = 0; i < diff; i++){
+
+			visualization_msgs::Marker marker;
+
+			marker.id = i + _centroids.size() - 1;
+
+			marker.action = visualization_msgs::Marker::DELETE;
+
+			markersMsg.markers.push_back(marker);
+		}
+
+		_lastMarkersNumber = _centroids.size();
+	}*/
 
 	_pubCentroidMarkers.publish(markersMsg);
 
@@ -417,4 +452,45 @@ bool FrontierDetector::included(std::array<int,2> coord , regionVector regions){
 
 }
 
+
+bool FrontierDetector::isSurrounded (std::array<int,2> coord , int color){
+
+
+	if (_mapImage.at<unsigned char>(coord[0] + 1, coord[1]) != color ){
+    	return false;
+    }
+
+	if (_mapImage.at<unsigned char>(coord[0] - 1, coord[1]) != color ){
+
+    	return false;
+    }
+
+    if (_mapImage.at<unsigned char>(coord[0], coord[1] + 1) != color ){
+
+    	return false;
+    }
+
+    if (_mapImage.at<unsigned char>(coord[0], coord[1] - 1) != color ){
+
+    	return false;
+    }    
+    if (_mapImage.at<unsigned char>(coord[0] + 1, coord[1]+1) != color ){
+    	return false;
+    }
+
+	if (_mapImage.at<unsigned char>(coord[0] + 1, coord[1]-1) != color ){
+    	return false;
+    }
+
+    if (_mapImage.at<unsigned char>(coord[0] -1, coord[1] + 1) != color ){
+    	return false;
+    }
+
+    if (_mapImage.at<unsigned char>(coord[0] -1, coord[1] - 1) != color ){
+    	return false;
+    }   
+
+    return true;
+
+}
 

@@ -48,10 +48,10 @@ class FrontierDetector {
 public:
 
 	FrontierDetector();
-	FrontierDetector (cv::Mat image, int idRobot, float resolution, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5, int threhsoldNeighbors = 1);
+	FrontierDetector (cv::Mat image, int idRobot, float resolution, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 30, int threhsoldNeighbors = 5);
 
 
-	void init(int idRobot, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5, int threhsoldNeighbors = 1);
+	void init(int idRobot, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 30, int threhsoldNeighbors = 5);
 
 
 	void computeFrontiers();
@@ -79,6 +79,7 @@ protected:
 	bool isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ);
 	std::array<int,2> hasColoredNeighbor(int r, int c, int color);
 	bool included(std::array<int,2> coord , regionVector regions);
+	bool isSurrounded(std::array<int,2> coord, int color);
 
 	cv::Mat  _mapImage;
 
@@ -89,8 +90,11 @@ protected:
 	float _mixtureParam = 0.8;
 
 	int _freeColor = 0;
-	int _occupiedColor = 100;
 	int _unknownColor = 50;
+	int _occupiedColor = 100;
+
+
+	int _lastMarkersNumber = 0;
 
 	coordVector _frontiers;
 	regionVector _regions;
@@ -103,6 +107,7 @@ protected:
 	ros::NodeHandle _nh;
 	ros::Publisher _pubFrontierPoints;
 	ros::Publisher _pubCentroidMarkers;
+	ros::Publisher _pubClearMarkers;
 
 
 

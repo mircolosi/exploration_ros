@@ -149,13 +149,9 @@ int main(int argc, char **argv)
   occupancyTopic = "map";
   int threhsoldSize = 50;
   int threhsoldNeighbors = 5;
-
-  cv::Mat mapImage;
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-  Graph2occupancy occupancyPublisher(gslam.graph(), &mapImage, idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  //FrontierDetector frontierPublisher(&mapImage,idRobot, mapResolution, frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
-  //GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
+  Graph2occupancy occupancyPublisher(gslam.graph(), idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
   
   ////////////////////
   //Setting up network
@@ -208,17 +204,15 @@ int main(int argc, char **argv)
 
 
 
-      
-
-      SE2 lastPose = gslam.lastVertex()->estimate();
-      occupancyPublisher.publishMapPose(lastPose);
-
        
     }
 
-          occupancyPublisher.computeMap();
-      Eigen::Vector2f offset = occupancyPublisher.getOffset();
-      occupancyPublisher.publishMap();
+    SE2 lastPose = gslam.lastVertex()->estimate();
+    occupancyPublisher.publishMapPose(lastPose);
+
+    occupancyPublisher.computeMap();
+    Eigen::Vector2f offset = occupancyPublisher.getOffset();
+    occupancyPublisher.publishMap();
 
     occupancyPublisher.publishTF();
     

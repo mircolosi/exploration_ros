@@ -16,8 +16,8 @@ bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::Get
   //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
   res.map.info.map_load_time = ros::Time::now();
   res.map.info.resolution = _resolution;
-  res.map.info.width = _mapRVIZ.cols;
-  res.map.info.height = _mapRVIZ.rows;
+  res.map.info.width = _mapImage.cols;
+  res.map.info.height = _mapImage.rows;
 
 
   geometry_msgs::Pose poseMsg;
@@ -35,57 +35,16 @@ bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::Get
   res.map.data.resize(res.map.info.width * res.map.info.height);
 
 
-  res.map.data = _mapRVIZ.reshape(1,1);
+  res.map.data = _mapImage.reshape(1,1);
   
-  /*int count255 = 0;
-  int count127 = 0;
-  int count0 = 0;
-  std::cout<<_mapImage->cols * _mapImage->rows << " prima "<<std::endl;
-
-      std::cout<<"MAP->"<<std::endl;
-
-  for(int c = 0; c < _mapImage->cols; c++) {
-      for(int r = 0; r < _mapImage->rows; r++) {
-        if (_mapImage->at<unsigned char>(r, c) == 255)
-      count255++;
-        else if (_mapImage->at<unsigned char>(r, c) == 127)
-        count127++;
-      else if (_mapImage->at<unsigned char>(r, c) == 0)
-        count0++;
-      }
-      } 
-  std::cout<<count255 << " CONTA255 "<<std::endl;
-    std::cout<<count127 << " CONTA127 "<<std::endl;
-      std::cout<<count0 << " CONTA0 "<<std::endl;
-      std::cout<<"RESPONSE->"<<std::endl;
-
-       count255 = 0;
-   count127 = 0;
-  count0 = 0;
-
-
-  for (int i = 0; i < res.map.data.size(); i++){
-    if (res.map.data[i] == 0)
-      count255++;
-    else if (res.map.data[i] == 50)
-    count127++;
-    else if (res.map.data[i] == 100)
-    count0++;
-  }
-  std::cout<<count255 << " CONTA255 "<<std::endl;
-    std::cout<<count127 << " CONTA127 "<<std::endl;
-      std::cout<<count0 << " CONTA0 "<<std::endl;
-*/
-
 
   return true;
 }
 
 
-Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, SE2 gtPose, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
+Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, int idRobot, SE2 gtPose, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
   
     _graph = graph;
-    _mapImage = image;
     _resolution = resolution;
     _threshold = threhsold;
     _rows = rows;
@@ -230,44 +189,28 @@ void Graph2occupancy::computeMap(){
    *                  Convert frequency map into int[8]                   *
    ************************************************************************/
 
-  *_mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
-  _mapRVIZ = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
-  _mapImage->setTo(cv::Scalar(0));
-  _mapRVIZ.setTo(cv::Scalar(0));
+  _mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
+  _mapImage.setTo(cv::Scalar(0));
 
     for(int c = 0; c < _map.cols(); c++) {
       for(int r = 0; r < _map.rows(); r++) {
           if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
-          _mapImage->at<unsigned char>(r, c) = 127; //Unknown
-          _mapRVIZ.at<unsigned char>(r, c) = 50;    }
+          _mapImage.at<unsigned char>(r, c) = _unknownColor;    }
           else {
           float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
           if (_freeThreshold && fraction < _freeThreshold){
-              _mapImage->at<unsigned char>(r, c) = 255; //Free
-              _mapRVIZ.at<unsigned char>(r, c) = 0; }
+              _mapImage.at<unsigned char>(r, c) = _freeColor; }
           else if (_threshold && fraction > _threshold){
-              _mapImage->at<unsigned char>(r, c) = 0; //Occupied
-              _mapRVIZ.at<unsigned char>(r, c) = 100; }
+              _mapImage.at<unsigned char>(r, c) = _occupiedColor; }
           else {
             //float val = 255*(1-fraction);
-           // _mapImage.at<unsigned char>(r, c) = (unsigned char)val;
            // _mapRVIZ.at<unsigned char>(r, c) = (unsigned char)val;
-           _mapImage->at<unsigned char>(r, c) = 127; //Same color as unknown
-           _mapRVIZ.at<unsigned char>(r, c) = 50;      }
+           _mapImage.at<unsigned char>(r, c) = _unknownColor;      }
 
     
           }
           }
             } 
-/*int count = 0;
-              for(int c = 0; c < _mapImage->cols; c++) {
-      for(int r = 0; r < _mapImage->rows; r++) {
-        if (_mapImage->at<unsigned char>(r, c) == 0)
-      count++;
-      }
-      } 
-  std::cout<<count << " CONTA3 "<<std::endl;*/
-
 
 
 }
@@ -332,8 +275,8 @@ void Graph2occupancy::publishMap() {
   //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
   gridMsg.info.map_load_time = ros::Time::now();
   gridMsg.info.resolution = _resolution;
-  gridMsg.info.width = _mapRVIZ.cols;
-  gridMsg.info.height = _mapRVIZ.rows;
+  gridMsg.info.width = _mapImage.cols;
+  gridMsg.info.height = _mapImage.rows;
 
 
   geometry_msgs::Pose poseMsg;
@@ -348,35 +291,12 @@ void Graph2occupancy::publishMap() {
   gridMsg.info.origin = poseMsg;
 
   //data (int8[] data)
-  gridMsg.data = _mapRVIZ.reshape(1,1);
+  gridMsg.data = _mapImage.reshape(1,1);
 
 
   _pubOccupGrid.publish(gridMsg);
 
 
-
-
- 
-
-  //header (uint32 seq, time stamp, string frame_id)
-  //gridMsg.header.seq = id;
-  _resp.map.header.frame_id = _topicName;
-  
-  //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
-  _resp.map.info.map_load_time = ros::Time::now();
-  _resp.map.info.resolution = _resolution;
-  _resp.map.info.width = _mapRVIZ.cols;
-  _resp.map.info.height = _mapRVIZ.rows;
-
-
-  _resp.map.info.origin = poseMsg;
-
-  //data (int8[] data)
-  _resp.map.data = _mapRVIZ.reshape(1,1);
-
- //nav_msgs::OccupancyGrid gridMsg = res->map;
-
-  //_pubOccupGrid.publish(gridMsg);
 
 }
 
@@ -462,7 +382,7 @@ void Graph2occupancy::showMap() {}
 void Graph2occupancy::saveMap(string outputFileName) {
 
 
-  cv::imwrite(outputFileName + ".png", *_mapImage);
+  cv::imwrite(outputFileName + ".png", _mapImage);
 
 
   std::ofstream ofs(string(outputFileName + ".yaml").c_str());

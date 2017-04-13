@@ -37,8 +37,8 @@ int main (int argc, char **argv){
 std::string frontierPointsTopic = "points";
 std::string markersTopic = "markers";
 std::string actualPoseTopic = "map_pose";
-int threhsoldSize = 50;
-int threhsoldNeighbors = 5;
+int threhsoldSize = 25;
+int threhsoldNeighbors = 4;
 
 int idRobot = 0;
 
@@ -59,7 +59,6 @@ GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic,
 ros::Duration(2.5).sleep(); // sleep 
 
 ros::Rate loop_rate(10);
-
 while (ros::ok()){
 	
 	ros::spinOnce();
@@ -77,7 +76,7 @@ while (ros::ok()){
 
 	loop_rate.sleep();
 
-	return 0;
+
 }
 
 

@@ -52,9 +52,6 @@ bool GoalPlanner::requestMap(){
 		_mapResolution = res.map.info.resolution;
 
 		int currentCell = 0;
-		//std::cout<<"prima "<<res.map.info.height *  res.map.info.width<<std::endl;
-		//std::cout<<"size "<<res.map.data.size()<<std::endl; 
-
 		_mapImage = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
 		for(int r = 0; r < res.map.info.height; r++) {
 			for(int c = 0; c < res.map.info.width; c++) {
@@ -173,11 +170,31 @@ bool GoalPlanner::waitForGoal(){
 
 */
 
+}
 
 
+bool GoalPlanner::isGoalReached(){
 
+	int countDiscovered = 0;
+
+	for (int i = 0; i < _goalPoints.size(); i++){
+		float r = _goalPoints[i][0];
+		float c = _goalPoints[i][1];
+		if(_mapImage.at<unsigned char>(r, c) != _unknownColor) {
+			countDiscovered++;
+		}
+	}
+
+	if ((_goalPoints.size() - countDiscovered < 25)||(_status.status == 3)){
+		ROS_INFO("Hooray, the goal has been reached");
+		return true;
+	}
+
+	ROS_INFO("The base failed to move to the goal for some reason");
+	return false;
 
 }
+
 
 
 

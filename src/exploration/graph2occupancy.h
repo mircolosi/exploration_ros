@@ -43,7 +43,7 @@ class Graph2occupancy {
 	
 public:
 
-	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, SE2 gtPose, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
+	Graph2occupancy(OptimizableGraph *graph, int idRobot, SE2 gtPose, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
 
 	void computeMap ();
 
@@ -92,8 +92,7 @@ public:
 protected:
 	OptimizableGraph *_graph;
 	FrequencyMap _map;
-	cv::Mat * _mapImage;
-	cv::Mat _mapRVIZ;
+	cv::Mat  _mapImage;
 
 	Eigen::Vector2f _offset;
 	SE2 _groundTruthPose;
@@ -110,6 +109,10 @@ protected:
 	float _freeThreshold;
 
 	string _topicName;
+
+	int _freeColor = 0;
+	int _unknownColor = 50;
+	int _occupiedColor = 100;
 
 	ros::NodeHandle _nh;
 	ros::Publisher _pubOccupGrid;

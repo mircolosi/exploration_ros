@@ -65,9 +65,9 @@ protected:
 	float _mapY;
 	float _theta;
 
-	int _freeColor = 255;
-	int _occupiedColor = 0;
-	int _unknownColor = 127;
+	int _freeColor = 0;
+	int _unknownColor = 50;
+	int _occupiedColor = 100;
 
 	coordVector _points;
 	regionVector _regions;
@@ -81,10 +81,10 @@ protected:
 	std::string _topicGoalName;
 
 	ros::NodeHandle _nh;
-	MoveBaseClient * _ac;
+	//MoveBaseClient * _ac;
 	ros::ServiceClient _mapClient;
 	ros::Publisher  _pubGoal;
-	ros::Subscriber _subGoalStatus;
+	//ros::Subscriber _subGoalStatus;
 
 
 };
