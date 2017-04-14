@@ -190,7 +190,7 @@ void Graph2occupancy::computeMap(){
    ************************************************************************/
 
   _mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
-  _mapImage.setTo(cv::Scalar(0));
+_mapImage.setTo(cv::Scalar(0));
 
     for(int c = 0; c < _map.cols(); c++) {
       for(int r = 0; r < _map.rows(); r++) {
@@ -284,8 +284,8 @@ void Graph2occupancy::publishMap() {
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
   poseMsg.orientation.x = 1.0;
-  poseMsg.orientation.y = 1.0; //Used to pitch-rotate the map 
-  poseMsg.orientation.z = 0.0; //Rotate along x
+  poseMsg.orientation.y = 1.0; 
+  poseMsg.orientation.z = 0.0; 
   poseMsg.orientation.w = 0.0;
 
   gridMsg.info.origin = poseMsg;

@@ -4,23 +4,18 @@
 #include <stdlib.h> 
 #include <algorithm>
 
-//#include "g2o/stuff/command_args.h"
 
-#include "mrslam/mr_graph_slam.h" //Search for SE2 class
+#include "mrslam/mr_graph_slam.h" 
 
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
-#include "sensor_msgs/image_encodings.h"
 #include "sensor_msgs/point_cloud2_iterator.h"
-#include "visualization_msgs/Marker.h"
 #include "visualization_msgs/MarkerArray.h"
 
 
 typedef std::vector<std::array<int,2>> coordVector;
 typedef std::vector<coordVector> regionVector;
-
-typedef coordVector::const_iterator coordVectorIter;
 
 struct coordWithScore {
 	std::array<int,2> coord;
@@ -94,8 +89,6 @@ protected:
 	int _occupiedColor = 100;
 
 
-	int _lastMarkersNumber = 0;
-
 	coordVector _frontiers;
 	regionVector _regions;
 	coordVector _centroids;
@@ -107,7 +100,6 @@ protected:
 	ros::NodeHandle _nh;
 	ros::Publisher _pubFrontierPoints;
 	ros::Publisher _pubCentroidMarkers;
-	ros::Publisher _pubClearMarkers;
 
 
 

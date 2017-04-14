@@ -4,18 +4,29 @@
 void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg){
 	_statusMsg = *msg;
 
-	if (msg->status_list.size()==1)
-		_status = _statusMsg.status_list[0].status;
-	else if (msg->status_list.size()>1){
-		std::cout<<"MORE THAN 1 GOAL !!!!"<<std::endl;
+/*	if (msg->status_list.size()==1){
 		_status = _statusMsg.status_list[0].status;
 
 	}
 
+	else if (msg->status_list.size()>1){
+		_status = _statusMsg.status_list[0].status;
 
-	//std::cout<<_status<<std::endl;
+	}*/
 
+	if (msg->status_list.size()>=1){
+		int lastEntry = msg->status_list.size() - 1;
+		_status = _statusMsg.status_list[lastEntry].status;
+	}
+
+
+	/*for (int i = 0; i < msg->status_list.size(); i++){
+		std::cout<<int(_statusMsg.status_list[i].status) <<" ";
+	}
+
+	std::cout<<std::endl;*/
 }
+
 
 GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize, int threhsoldNeighbors){
 
@@ -115,22 +126,7 @@ void GoalPlanner::publishFrontiers(){
 
 void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame){
 
-
-
-	/*move_base_msgs::MoveBaseGoal goal;
-
-	std::array<int,2> goalCoord = _centroids[0];
-
-	goal.target_pose.header.frame_id = "base_link";
-  	goal.target_pose.header.stamp = ros::Time::now();
-
-
-  	goal.target_pose.pose.position.x = 0.5;
-  	goal.target_pose.pose.orientation.w = 1.0;
-  	//goal.target_pose.pose.position.x = goalCoord[0];
-  	//goal.target_pose.pose.position.x = goalCoord[1];
-  	*/
-
+	_goal = goalCoord;
   	geometry_msgs::PoseStamped goalMsg;
   
 
@@ -143,10 +139,6 @@ void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame){
 
 	_pubGoal.publish(goalMsg);
   	_goalPoints = _regions[0];
-
-
-
-
 
 }
 
@@ -162,11 +154,11 @@ bool GoalPlanner::waitForGoal(){
 
   		ros::spinOnce();
 
+  		requestMap(); //Necessary to check if the actual goal points have been explored
+
   		//These are needed just for visualization.......
-  		requestMap();
   		computeFrontiers();
 		publishFrontiers();
-
 
   		loop_rate.sleep();
   	}  	
@@ -183,12 +175,18 @@ bool GoalPlanner::isGoalReached(){
 	int countDiscovered = 0;
 
 	for (int i = 0; i < _goalPoints.size(); i++){
-		float r = _goalPoints[i][0];
-		float c = _goalPoints[i][1];
-		if(_mapImage.at<unsigned char>(r, c) != _unknownColor) {
+		int r = _goalPoints[i][0];
+		int c = _goalPoints[i][1];
+		if(hasColoredNeighbor(r,c,_unknownColor)[0]==INT_MAX) {
 			countDiscovered++;
 		}
 	}
+/*	std::cout<<countDiscovered<<"/"<<_goalPoints.size()<<std::endl;
+	std::cout<<_goal[0]<<" "<<_goal[1];
+	for (int i = 0; i< _centroids.size(); i++)
+		std::cout<< " ... "<< _centroids[i][0]*_mapResolution<< " "<<_centroids[i][1]*_mapResolution;
+	std::cout<<std::endl;*/
+
 
 	if (_status == 3){
 		ROS_INFO("Hooray, the goal has been reached");
@@ -197,16 +195,20 @@ bool GoalPlanner::isGoalReached(){
 	}
 
 	if (_status == 4){
-		actionlib_msgs::GoalID cancelGoalsMsg;
+		//actionlib_msgs::GoalID cancelGoalsMsg;
 		//Sending it empty cancels all the goals
-		_pubGoalCancel.publish(cancelGoalsMsg);
+		//_pubGoalCancel.publish(cancelGoalsMsg);
 		ROS_ERROR("The robot failed to reach the goal...Aborting");
 		return true;
 	}
 
-/*	if (_goalPoints.size() - countDiscovered < 10){
-		ROS_INFO("The area has been explored");
+/*	if ((_status == 2) || (_status == 6)){
+		ROS_ERROR("The goal has been preempted...");
+		return true;
+	}*/
 
+	/*if (_goalPoints.size() - countDiscovered < 20){
+		ROS_INFO("The area has been explored");
 		actionlib_msgs::GoalID cancelGoalsMsg;
 		//Sending it empty cancels all the goals
 		_pubGoalCancel.publish(cancelGoalsMsg);
@@ -234,3 +236,31 @@ int GoalPlanner::getGoalStatus(){
 float GoalPlanner::getResolution(){
 	return _mapResolution;
 }
+
+
+std::array<int,2> GoalPlanner::hasColoredNeighbor(int r, int c, int color){
+
+	std::array<int,2> coordN = {INT_MAX,INT_MAX};
+
+    if (_mapImage.at<unsigned char>(r + 1, c) == color ){
+    	coordN = {r+1,c};
+    	return coordN;
+    }
+
+    if (_mapImage.at<unsigned char>(r - 1, c) == color ){
+    	coordN = {r-1,c};
+    	return coordN;
+    }
+
+   	if (_mapImage.at<unsigned char>(r, c + 1) == color ){
+   		coordN = {r,c+1};
+   		return coordN;
+   	}
+
+   	if (_mapImage.at<unsigned char>(r, c - 1) == color ){
+   		coordN = {r,c-1};
+   		return coordN;
+   	}
+
+   	return coordN;
+   }

@@ -35,7 +35,7 @@ Visualization Manager:
       Cell Size: 1
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.03
         Value: Lines
@@ -48,13 +48,13 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Alpha: 0.7
       Class: rviz/Map
       Color Scheme: map
       Draw Behind: false
       Enabled: true
-      Name: Map
+      Name: Occupancy Map
       Topic: /map
       Unreliable: false
       Value: true
@@ -70,7 +70,7 @@ Visualization Manager:
       Class: rviz/PoseArray
       Color: 255; 25; 0
       Enabled: true
-      Name: PoseArray
+      Name: Trajectory
       Topic: /trajectory
       Unreliable: false
       Value: true
@@ -123,7 +123,7 @@ Visualization Manager:
       Color Scheme: raw
       Draw Behind: false
       Enabled: true
-      Name: Map
+      Name: Global Cost Map
       Topic: /move_base_node/global_costmap/costmap
       Unreliable: false
       Value: true
@@ -131,7 +131,7 @@ Visualization Manager:
       Class: rviz/Polygon
       Color: 25; 255; 0
       Enabled: true
-      Name: Polygon
+      Name: Footprint
       Topic: /move_base_node/global_costmap/footprint
       Unreliable: false
       Value: true
@@ -140,7 +140,7 @@ Visualization Manager:
       Color Scheme: costmap
       Draw Behind: false
       Enabled: false
-      Name: Map
+      Name: Local Cost Map
       Topic: /move_base_node/local_costmap/costmap
       Unreliable: false
       Value: false
@@ -162,7 +162,7 @@ Visualization Manager:
       Max Intensity: 4096
       Min Color: 0; 0; 0
       Min Intensity: 0
-      Name: PointCloud2
+      Name: FrontierPoints
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
@@ -174,6 +174,72 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 255; 85; 255
+      Enabled: true
+      Head Diameter: 0.3
+      Head Length: 0.2
+      Length: 0.3
+      Line Style: Lines
+      Line Width: 0.03
+      Name: NavFN Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Style: None
+      Radius: 0.03
+      Shaft Diameter: 0.1
+      Shaft Length: 0.1
+      Topic: /move_base_node/NavfnROS/plan
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 255; 85; 255
+      Enabled: true
+      Head Diameter: 0.3
+      Head Length: 0.2
+      Length: 0.3
+      Line Style: Lines
+      Line Width: 0.03
+      Name: Local Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Style: None
+      Radius: 0.03
+      Shaft Diameter: 0.1
+      Shaft Length: 0.1
+      Topic: /move_base_node/TrajectoryPlannerROS/global_plan
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 255; 85; 255
+      Enabled: true
+      Head Diameter: 0.3
+      Head Length: 0.2
+      Length: 0.3
+      Line Style: Lines
+      Line Width: 0.03
+      Name: Global Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Style: None
+      Radius: 0.03
+      Shaft Diameter: 0.1
+      Shaft Length: 0.1
+      Topic: /move_base_node/TrajectoryPlannerROS/local_plan
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -198,7 +264,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 31.0036
+      Distance: 36.6746
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
@@ -210,10 +276,10 @@ Visualization Manager:
         Z: 0
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.3754
+      Pitch: 0.4254
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.01497
+      Yaw: 0.85497
     Saved: ~
 Window Geometry:
   Displays:

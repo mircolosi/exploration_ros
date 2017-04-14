@@ -58,6 +58,8 @@ protected:
 
 
 	bool isGoalReached();
+	std::array<int,2> hasColoredNeighbor(int r, int c, int color);
+
 
 	cv::Mat _mapImage;
 	FrontierDetector _frontiersDetector;
@@ -73,6 +75,7 @@ protected:
 	int _unknownColor = 50;
 	int _occupiedColor = 100;
 
+	std::array<int,2> _goal;
 	coordVector _points;
 	regionVector _regions;
 	coordVector _centroids;

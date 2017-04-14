@@ -28,7 +28,6 @@ FrontierDetector::FrontierDetector (cv::Mat image, int idRobot, float resolution
 
 	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
 	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
-	_pubClearMarkers = _nh.advertise<visualization_msgs::Marker>(_topicMarkersName,1);
 
 
 	std::stringstream fullFixedFrameId;
@@ -303,22 +302,26 @@ void FrontierDetector::publishFrontierPoints(){
 void FrontierDetector::publishCentroidMarkers(){
 
 	visualization_msgs::MarkerArray markersMsg;
+	visualization_msgs::Marker marker;
 
-	
+
+	marker.action = 3;
+	markersMsg.markers.push_back(marker);
+	_pubCentroidMarkers.publish(markersMsg);
+
+	markersMsg.markers.clear();
 
 	for (int i = 0; i < _centroids.size(); i++){
 
 		//float scaleFactor = (_centroids.size() - i + 1)/_centroids.size();
 		float scaleFactor = 1;
-
-		visualization_msgs::Marker marker;
+		
 		marker.header.frame_id = _fixedFrameId;
 		marker.header.stamp = ros::Time();
 		//marker.ns = "my_namespace";
 		marker.id = i;
 		marker.type = visualization_msgs::Marker::SPHERE;
 		marker.action = visualization_msgs::Marker::ADD;
-		marker.lifetime = ros::Duration(0.1);
 		marker.pose.position.x = _centroids[i][0] * _mapResolution;
 		marker.pose.position.y = _centroids[i][1] * _mapResolution;
 		marker.pose.position.z = 0;
@@ -345,23 +348,6 @@ void FrontierDetector::publishCentroidMarkers(){
 
 		markersMsg.markers.push_back(marker);
 	}
-
-/*
-	if (_centroids.size()< _lastMarkersNumber){
-		int diff = _lastMarkersNumber - _centroids.size();
-		for (int i = 0; i < diff; i++){
-
-			visualization_msgs::Marker marker;
-
-			marker.id = i + _centroids.size() - 1;
-
-			marker.action = visualization_msgs::Marker::DELETE;
-
-			markersMsg.markers.push_back(marker);
-		}
-
-		_lastMarkersNumber = _centroids.size();
-	}*/
 
 	_pubCentroidMarkers.publish(markersMsg);
 
@@ -407,10 +393,7 @@ bool FrontierDetector::isNeighbor(std::array<int,2> coordI, std::array<int,2> co
 
 std::array<int,2> FrontierDetector::hasColoredNeighbor(int r, int c, int color){
 
-	int rN = INT_MAX;
-	int cN = INT_MAX;
-
-	std::array<int,2> coordN = {rN,cN};
+	std::array<int,2> coordN = {INT_MAX,INT_MAX};
 
     if (_mapImage.at<unsigned char>(r + 1, c) == color ){
     	coordN = {r+1,c};
