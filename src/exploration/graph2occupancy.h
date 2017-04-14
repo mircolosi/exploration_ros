@@ -120,8 +120,7 @@ protected:
 	ros::ServiceServer _server;
 
 	tf::TransformBroadcaster _tfBroadcaster;
-
-
+	
 	nav_msgs::GetMap::Response _resp;
 	
 

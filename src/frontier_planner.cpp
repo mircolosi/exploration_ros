@@ -63,6 +63,7 @@ while (ros::ok()){
 	goalPlanner.requestMap();
 	goalPlanner.computeFrontiers();
 	goalPlanner.rankFrontiers(mapX, mapY, theta);
+	goalPlanner.publishFrontiers();
 
 	coordVector centroids;
 	float resolution;

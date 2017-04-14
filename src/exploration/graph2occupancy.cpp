@@ -8,8 +8,6 @@ using namespace g2o;
 
 bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res ){
 
-  //nav_msgs::GetMap::Response res;
-
   //header (uint32 seq, time stamp, string frame_id)
  res.map.header.frame_id = _topicName;
   
@@ -24,8 +22,8 @@ bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::Get
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 0.0;
-  poseMsg.orientation.y = 0.0; //Used to pitch-rotate the map 
+  poseMsg.orientation.x = 1.0;
+  poseMsg.orientation.y = 1.0; //Used to pitch-rotate the map 
   poseMsg.orientation.z = 0.0; //Rotate along x
   poseMsg.orientation.w = 0.0;
 
@@ -68,9 +66,7 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, int idRobot, SE2 gtPos
 
     _pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_topicName,1);
 
-
     _pubActualCoord = _nh.advertise<geometry_msgs::Pose2D>("map_pose",1);
-
 
     _server = _nh.advertiseService("map", &Graph2occupancy::mapCallback, this);
 
@@ -263,10 +259,7 @@ void Graph2occupancy::publishMap() {
   //Not recognised in mrslam project.... 
   //assert(_mapImage && "Cannot publish: undefined occupancy grid");
 
- 
-
   nav_msgs::OccupancyGrid gridMsg;
-
 
   //header (uint32 seq, time stamp, string frame_id)
   //gridMsg.header.seq = id;

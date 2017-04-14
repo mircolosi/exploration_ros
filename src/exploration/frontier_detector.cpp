@@ -10,9 +10,6 @@ FrontierDetector::FrontierDetector (cv::Mat image, int idRobot, float resolution
 	_mapImage(image),_idRobot(idRobot),_mapResolution(resolution), _sizeThreshold(thresholdSize), _neighborsThreshold(thresholdNeighbors)
 {
 	
-	
-	
-
 
 	std::stringstream fullPointsTopicName;
     std::stringstream fullMarkersTopicName;
@@ -348,7 +345,6 @@ void FrontierDetector::publishCentroidMarkers(){
 
 		markersMsg.markers.push_back(marker);
 	}
-
 	_pubCentroidMarkers.publish(markersMsg);
 
 }
