@@ -45,7 +45,7 @@ public:
 
 	bool requestMap(); 	
 
-	bool waitForGoal();
+	int waitForGoal();
 
 	int getGoalStatus();
 

@@ -79,7 +79,7 @@ protected:
 	float _mapResolution;
 	int _sizeThreshold;
 	int _neighborsThreshold;
-	float _mixtureParam = 0.8;
+	float _mixtureParam = 1;
 
 	int _freeColor = 0;
 	int _unknownColor = 50;

@@ -37,6 +37,7 @@ void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatusArray::Cons
 		_status = _statusMsg.status_list[lastEntry].status;
 	}
 
+//std::cout<<_status<<" status"<<std::endl;
 
 	/*for (int i = 0; i < msg->status_list.size(); i++){
 		std::cout<<int(_statusMsg.status_list[i].status) <<" ";
@@ -66,7 +67,7 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 	_pubGoal = _nh.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 1);
 	_pubGoalCancel = _nh.advertise<actionlib_msgs::GoalID>("move_base/cancel",1);
 
-	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatusArray>("/move_base/status", 1000, &GoalPlanner::goalStatusCallback, this);
+	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatusArray>("/move_base/status", 100, &GoalPlanner::goalStatusCallback, this);
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
 
 }
@@ -169,12 +170,19 @@ void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame){
 
 
 
-bool GoalPlanner::waitForGoal(){
-
-	std::cout<<_goalPoints.size()<<" POINTS"<<std::endl;
+int GoalPlanner::waitForGoal(){
+	
 	bool reached = false;
+	ros::Rate loop_rate1(10);
+	ros::Rate loop_rate2(1);
 
-	ros::Rate loop_rate(5);
+
+
+	while(_status != 1){
+		ros::spinOnce();
+		loop_rate1.sleep();
+	}
+
 	while (reached == false){
   		ros::spinOnce();
   		requestMap(); //Necessary to check if the actual goal points have been explored
@@ -185,11 +193,10 @@ bool GoalPlanner::waitForGoal(){
 
 		reached = isGoalReached();
 
-  		loop_rate.sleep();
+  		loop_rate2.sleep();
   	}  	
 
-
-  	_status = 0;
+  	return _status;
 
 
 }
@@ -209,7 +216,7 @@ bool GoalPlanner::isGoalReached(){
 
 	if (_status == 3){
 		ROS_INFO("Hooray, the goal has been reached");
-		std::cout<<_statusMsg.status_list.size()<<std::endl;
+		std::cout<<_statusMsg.status_list.size()<<"size"<<std::endl;
 		return true;
 
 	}
@@ -218,12 +225,16 @@ bool GoalPlanner::isGoalReached(){
 		//I HAVE TO DISCARD THE GOAL AS NOT REACHABLE !!!!
 		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The robot failed to reach the goal...Aborting");
+		std::cout<<_statusMsg.status_list.size()<<"size"<<std::endl;
+
 		return true;
 	}
 
 	if ((_status == 2) || (_status == 6)){
 		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The goal has been preempted...");
+		std::cout<<_statusMsg.status_list.size()<<"size"<<std::endl;
+
 		return true;
 	}
 

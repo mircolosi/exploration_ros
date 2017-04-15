@@ -174,7 +174,6 @@ void FrontierDetector::computeCentroids(){
 
 void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
 
-
 	std::vector<float> scores(_centroids.size());
 
 	Eigen::Vector2f mapCoord(mapX, mapY);

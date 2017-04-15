@@ -14,9 +14,6 @@ float mapY;
 float theta;
 int status;
 
-typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
-
-
 void actualPoseCallback(const geometry_msgs::Pose2D msg){
 
 	mapX = msg.x;
@@ -46,16 +43,16 @@ ros::init(argc, argv, "frontier_planner");
 ros::NodeHandle nh;
 
 
-
-ros::Subscriber actualPoseSubscriber = nh.subscribe(actualPoseTopic,1000,actualPoseCallback);
+ros::Subscriber subActualPose = nh.subscribe(actualPoseTopic,1,actualPoseCallback);
 
 GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
 
 ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
+ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
-int goalNum = 30; 
-
-ros::Rate loop_rate(10);
+int goalNum = 15; 
+int status;
+ 
 while (ros::ok()){
 	ros::spinOnce();
 	goalPlanner.requestMap();
@@ -86,16 +83,11 @@ while (ros::ok()){
 	}
 
 	else if (goalNum > 0){
+		std::cout<<goalNum<<std::endl;
 		goalPlanner.publishGoal(coordGoal, frame);
-		goalPlanner.waitForGoal();
+		status = goalPlanner.waitForGoal();
 		goalNum = goalNum - 1;
 	}
-	
-
-
-
-
-	loop_rate.sleep();
 
 
 }
