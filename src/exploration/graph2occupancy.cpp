@@ -8,6 +8,7 @@ using namespace g2o;
 
 bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res ){
 
+
   //header (uint32 seq, time stamp, string frame_id)
  res.map.header.frame_id = _topicName;
   
@@ -125,9 +126,13 @@ void Graph2occupancy::computeMap(){
     }
   }
 
-  boundingBox(0,0)=xmin;
+  //boundingBox(0,0)=xmin;
+  //boundingBox(0,1)=xmax;
+  //boundingBox(1,0)=ymin;
+  //boundingBox(1,1)=ymax;
+  boundingBox(0,0)=-30;
   boundingBox(0,1)=xmax;
-  boundingBox(1,0)=ymin;
+  boundingBox(1,0)=-30;
   boundingBox(1,1)=ymax;
 
   //std::cout << "Found " << robotLasers.size() << " laser scans"<< std::endl;

@@ -1,6 +1,24 @@
 #include "goal_planner.h"
 
 
+void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+	_costMapMsg = *msg;
+
+
+	int currentCell = 0;
+	_costMap = cv::Mat(msg->info.height, msg->info.width, CV_8UC1);
+		for(int r = 0; r < msg->info.height; r++) {
+			for(int c = 0; c < msg->info.width; c++) {
+      		
+      		    _costMap.at<unsigned char>(r, c) = msg->data[currentCell];
+      		    currentCell++;
+      		}
+      	}
+
+
+}
+
+
 void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg){
 	_statusMsg = *msg;
 
@@ -34,7 +52,7 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 	_idRobot = idRobot;
 
 
-	_frontiersDetector.init(idRobot, namePoints, nameMarkers, threhsoldSize, threhsoldNeighbors );
+	_frontiersDetector.init(idRobot,&_occupancyMap,&_costMap,0.05, namePoints, nameMarkers, threhsoldSize, threhsoldNeighbors );
 
 	std::stringstream fullFixedFrameId;
 	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
@@ -46,11 +64,10 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 
 
 	_pubGoal = _nh.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 1);
-
 	_pubGoalCancel = _nh.advertise<actionlib_msgs::GoalID>("move_base/cancel",1);
 
 	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatusArray>("/move_base/status", 1000, &GoalPlanner::goalStatusCallback, this);
-
+	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
 
 }
 
@@ -67,11 +84,11 @@ bool GoalPlanner::requestMap(){
 		_mapResolution = res.map.info.resolution;
 
 		int currentCell = 0;
-		_mapImage = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
+		_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
 		for(int r = 0; r < res.map.info.height; r++) {
 			for(int c = 0; c < res.map.info.width; c++) {
       		
-      		    _mapImage.at<unsigned char>(r, c) = res.map.data[currentCell];
+      		    _occupancyMap.at<unsigned char>(r, c) = res.map.data[currentCell];
       		    currentCell++;
       		}
       	}
@@ -93,15 +110,22 @@ bool GoalPlanner::requestMap(){
 void GoalPlanner::computeFrontiers(){
 
 
-	_frontiersDetector.setOccupancyMap(_mapImage, _mapResolution);
-
 	_frontiersDetector.computeFrontiers();
     _frontiersDetector.computeCentroids();
 
+    //cv::imwrite("goal_cost.png",_costMap);
 
     _points = _frontiersDetector.getFrontierPoints();
     _regions = _frontiersDetector.getFrontierRegions();
     _centroids = _frontiersDetector.getFrontierCentroids();
+
+    /*for (int i = 0; i < _regions.size(); i ++){
+    	std::cout<<"region ------------- "<<i<<std::endl;
+    	for (int j = 0; j< _regions[i].size(); j ++){
+			printCostVal(_points[i]);
+    	}
+    	
+    }*/
 
 
 }
@@ -148,23 +172,24 @@ void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame){
 bool GoalPlanner::waitForGoal(){
 
 	std::cout<<_goalPoints.size()<<" POINTS"<<std::endl;
-	
-	ros::Rate loop_rate(10);
-  	while (isGoalReached() == false){
+	bool reached = false;
 
+	ros::Rate loop_rate(5);
+	while (reached == false){
   		ros::spinOnce();
-
   		requestMap(); //Necessary to check if the actual goal points have been explored
 
   		//These are needed just for visualization.......
   		computeFrontiers();
 		publishFrontiers();
 
+		reached = isGoalReached();
+
   		loop_rate.sleep();
   	}  	
 
 
-  	
+  	_status = 0;
 
 
 }
@@ -177,43 +202,38 @@ bool GoalPlanner::isGoalReached(){
 	for (int i = 0; i < _goalPoints.size(); i++){
 		int r = _goalPoints[i][0];
 		int c = _goalPoints[i][1];
-		if(hasColoredNeighbor(r,c,_unknownColor)[0]==INT_MAX) {
+		if((hasColoredNeighbor(r,c,_unknownColor)[0]==INT_MAX)||(_costMap.at<unsigned char>(r, c) >= 90 )) {
 			countDiscovered++;
 		}
 	}
-/*	std::cout<<countDiscovered<<"/"<<_goalPoints.size()<<std::endl;
-	std::cout<<_goal[0]<<" "<<_goal[1];
-	for (int i = 0; i< _centroids.size(); i++)
-		std::cout<< " ... "<< _centroids[i][0]*_mapResolution<< " "<<_centroids[i][1]*_mapResolution;
-	std::cout<<std::endl;*/
-
 
 	if (_status == 3){
 		ROS_INFO("Hooray, the goal has been reached");
+		std::cout<<_statusMsg.status_list.size()<<std::endl;
 		return true;
 
 	}
 
 	if (_status == 4){
-		//actionlib_msgs::GoalID cancelGoalsMsg;
-		//Sending it empty cancels all the goals
-		//_pubGoalCancel.publish(cancelGoalsMsg);
+		//I HAVE TO DISCARD THE GOAL AS NOT REACHABLE !!!!
+		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The robot failed to reach the goal...Aborting");
 		return true;
 	}
 
-/*	if ((_status == 2) || (_status == 6)){
+	if ((_status == 2) || (_status == 6)){
+		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The goal has been preempted...");
 		return true;
-	}*/
+	}
 
-	/*if (_goalPoints.size() - countDiscovered < 20){
+	if (_goalPoints.size() - countDiscovered < 5){
 		ROS_INFO("The area has been explored");
 		actionlib_msgs::GoalID cancelGoalsMsg;
 		//Sending it empty cancels all the goals
 		_pubGoalCancel.publish(cancelGoalsMsg);
 		return true;
-	}*/
+	}
 
 	return false;
 
@@ -226,7 +246,7 @@ coordVector GoalPlanner::getCentroids(){
 
 
 cv::Mat GoalPlanner::getImageMap(){
-	return _mapImage;
+	return _occupancyMap;
 }
 
 int GoalPlanner::getGoalStatus(){
@@ -242,25 +262,36 @@ std::array<int,2> GoalPlanner::hasColoredNeighbor(int r, int c, int color){
 
 	std::array<int,2> coordN = {INT_MAX,INT_MAX};
 
-    if (_mapImage.at<unsigned char>(r + 1, c) == color ){
+    if (_occupancyMap.at<unsigned char>(r + 1, c) == color ){
     	coordN = {r+1,c};
     	return coordN;
     }
 
-    if (_mapImage.at<unsigned char>(r - 1, c) == color ){
+    if (_occupancyMap.at<unsigned char>(r - 1, c) == color ){
     	coordN = {r-1,c};
     	return coordN;
     }
 
-   	if (_mapImage.at<unsigned char>(r, c + 1) == color ){
+   	if (_occupancyMap.at<unsigned char>(r, c + 1) == color ){
    		coordN = {r,c+1};
    		return coordN;
    	}
 
-   	if (_mapImage.at<unsigned char>(r, c - 1) == color ){
+   	if (_occupancyMap.at<unsigned char>(r, c - 1) == color ){
    		coordN = {r,c-1};
    		return coordN;
    	}
 
    	return coordN;
+   }
+
+
+
+   void GoalPlanner::printCostVal(std::array<int,2> point){
+   	std::cout<<point[0]<< " "<<point[1]<<"->";
+   	for (int i =0; i< 101; i++){
+   		if (_costMap.at<unsigned char>(point[0], point[1]) == i ){
+   			std::cout<<i<<std::endl;
+   		}
+   	}
    }

@@ -33,7 +33,7 @@ int main (int argc, char **argv){
 std::string frontierPointsTopic = "points";
 std::string markersTopic = "markers";
 std::string actualPoseTopic = "map_pose";
-int threhsoldSize = 25;
+int threhsoldSize = 10;
 int threhsoldNeighbors = 4;
 
 int idRobot = 0;
@@ -51,15 +51,13 @@ ros::Subscriber actualPoseSubscriber = nh.subscribe(actualPoseTopic,1000,actualP
 
 GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
 
-ros::Duration(2.5).sleep(); 
+ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 
-int goalNum = 10; 
+int goalNum = 30; 
 
 ros::Rate loop_rate(10);
 while (ros::ok()){
-	
 	ros::spinOnce();
-
 	goalPlanner.requestMap();
 	goalPlanner.computeFrontiers();
 	goalPlanner.rankFrontiers(mapX, mapY, theta);
@@ -70,22 +68,29 @@ while (ros::ok()){
 	centroids = goalPlanner.getCentroids();
 	resolution = goalPlanner.getResolution();
 
-	int goalX = round((centroids[0][0] - mapX )*resolution);
+	/*int goalX = round((centroids[0][0] - mapX )*resolution);
 	int goalY = round((centroids[0][1]- mapY)*resolution);
-
-
 	std::array<int,2> coordGoal = {goalY,-goalX}; //Rotated 90 deg if referring to base_link
-	std::string frame = "base_link";
+	std::string frame = "base_link";*/
 
-	std::cout<<mapX<< " "<<mapY << " --> "<< mapX*resolution << " "<<mapY*resolution<<std::endl;
-	std::cout<<goalX << " " << goalY<<" --> "<<centroids[0][0]<< " " <<centroids[0][1]<<std::endl;
+	int goalX = round(centroids[0][0]*resolution);
+	int goalY = round(centroids[0][1]*resolution);
+	std::array<int,2> coordGoal = {goalX,goalY}; 
+	std::string frame = "map";
 
-	/*if (goalNum > 0){
+	//std::cout<<mapX<< " "<<mapY << " --> "<< mapX*resolution << " "<<mapY*resolution<<std::endl;
+	//std::cout<<goalX << " " << goalY<<" --> "<<centroids[0][0]<< " " <<centroids[0][1]<<std::endl;
+
+	if (centroids.size() == 0){
+		std::cout<<"NO CENTROIDS"<<std::endl;
+	}
+
+	else if (goalNum > 0){
 		goalPlanner.publishGoal(coordGoal, frame);
 		goalPlanner.waitForGoal();
 		goalNum = goalNum - 1;
 	}
-	*/
+	
 
 
 

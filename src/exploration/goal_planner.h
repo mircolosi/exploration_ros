@@ -14,6 +14,7 @@
 
 #include "actionlib_msgs/GoalStatus.h"
 #include "actionlib_msgs/GoalID.h"
+#include "nav_msgs/OccupancyGrid.h"
 
 
 #include "mrslam/mr_graph_slam.h" //Search for SE2 class
@@ -24,6 +25,8 @@
 class GoalPlanner {
 
 public:
+		void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+
  
 	void goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg);
 
@@ -52,6 +55,8 @@ public:
 
 	float getResolution();
 
+	void printCostVal(std::array<int,2> point);
+
 
 protected:
 
@@ -61,7 +66,7 @@ protected:
 	std::array<int,2> hasColoredNeighbor(int r, int c, int color);
 
 
-	cv::Mat _mapImage;
+
 	FrontierDetector _frontiersDetector;
 
 	int _idRobot;
@@ -81,18 +86,26 @@ protected:
 	coordVector _centroids;
 
 	coordVector _goalPoints;
-
-	actionlib_msgs::GoalStatusArray _statusMsg;
-	int _status;
+	coordVector _abortedGoals;
 
 	std::string _fixedFrameId;
 	std::string _topicGoalName;
+
+	actionlib_msgs::GoalStatusArray _statusMsg;
+	nav_msgs::OccupancyGrid _costMapMsg;
+
+	cv::Mat _occupancyMap;
+	cv::Mat _costMap;
+	int _status;
+
 
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
 	ros::Publisher  _pubGoal;
 	ros::Publisher _pubGoalCancel;
 	ros::Subscriber _subGoalStatus;
+	ros::Subscriber _subCostMap;
+
 
 
 };

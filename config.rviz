@@ -21,6 +21,7 @@ Panels:
   - Class: rviz/Views
     Expanded:
       - /Current View1
+      - /Current View1/Focal Point1
     Name: Views
     Splitter Ratio: 0.5
   - Class: rviz/Time
@@ -63,7 +64,7 @@ Visualization Manager:
       Marker Topic: /markers
       Name: MarkerArray
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Arrow Length: 0.3
@@ -263,8 +264,8 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Class: rviz/Orbit
-      Distance: 36.6746
+      Class: rviz/ThirdPersonFollower
+      Distance: 16
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
@@ -276,10 +277,10 @@ Visualization Manager:
         Z: 0
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.4254
-      Target Frame: <Fixed Frame>
-      Value: Orbit (rviz)
-      Yaw: 0.85497
+      Pitch: 0.6
+      Target Frame: base_link
+      Value: ThirdPersonFollower (rviz)
+      Yaw: 3
     Saved: ~
 Window Geometry:
   Displays:

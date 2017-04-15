@@ -4,39 +4,16 @@ using namespace sensor_msgs;
 using namespace cv;
 
 
+
 FrontierDetector::FrontierDetector(){}
 
-FrontierDetector::FrontierDetector (cv::Mat image, int idRobot, float resolution, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors):
-	_mapImage(image),_idRobot(idRobot),_mapResolution(resolution), _sizeThreshold(thresholdSize), _neighborsThreshold(thresholdNeighbors)
-{
+
+void FrontierDetector::init (int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, float res, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors){
 	
+	_occupancyMap = occupancyImage;
+	_costMap = costImage;
 
-	std::stringstream fullPointsTopicName;
-    std::stringstream fullMarkersTopicName;
-
-    //fullPointsTopicName << "/robot_" << _idRobot << "/" << namePoints;
-    //fullMarkersTopicName << "/robot_" << _idRobot << "/" << nameMarkers;
-    fullPointsTopicName << namePoints;
-    fullMarkersTopicName << nameMarkers;
-
-
-   	_topicPointsName = fullPointsTopicName.str();
-	_topicMarkersName = fullMarkersTopicName.str();
-
-	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
-	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
-
-
-	std::stringstream fullFixedFrameId;
-	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
-	fullFixedFrameId << "map";
-	_fixedFrameId = fullFixedFrameId.str();
-
-}
-
-
-void FrontierDetector::init (int idRobot, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors){
-	
+	_mapResolution = res;
 	
 	_idRobot = idRobot;
 	_sizeThreshold = thresholdSize;
@@ -73,27 +50,26 @@ void FrontierDetector::computeFrontiers(){
 	_frontiers.clear();
 	_regions.clear();
 
-	for(int c = 0; c < _mapImage.cols; c++) {
-    	for(int r = 0; r < _mapImage.rows; r++) {
+	for(int c = 0; c < _occupancyMap->cols; c++) {
+    	for(int r = 0; r < _occupancyMap->rows; r++) {
 
-    		if (_mapImage.at<unsigned char>(r, c) == _freeColor ){ 
+    		if (_occupancyMap->at<unsigned char>(r, c) == _freeColor ){ //If the current cell is free
     			std::array<int,2> coord = {r,c};
 
-
-    			if (hasColoredNeighbor(r,c, _occupiedColor)[0] != INT_MAX)
+    			if (_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold) //If the current free cell is too close to an obstacle
     				continue;
     																
     			std::array<int,2> coordN = hasColoredNeighbor(r,c, _unknownColor);
     			 
-    				
-
-    			if ((coordN[0] != INT_MAX)&&(isSurrounded(coordN, _freeColor))){
+    			if (coordN[0] == INT_MAX)	//If the current free cell has no unknown cells around
     				continue;
-    			}
 
-    		   	if ((coordN[0] != INT_MAX)&&(hasColoredNeighbor(coordN[0], coordN[1], _occupiedColor)[0] == INT_MAX)){
+    			if ((isSurrounded(coordN, _freeColor))) //If the neighbor unknown cell is sourrounded by free cells 
+    				continue;
+
+    		   //	if ((hasColoredNeighbor(coordN[0], coordN[1], _occupiedColor)[0] == INT_MAX)){
     				_frontiers.push_back(coord);	
-    					}
+    			//		}
     		
     						}
 
@@ -158,7 +134,7 @@ void FrontierDetector::computeCentroids(){
 
 	//Make all the centroids reachable
 	for (int i = 0; i < _centroids.size(); i++){
-		if (_mapImage.at<unsigned char>(_centroids[i][0], _centroids[i][1]) != _freeColor ){  //If the centroid is in a non-free cell
+		if (_occupancyMap->at<unsigned char>(_centroids[i][0], _centroids[i][1]) != _freeColor ){  //If the centroid is in a non-free cell
 			float distance = std::numeric_limits<float>::max();
 			std::array<int,2> closestPoint;
 
@@ -350,14 +326,6 @@ void FrontierDetector::publishCentroidMarkers(){
 }
 
 
-void FrontierDetector::setOccupancyMap(cv::Mat image, float resolution){
-
-	_mapImage = image;
-	_mapResolution = resolution;
-}
-
-
-
 coordVector FrontierDetector::getFrontierPoints(){
 	return _frontiers;	}
 
@@ -391,22 +359,22 @@ std::array<int,2> FrontierDetector::hasColoredNeighbor(int r, int c, int color){
 
 	std::array<int,2> coordN = {INT_MAX,INT_MAX};
 
-    if (_mapImage.at<unsigned char>(r + 1, c) == color ){
+    if (_occupancyMap->at<unsigned char>(r + 1, c) == color ){
     	coordN = {r+1,c};
     	return coordN;
     }
 
-    if (_mapImage.at<unsigned char>(r - 1, c) == color ){
+    if (_occupancyMap->at<unsigned char>(r - 1, c) == color ){
     	coordN = {r-1,c};
     	return coordN;
     }
 
-   	if (_mapImage.at<unsigned char>(r, c + 1) == color ){
+   	if (_occupancyMap->at<unsigned char>(r, c + 1) == color ){
    		coordN = {r,c+1};
    		return coordN;
    	}
 
-   	if (_mapImage.at<unsigned char>(r, c - 1) == color ){
+   	if (_occupancyMap->at<unsigned char>(r, c - 1) == color ){
    		coordN = {r,c-1};
    		return coordN;
    	}
@@ -435,39 +403,39 @@ bool FrontierDetector::included(std::array<int,2> coord , regionVector regions){
 bool FrontierDetector::isSurrounded (std::array<int,2> coord , int color){
 
 
-	if (_mapImage.at<unsigned char>(coord[0] + 1, coord[1]) != color ){
+	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) != color ){
     	return false;
     }
 
-	if (_mapImage.at<unsigned char>(coord[0] - 1, coord[1]) != color ){
-
-    	return false;
-    }
-
-    if (_mapImage.at<unsigned char>(coord[0], coord[1] + 1) != color ){
+	if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) != color ){
 
     	return false;
     }
 
-    if (_mapImage.at<unsigned char>(coord[0], coord[1] - 1) != color ){
+    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) != color ){
+
+    	return false;
+    }
+
+    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) != color ){
 
     	return false;
     }    
-    if (_mapImage.at<unsigned char>(coord[0] + 1, coord[1]+1) != color ){
+ /*   if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]+1) != color ){
     	return false;
     }
 
-	if (_mapImage.at<unsigned char>(coord[0] + 1, coord[1]-1) != color ){
+	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]-1) != color ){
     	return false;
     }
 
-    if (_mapImage.at<unsigned char>(coord[0] -1, coord[1] + 1) != color ){
+    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] + 1) != color ){
     	return false;
     }
 
-    if (_mapImage.at<unsigned char>(coord[0] -1, coord[1] - 1) != color ){
+    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] - 1) != color ){
     	return false;
-    }   
+    }  */
 
     return true;
 

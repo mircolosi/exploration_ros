@@ -42,20 +42,16 @@ class FrontierDetector {
 
 public:
 
+
 	FrontierDetector();
-	FrontierDetector (cv::Mat image, int idRobot, float resolution, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 30, int threhsoldNeighbors = 5);
 
-
-	void init(int idRobot, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 30, int threhsoldNeighbors = 5);
-
+	void init(int idRobot, cv::Mat *occupancy, cv::Mat *cost, float res, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 30, int threhsoldNeighbors = 5);
 
 	void computeFrontiers();
 	
 	void rankRegions(float mapX, float mapY, float theta);
 	
 	void computeCentroids();
-
-	void setOccupancyMap(cv::Mat image, float resolution);
 
 	coordVector getFrontierPoints();
 	regionVector getFrontierRegions();
@@ -76,7 +72,8 @@ protected:
 	bool included(std::array<int,2> coord , regionVector regions);
 	bool isSurrounded(std::array<int,2> coord, int color);
 
-	cv::Mat  _mapImage;
+	cv::Mat  *_occupancyMap;
+	cv::Mat *_costMap;
 
 	int _idRobot;
 	float _mapResolution;
@@ -87,6 +84,8 @@ protected:
 	int _freeColor = 0;
 	int _unknownColor = 50;
 	int _occupiedColor = 100;
+
+	int _circumscribedThreshold = 90;
 
 
 	coordVector _frontiers;
@@ -100,6 +99,7 @@ protected:
 	ros::NodeHandle _nh;
 	ros::Publisher _pubFrontierPoints;
 	ros::Publisher _pubCentroidMarkers;
+
 
 
 
