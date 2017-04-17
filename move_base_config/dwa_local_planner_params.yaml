@@ -18,7 +18,7 @@ DWAPlannerROS:
   max_rot_vel: 1.0
   min_rot_vel: 0.4
 
-  sim_time: 2.5
+  sim_time: 4
   sim_granularity: 0.025
 
   goal_distance_bias: 32.0
@@ -35,11 +35,11 @@ DWAPlannerROS:
 
   vx_samples: 15
   vy_samples: 15
-  vtheta_samples: 30
+  vtheta_samples: 50
 
   sim_period: 0.1
 
-  xy_goal_tolerance: 0.35
+  xy_goal_tolerance: 0.25
   yaw_goal_tolerance: 6.28
 
   rot_stopped_vel: 0.01

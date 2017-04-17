@@ -1,18 +1,20 @@
 
- #include <unistd.h>
+#include <unistd.h>
+
+#include "g2o/stuff/command_args.h"
 
 #include "ros_handler.h"
 #include "ros/ros.h"
-
 #include "geometry_msgs/Pose2D.h"
 
 #include "exploration/goal_planner.h"
 
 
+
 float mapX;
 float mapY;
 float theta;
-int status;
+
 
 void actualPoseCallback(const geometry_msgs::Pose2D msg){
 
@@ -27,14 +29,21 @@ void actualPoseCallback(const geometry_msgs::Pose2D msg){
 
 int main (int argc, char **argv){
 
-std::string frontierPointsTopic = "points";
-std::string markersTopic = "markers";
-std::string actualPoseTopic = "map_pose";
-int threhsoldSize = 10;
+CommandArgs arg;
 
-int idRobot = 0;
+std::string frontierPointsTopic;
+std::string markersTopic;
+std::string actualPoseTopic;
+int thresholdRegionSize;
+int idRobot;
+int status;
 
-
+arg.param("idRobot", idRobot, 0, "robot identifier" );
+arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
+arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
+arg.param("actualPoseTopic", actualPoseTopic, "map_pose", "robot actual pose ROS topic");
+arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
+arg.parseArgs(argc, argv);
 
 
 ros::init(argc, argv, "frontier_planner");
@@ -44,12 +53,12 @@ ros::NodeHandle nh;
 
 ros::Subscriber subActualPose = nh.subscribe(actualPoseTopic,1,actualPoseCallback);
 
-GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize);
+GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, thresholdRegionSize);
 
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
-int goalNum = 15; 
-int status;
+int goalNum = 2000; 
+
  
 while (ros::ok()){
 	ros::spinOnce();
@@ -83,7 +92,7 @@ while (ros::ok()){
 	}
 
 	else if (goalNum > 0){
-		std::cout<<goalNum<<std::endl;
+		//std::cout<<goalNum<<std::endl;
 		goalPlanner.publishGoal(coordGoal, frame);
 		status = goalPlanner.waitForGoal();
 		goalNum = goalNum - 1;
