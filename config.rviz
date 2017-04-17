@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /TF1/Frames1
       Splitter Ratio: 0.5
     Tree Height: 540
   - Class: rviz/Selection
@@ -50,29 +49,12 @@ Visualization Manager:
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: false
-    - Alpha: 0.7
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
+    - Alpha: 1
+      Class: rviz/Polygon
+      Color: 25; 255; 0
       Enabled: true
-      Name: Occupancy Map
-      Topic: /map
-      Unreliable: false
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /markers
-      Name: MarkerArray
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
-    - Arrow Length: 0.3
-      Class: rviz/PoseArray
-      Color: 255; 25; 0
-      Enabled: true
-      Name: Trajectory
-      Topic: /trajectory
+      Name: Footprint
+      Topic: /move_base_node/global_costmap/footprint
       Unreliable: false
       Value: true
     - Class: rviz/TF
@@ -89,6 +71,14 @@ Visualization Manager:
         {}
       Update Interval: 0
       Value: false
+    - Arrow Length: 0.3
+      Class: rviz/PoseArray
+      Color: 255; 25; 0
+      Enabled: true
+      Name: Trajectory
+      Topic: /trajectory
+      Unreliable: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -119,6 +109,15 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
+    - Alpha: 0.7
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Occupancy Map
+      Topic: /map
+      Unreliable: false
+      Value: true
     - Alpha: 0.45
       Class: rviz/Map
       Color Scheme: raw
@@ -126,14 +125,6 @@ Visualization Manager:
       Enabled: true
       Name: Global Cost Map
       Topic: /move_base_node/global_costmap/costmap
-      Unreliable: false
-      Value: true
-    - Alpha: 1
-      Class: rviz/Polygon
-      Color: 25; 255; 0
-      Enabled: true
-      Name: Footprint
-      Topic: /move_base_node/global_costmap/footprint
       Unreliable: false
       Value: true
     - Alpha: 0.7
@@ -145,6 +136,14 @@ Visualization Manager:
       Topic: /move_base_node/local_costmap/costmap
       Unreliable: false
       Value: false
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /markers
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -168,8 +167,8 @@ Visualization Manager:
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.01
-      Style: Points
+      Size (m): 0.05
+      Style: Boxes
       Topic: /points
       Unreliable: false
       Use Fixed Frame: true

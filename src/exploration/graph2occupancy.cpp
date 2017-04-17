@@ -23,9 +23,9 @@ bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::Get
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 1.0;
-  poseMsg.orientation.y = 1.0; //Used to pitch-rotate the map 
-  poseMsg.orientation.z = 0.0; //Rotate along x
+  poseMsg.orientation.x = -0.707;
+  poseMsg.orientation.y = -0.707; 
+  poseMsg.orientation.z = 0.0; 
   poseMsg.orientation.w = 0.0;
 
   res.map.info.origin = poseMsg;
@@ -281,8 +281,8 @@ void Graph2occupancy::publishMap() {
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 1.0;
-  poseMsg.orientation.y = 1.0; 
+  poseMsg.orientation.x = -0.707;
+  poseMsg.orientation.y = -0.707; 
   poseMsg.orientation.z = 0.0; 
   poseMsg.orientation.w = 0.0;
 

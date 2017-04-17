@@ -8,7 +8,7 @@ using namespace cv;
 FrontierDetector::FrontierDetector(){}
 
 
-void FrontierDetector::init (int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, float res, std::string namePoints, std::string nameMarkers, int thresholdSize, int thresholdNeighbors){
+void FrontierDetector::init (int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, float res, std::string namePoints, std::string nameMarkers, int thresholdSize){
 	
 	_occupancyMap = occupancyImage;
 	_costMap = costImage;
@@ -17,8 +17,6 @@ void FrontierDetector::init (int idRobot, cv::Mat *occupancyImage, cv::Mat *cost
 	
 	_idRobot = idRobot;
 	_sizeThreshold = thresholdSize;
-	_neighborsThreshold = thresholdNeighbors;
-
 
 	std::stringstream fullPointsTopicName;
     std::stringstream fullMarkersTopicName;
@@ -55,51 +53,61 @@ void FrontierDetector::computeFrontiers(){
 
     		if (_occupancyMap->at<unsigned char>(r, c) == _freeColor ){ //If the current cell is free
     			std::array<int,2> coord = {r,c};
-
+    			
     			if (_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold) //If the current free cell is too close to an obstacle
+    				continue;													
+    			coordVector neighbors = getColoredNeighbors(coord, _unknownColor); 
+    			if (neighbors.empty())	//If the current free cell has no unknown cells around
     				continue;
-    																
-    			std::array<int,2> coordN = hasColoredNeighbor(r,c, _unknownColor);
-    			 
-    			if (coordN[0] == INT_MAX)	//If the current free cell has no unknown cells around
-    				continue;
+    			for (int i = 0; i < neighbors.size(); i++){
 
-    			if ((isSurrounded(coordN, _freeColor))) //If the neighbor unknown cell is sourrounded by free cells 
-    				continue;
-
-    		   //	if ((hasColoredNeighbor(coordN[0], coordN[1], _occupiedColor)[0] == INT_MAX)){
-    				_frontiers.push_back(coord);	
-    			//		}
-    		
-    						}
+    				if ((isSurrounded(neighbors[i], _freeColor)) == false){ //If the neighbor unknown cell is sourrounded by free cells 
+    					_frontiers.push_back(coord);	
+    					break;					}
+    									}
+    							}
 
     				}
     			}
 
+    coordVector examined;	
+
+
     for (int i = 0; i < _frontiers.size(); i++){
 
-    	coordVector region = {};
-    	if (included(_frontiers[i], _regions) == false){ //I proceed only if the current coord has not been already considered
-    													//doesn't consider the failed regions..... (not needed iterations)
-    		
-	    	region.push_back(_frontiers[i]);
-			
-			for (int j = i + 1; j < _frontiers.size(); j++){
+    	if (!contains(examined, _frontiers[i])){ //I proceed only if the current coord has not been already considered
 
-	    		for (int k = 0; k < region.size(); k++){
-	    			if ((isNeighbor(region[k], _frontiers[j]))&&(included(_frontiers[j], _regions) == false)){
-	    				region.push_back(_frontiers[j]);
-	    				break;								}
-	    											}
+    		coordVector tempRegion;
+    		tempRegion.push_back(_frontiers[i]);
+    		examined.push_back(_frontiers[i]);
 
-    									}
+    		for (int k = 0; k < tempRegion.size(); k ++){
 
-	    	if (region.size() >= _sizeThreshold)
-		    	_regions.push_back(region);
-		    								
-    							}
-    				
-    					}
+    		coordVector neighbor;
+    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1]});
+    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1]});
+    		neighbor.push_back({tempRegion[k][0], tempRegion[k][1] + 1});
+    		neighbor.push_back({tempRegion[k][0], tempRegion[k][1] - 1});
+    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1] + 1});
+    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1] - 1});
+    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1] + 1});
+    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1] - 1});
+
+    		for (int j = 0; j < neighbor.size(); j ++){
+
+    			if ((contains(_frontiers, neighbor[j]))&&(!contains(examined, neighbor[j]))) {
+    				examined.push_back(neighbor[j]);
+    				tempRegion.push_back(neighbor[j]);
+    										}
+    								}
+						}
+		if (tempRegion.size() >= _sizeThreshold)
+		   	_regions.push_back(tempRegion);
+
+
+						}
+
+    			}
 
 
 }
@@ -160,11 +168,6 @@ void FrontierDetector::computeCentroids(){
 
 
 	}
-
-    for (int i = 0; i < _regions.size(); i ++){
-    }
-
-
 
 }
 
@@ -336,67 +339,70 @@ coordVector FrontierDetector::getFrontierCentroids(){
 
 
 bool FrontierDetector::isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ){
+	if (coordI == coordJ)
+		return false;
 
-	if ((coordI[0] != coordJ[0]) || (coordI[1] != coordJ[1])){
-		if ((abs(coordI[0] - coordJ[0]) <= _neighborsThreshold)&&(abs(coordI[1] - coordJ[1]) <= _neighborsThreshold)){
-			return true; 								
-							}
-					}	
+	if ((abs(coordI[0] - coordJ[0]) <= 1)&&(abs(coordI[1] - coordJ[1]) <= 1))
+		return true; 								
+
 		
 
 	return false;
-
-	/*if (abs(abs(coordI[0] - coordJ[0]) + abs(coordI[1] - coordJ[1])) == 1 ){
-		return true;
-	}
-	else 
-		return false;*/
 }
 
 
-std::array<int,2> FrontierDetector::hasColoredNeighbor(int r, int c, int color){
+coordVector FrontierDetector::getColoredNeighbors (std::array<int,2> coord, int color){
 
-	std::array<int,2> coordN = {INT_MAX,INT_MAX};
 
-    if (_occupancyMap->at<unsigned char>(r + 1, c) == color ){
-    	coordN = {r+1,c};
-    	return coordN;
+	coordVector neighbors;
+	std::array<int,2> coordN;
+
+    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
+    	coordN = {coord[0] + 1, coord[1]};
+    	neighbors.push_back(coordN);
     }
 
-    if (_occupancyMap->at<unsigned char>(r - 1, c) == color ){
-    	coordN = {r-1,c};
-    	return coordN;
+    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) == color ){
+    	coordN = {coord[0] - 1, coord[1]};
+    	neighbors.push_back(coordN);
     }
 
-   	if (_occupancyMap->at<unsigned char>(r, c + 1) == color ){
-   		coordN = {r,c+1};
-   		return coordN;
+   	if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) == color ){
+   		coordN = {coord[0], coord[1] + 1};
+   		neighbors.push_back(coordN);
    	}
 
-   	if (_occupancyMap->at<unsigned char>(r, c - 1) == color ){
-   		coordN = {r,c-1};
-   		return coordN;
+   	if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) == color ){
+   		coordN = {coord[0], coord[1] - 1};
+   		neighbors.push_back(coordN);
    	}
 
-   	return coordN;
+    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] + 1) == color ){
+    	coordN = {coord[0] + 1, coord[1] + 1};
+    	neighbors.push_back(coordN);
+    }
+
+	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] - 1) == color ){
+    	coordN = {coord[0] + 1, coord[1] - 1};
+    	neighbors.push_back(coordN);
+    }
+
+    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] + 1) == color ){
+    	coordN = {coord[0] - 1, coord[1] + 1};
+    	neighbors.push_back(coordN);
+    }
+
+    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] - 1) == color ){
+    	coordN = {coord[0] - 1, coord[1] - 1};
+    	neighbors.push_back(coordN);
+    }  
 
 
-
-
+   	return neighbors;
 
 }
 
-bool FrontierDetector::included(std::array<int,2> coord , regionVector regions){
-	for (int i = 0; i < _regions.size(); i++){
-		for (int j = 0; j < _regions[i].size(); j++){
-			if (_regions[i][j] == coord){
-				return true;
-			}
-		}
-	}
-	return false;
 
-}
 
 
 bool FrontierDetector::isSurrounded (std::array<int,2> coord , int color){

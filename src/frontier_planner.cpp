@@ -31,7 +31,6 @@ std::string frontierPointsTopic = "points";
 std::string markersTopic = "markers";
 std::string actualPoseTopic = "map_pose";
 int threhsoldSize = 10;
-int threhsoldNeighbors = 4;
 
 int idRobot = 0;
 
@@ -45,9 +44,8 @@ ros::NodeHandle nh;
 
 ros::Subscriber subActualPose = nh.subscribe(actualPoseTopic,1,actualPoseCallback);
 
-GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize, threhsoldNeighbors );
+GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, threhsoldSize);
 
-ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
 int goalNum = 15; 
@@ -55,7 +53,7 @@ int status;
  
 while (ros::ok()){
 	ros::spinOnce();
-	goalPlanner.requestMap();
+	goalPlanner.requestOccupancyMap();
 	goalPlanner.computeFrontiers();
 	goalPlanner.rankFrontiers(mapX, mapY, theta);
 	goalPlanner.publishFrontiers();
@@ -65,11 +63,13 @@ while (ros::ok()){
 	centroids = goalPlanner.getCentroids();
 	resolution = goalPlanner.getResolution();
 
+	//Specify goals wrt base link frame
 	/*int goalX = round((centroids[0][0] - mapX )*resolution);
 	int goalY = round((centroids[0][1]- mapY)*resolution);
 	std::array<int,2> coordGoal = {goalY,-goalX}; //Rotated 90 deg if referring to base_link
 	std::string frame = "base_link";*/
-
+	
+	//Specify goals wrt map frame
 	int goalX = round(centroids[0][0]*resolution);
 	int goalY = round(centroids[0][1]*resolution);
 	std::array<int,2> coordGoal = {goalX,goalY}; 

@@ -25,13 +25,13 @@
 class GoalPlanner {
 
 public:
-		void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+	
+	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
- 
 	void goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg);
 
 
-	GoalPlanner(int idRobot, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5, int threhsoldNeighbors = 1);
+	GoalPlanner(int idRobot, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
 
 
 	void computeFrontiers();
@@ -43,7 +43,7 @@ public:
 
 	void publishGoal(std::array<int,2> goalCoord, std::string frame);
 
-	bool requestMap(); 	
+	bool requestOccupancyMap(); 	
 
 	int waitForGoal();
 
@@ -63,7 +63,7 @@ protected:
 
 
 	bool isGoalReached();
-	std::array<int,2> hasColoredNeighbor(int r, int c, int color);
+	coordVector getColoredNeighbors(std::array<int,2> coord, int color);
 
 
 

@@ -45,7 +45,7 @@ public:
 
 	FrontierDetector();
 
-	void init(int idRobot, cv::Mat *occupancy, cv::Mat *cost, float res, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 30, int threhsoldNeighbors = 5);
+	void init(int idRobot, cv::Mat *occupancy, cv::Mat *cost, float res, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 30);
 
 	void computeFrontiers();
 	
@@ -68,9 +68,16 @@ public:
 protected:
 
 	bool isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ);
-	std::array<int,2> hasColoredNeighbor(int r, int c, int color);
-	bool included(std::array<int,2> coord , regionVector regions);
+	coordVector getColoredNeighbors(std::array<int,2> coord, int color);
 	bool isSurrounded(std::array<int,2> coord, int color);
+
+	inline bool contains(coordVector vector, std::array<int,2> element){
+		if (std::find(vector.begin(), vector.end(), element) != vector.end())
+			return true;
+		else 
+			return false;
+	}
+
 
 	cv::Mat  *_occupancyMap;
 	cv::Mat *_costMap;
@@ -78,7 +85,6 @@ protected:
 	int _idRobot;
 	float _mapResolution;
 	int _sizeThreshold;
-	int _neighborsThreshold;
 	float _mixtureParam = 1;
 
 	int _freeColor = 0;

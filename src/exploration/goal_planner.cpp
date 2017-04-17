@@ -22,38 +22,21 @@ void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg){
 	_statusMsg = *msg;
 
-/*	if (msg->status_list.size()==1){
-		_status = _statusMsg.status_list[0].status;
-
-	}
-
-	else if (msg->status_list.size()>1){
-		_status = _statusMsg.status_list[0].status;
-
-	}*/
-
 	if (msg->status_list.size()>=1){
 		int lastEntry = msg->status_list.size() - 1;
 		_status = _statusMsg.status_list[lastEntry].status;
 	}
 
-//std::cout<<_status<<" status"<<std::endl;
-
-	/*for (int i = 0; i < msg->status_list.size(); i++){
-		std::cout<<int(_statusMsg.status_list[i].status) <<" ";
-	}
-
-	std::cout<<std::endl;*/
 }
 
 
-GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize, int threhsoldNeighbors){
+GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize){
 
 
 	_idRobot = idRobot;
 
 
-	_frontiersDetector.init(idRobot,&_occupancyMap,&_costMap,0.05, namePoints, nameMarkers, threhsoldSize, threhsoldNeighbors );
+	_frontiersDetector.init(idRobot,&_occupancyMap,&_costMap,0.05, namePoints, nameMarkers, threhsoldSize);
 
 	std::stringstream fullFixedFrameId;
 	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
@@ -70,11 +53,14 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatusArray>("/move_base/status", 100, &GoalPlanner::goalStatusCallback, this);
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
 
+
+	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
+
 }
 
 
 
-bool GoalPlanner::requestMap(){
+bool GoalPlanner::requestOccupancyMap(){
 
 	nav_msgs::GetMap::Request req;
 	nav_msgs::GetMap::Response res;
@@ -114,19 +100,9 @@ void GoalPlanner::computeFrontiers(){
 	_frontiersDetector.computeFrontiers();
     _frontiersDetector.computeCentroids();
 
-    //cv::imwrite("goal_cost.png",_costMap);
-
     _points = _frontiersDetector.getFrontierPoints();
     _regions = _frontiersDetector.getFrontierRegions();
     _centroids = _frontiersDetector.getFrontierCentroids();
-
-    /*for (int i = 0; i < _regions.size(); i ++){
-    	std::cout<<"region ------------- "<<i<<std::endl;
-    	for (int j = 0; j< _regions[i].size(); j ++){
-			printCostVal(_points[i]);
-    	}
-    	
-    }*/
 
 
 }
@@ -177,7 +153,7 @@ int GoalPlanner::waitForGoal(){
 	ros::Rate loop_rate2(1);
 
 
-
+	//This loop is needed to wait for the message status to be updated
 	while(_status != 1){
 		ros::spinOnce();
 		loop_rate1.sleep();
@@ -185,7 +161,7 @@ int GoalPlanner::waitForGoal(){
 
 	while (reached == false){
   		ros::spinOnce();
-  		requestMap(); //Necessary to check if the actual goal points have been explored
+  		requestOccupancyMap(); //Necessary to check if the actual goal points have been explored
 
   		//These are needed just for visualization.......
   		computeFrontiers();
@@ -209,32 +185,28 @@ bool GoalPlanner::isGoalReached(){
 	for (int i = 0; i < _goalPoints.size(); i++){
 		int r = _goalPoints[i][0];
 		int c = _goalPoints[i][1];
-		if((hasColoredNeighbor(r,c,_unknownColor)[0]==INT_MAX)||(_costMap.at<unsigned char>(r, c) >= 90 )) {
+		std::array<int,2> coord = {r,c};
+		if((getColoredNeighbors(coord, _unknownColor).empty())||(_costMap.at<unsigned char>(r, c) >= 90 )) {
 			countDiscovered++;
 		}
 	}
 
 	if (_status == 3){
 		ROS_INFO("Hooray, the goal has been reached");
-		std::cout<<_statusMsg.status_list.size()<<"size"<<std::endl;
 		return true;
 
 	}
 
 	if (_status == 4){
-		//I HAVE TO DISCARD THE GOAL AS NOT REACHABLE !!!!
+		//I have to discard the goal as not reachable
 		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The robot failed to reach the goal...Aborting");
-		std::cout<<_statusMsg.status_list.size()<<"size"<<std::endl;
-
 		return true;
 	}
 
 	if ((_status == 2) || (_status == 6)){
 		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The goal has been preempted...");
-		std::cout<<_statusMsg.status_list.size()<<"size"<<std::endl;
-
 		return true;
 	}
 
@@ -269,32 +241,58 @@ float GoalPlanner::getResolution(){
 }
 
 
-std::array<int,2> GoalPlanner::hasColoredNeighbor(int r, int c, int color){
+coordVector GoalPlanner::getColoredNeighbors (std::array<int,2> coord, int color){
 
-	std::array<int,2> coordN = {INT_MAX,INT_MAX};
 
-    if (_occupancyMap.at<unsigned char>(r + 1, c) == color ){
-    	coordN = {r+1,c};
-    	return coordN;
+	coordVector neighbors;
+	std::array<int,2> coordN;
+
+    if (_occupancyMap.at<unsigned char>(coord[0] + 1, coord[1]) == color ){
+    	coordN = {coord[0] + 1, coord[1]};
+    	neighbors.push_back(coordN);
     }
 
-    if (_occupancyMap.at<unsigned char>(r - 1, c) == color ){
-    	coordN = {r-1,c};
-    	return coordN;
+    if (_occupancyMap.at<unsigned char>(coord[0] - 1, coord[1]) == color ){
+    	coordN = {coord[0] - 1, coord[1]};
+    	neighbors.push_back(coordN);
     }
 
-   	if (_occupancyMap.at<unsigned char>(r, c + 1) == color ){
-   		coordN = {r,c+1};
-   		return coordN;
+   	if (_occupancyMap.at<unsigned char>(coord[0], coord[1] + 1) == color ){
+   		coordN = {coord[0], coord[1] + 1};
+   		neighbors.push_back(coordN);
    	}
 
-   	if (_occupancyMap.at<unsigned char>(r, c - 1) == color ){
-   		coordN = {r,c-1};
-   		return coordN;
+   	if (_occupancyMap.at<unsigned char>(coord[0], coord[1] - 1) == color ){
+   		coordN = {coord[0], coord[1] - 1};
+   		neighbors.push_back(coordN);
    	}
 
-   	return coordN;
-   }
+    if (_occupancyMap.at<unsigned char>(coord[0] + 1, coord[1] + 1) == color ){
+    	coordN = {coord[0] + 1, coord[1] + 1};
+    	neighbors.push_back(coordN);
+    }
+
+	if (_occupancyMap.at<unsigned char>(coord[0] + 1, coord[1] - 1) == color ){
+    	coordN = {coord[0] + 1, coord[1] - 1};
+    	neighbors.push_back(coordN);
+    }
+
+    if (_occupancyMap.at<unsigned char>(coord[0] - 1, coord[1] + 1) == color ){
+    	coordN = {coord[0] - 1, coord[1] + 1};
+    	neighbors.push_back(coordN);
+    }
+
+    if (_occupancyMap.at<unsigned char>(coord[0] - 1, coord[1] - 1) == color ){
+    	coordN = {coord[0] - 1, coord[1] - 1};
+    	neighbors.push_back(coordN);
+    }  
+
+
+   	return neighbors;
+
+}
+
+
 
 
 
