@@ -37,6 +37,12 @@ std::string actualPoseTopic;
 int thresholdRegionSize;
 int idRobot;
 int status;
+float resolution;
+
+coordVector centroids;
+coordVector abortedGoals;
+coordVector goalPoints;
+regionVector regions;
 
 arg.param("idRobot", idRobot, 0, "robot identifier" );
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
@@ -67,33 +73,48 @@ while (ros::ok()){
 	goalPlanner.rankFrontiers(mapX, mapY, theta);
 	goalPlanner.publishFrontiers();
 
-	coordVector centroids;
-	float resolution;
-	centroids = goalPlanner.getCentroids();
+
+
 	resolution = goalPlanner.getResolution();
+	centroids = goalPlanner.getCentroids();
+	regions = goalPlanner.getRegions();
 
-	//Specify goals wrt base link frame
-	/*int goalX = round((centroids[0][0] - mapX )*resolution);
-	int goalY = round((centroids[0][1]- mapY)*resolution);
-	std::array<int,2> coordGoal = {goalY,-goalX}; //Rotated 90 deg if referring to base_link
-	std::string frame = "base_link";*/
-	
-	//Specify goals wrt map frame
-	int goalX = round(centroids[0][0]*resolution);
-	int goalY = round(centroids[0][1]*resolution);
-	std::array<int,2> coordGoal = {goalX,goalY}; 
-	std::string frame = "map";
+	abortedGoals = goalPlanner.getAbortedGoals();
 
-	//std::cout<<mapX<< " "<<mapY << " --> "<< mapX*resolution << " "<<mapY*resolution<<std::endl;
-	//std::cout<<goalX << " " << goalY<<" --> "<<centroids[0][0]<< " " <<centroids[0][1]<<std::endl;
 
 	if (centroids.size() == 0){
 		std::cout<<"NO CENTROIDS"<<std::endl;
 	}
 
-	else if (goalNum > 0){
-		//std::cout<<goalNum<<std::endl;
-		goalPlanner.publishGoal(coordGoal, frame);
+	//else if (goalNum > 0){
+	else {
+
+		/*int goalID; 
+		for (int i = 0; i < centroids.size(); i ++){
+			if (std::find(abortedGoals.begin(), abortedGoals.end(), centroids[i]) == abortedGoals.end()){
+				goalID = i;
+				break;
+			}
+
+		}*/
+
+		int goalID = 0;
+
+		//Specify goals wrt base link frame
+		/*int goalX = round((centroids[0][0] - mapX )*resolution);
+		int goalY = round((centroids[0][1]- mapY)*resolution);
+		std::array<int,2> coordGoal = {goalY,-goalX}; //Rotated 90 deg if referring to base_link
+		std::string frame = "base_link";*/
+		
+		//Specify goals wrt map frame
+		int goalX = round(centroids[goalID][0]*resolution);
+		int goalY = round(centroids[goalID][1]*resolution);
+		std::array<int,2> coordGoal = {goalX,goalY}; 
+		std::string frame = "map";
+
+		goalPoints = regions[goalID];
+
+		goalPlanner.publishGoal(coordGoal, frame, goalPoints);
 		status = goalPlanner.waitForGoal();
 		goalNum = goalNum - 1;
 	}

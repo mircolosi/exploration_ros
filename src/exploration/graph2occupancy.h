@@ -28,9 +28,6 @@
 
 #include "frequency_map.h"
 
-
-#define MAP_IDX(sx, i, j) ((sx) * (j) + (i))
-
 using namespace std;
 using namespace Eigen;
 using namespace g2o;

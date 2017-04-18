@@ -125,21 +125,35 @@ void GoalPlanner::publishFrontiers(){
 }
 
 
-void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame){
+void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame, coordVector goalPoints){
 
 	_goal = goalCoord;
+	_goalPoints = goalPoints;
+
+
+
   	geometry_msgs::PoseStamped goalMsg;
   
 
   	goalMsg.header.frame_id = frame;
   	goalMsg.header.stamp = ros::Time::now();
-  	
+
   	goalMsg.pose.position.x = goalCoord[0];
   	goalMsg.pose.position.y = goalCoord[1];
+
+  	/*	float accTheta = 0;
+	std::array<int,2> goalCentroid = _centroids[0];
+
+	for (int i = 0; i< _goalPoints.size(); i++){
+		accTheta = accTheta + atan2(goalCentroid[1] - _goalPoints[i][1], goalCentroid[0] - _goalPoints[i][0]);
+	}
+	accTheta = accTheta/_goalPoints.size();
+
+  	goalMsg.pose.orientation = tf::createQuaternionMsgFromYaw(accTheta);*/
+
   	goalMsg.pose.orientation.w = 1.0;
 
 	_pubGoal.publish(goalMsg);
-  	_goalPoints = _regions[0];
 
 }
 
@@ -204,11 +218,11 @@ bool GoalPlanner::isGoalReached(){
 		return true;
 	}
 
-	if ((_status == 2) || (_status == 6)){
+/*)	if ((_status == 2) || (_status == 6)){
 		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The goal has been preempted...");
 		return true;
-	}
+	}*/
 
 	if (_goalPoints.size() - countDiscovered < 5){
 		ROS_INFO("The area has been explored");
@@ -227,6 +241,10 @@ coordVector GoalPlanner::getCentroids(){
 	return _centroids;
 }
 
+regionVector GoalPlanner::getRegions(){
+	return _regions;
+}
+
 
 cv::Mat GoalPlanner::getImageMap(){
 	return _occupancyMap;
@@ -240,6 +258,9 @@ float GoalPlanner::getResolution(){
 	return _mapResolution;
 }
 
+coordVector GoalPlanner::getAbortedGoals(){
+	return _abortedGoals;
+}
 
 coordVector GoalPlanner::getColoredNeighbors (std::array<int,2> coord, int color){
 

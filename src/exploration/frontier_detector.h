@@ -91,7 +91,7 @@ protected:
 	int _unknownColor = 50;
 	int _occupiedColor = 100;
 
-	int _circumscribedThreshold = 90;
+	int _circumscribedThreshold = 99;
 
 
 	coordVector _frontiers;

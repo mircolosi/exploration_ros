@@ -1,10 +1,11 @@
 #include <iostream>
 #include <opencv2/highgui/highgui.hpp>
-#include <new>
+#include <math.h> 
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
 #include <move_base_msgs/MoveBaseAction.h>
+#include "tf/transform_broadcaster.h"
 #include <actionlib/client/simple_action_client.h>
 
 
@@ -41,7 +42,7 @@ public:
 
 	void publishFrontiers();
 
-	void publishGoal(std::array<int,2> goalCoord, std::string frame);
+	void publishGoal(std::array<int,2> goalCoord, std::string frame, coordVector goalPoints);
 
 	bool requestOccupancyMap(); 	
 
@@ -53,7 +54,11 @@ public:
 
 	coordVector getCentroids();
 
+	regionVector getRegions();
+
 	float getResolution();
+
+	coordVector getAbortedGoals();
 
 	void printCostVal(std::array<int,2> point);
 
