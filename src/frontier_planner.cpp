@@ -14,12 +14,16 @@ float mapX;
 float mapY;
 float theta;
 
+geometry_msgs::Pose2D poseMsg;
+
 
 void actualPoseCallback(const geometry_msgs::Pose2D msg){
 
 	mapX = msg.x;
 	mapY = msg.y;
 	theta = msg.theta;
+
+	poseMsg = msg;
 
 
 }
@@ -62,7 +66,6 @@ GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic,
 
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
-int goalNum = 2000; 
 
  
 while (ros::ok()){
@@ -85,7 +88,7 @@ while (ros::ok()){
 		std::cout<<"NO CENTROIDS"<<std::endl;
 	}
 
-	//else if (goalNum > 0){
+
 	else {
 
 
@@ -97,8 +100,6 @@ while (ros::ok()){
 			}
 
 		}
-
-		//int goalID = 0;
 
 		//Specify goals wrt base link frame
 		/*int goalX = round((centroids[0][0] - mapX )*resolution);
@@ -114,10 +115,9 @@ while (ros::ok()){
 
 		goalPoints = regions[goalID];
 
-		std::cout<< coordGoal[0]<< " "<<coordGoal[1]<<std::endl; 
+
 		goalPlanner.publishGoal(coordGoal, frame, goalPoints);
 		goalPlanner.waitForGoal();
-		goalNum = goalNum - 1;
 	}
 
 

@@ -37,6 +37,7 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
+	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
 
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
 
@@ -79,6 +80,38 @@ bool GoalPlanner::requestOccupancyMap(){
 
 }	
 
+
+void GoalPlanner::makePlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
+
+	nav_msgs::GetPlan::Request req;
+	nav_msgs::GetPlan::Response res;
+
+	req.start.header.frame_id = frame;
+	req.start.pose = startPose;
+
+	req.goal.header.frame_id = frame;
+	req.goal.pose = goalPose;
+
+	float k = 0;
+	if (_planClient.call(req,res)){
+        if (!res.plan.poses.empty()) {
+        	 for (const geometry_msgs::PoseStamped &p : res.plan.poses) {
+
+        	 	ROS_INFO("%f-> x = %f, y = %f", k,p.pose.position.x, p.pose.position.y);
+        	 	k++;
+        	 }
+            }
+        
+        else {
+            ROS_WARN("Got empty plan");
+        }
+    }
+    else {
+        ROS_ERROR("Failed to call service %s - is the robot moving?", _planClient.getService().c_str());
+    }
+
+
+}
 
 
 void GoalPlanner::computeFrontiers(){
@@ -248,7 +281,7 @@ cv::Mat GoalPlanner::getImageMap(){
 	return _occupancyMap;
 }
 
-std::string GoalPlanner::getGoalStatus(){
+std::string GoalPlanner::getActionServerStatus(){
 	return ac.getState().toString();
 }
 

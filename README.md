@@ -19,7 +19,7 @@ Requirements:
             export LD_LIBRARY_PATH=${G2O_LIB}:${LD_LIBRARY_PATH}  
             export PATH=${G2O_BIN}:${PATH}  
 
-- This code uses the **cg_mrslam** developed by M.T. Lazaro for implementing SLAM techniques and running the examples.
+- This code uses the **cg_mrslam**(https://github.com/mtlazaro/cg_mrslam) developed by M.T. Lazaro for implementing SLAM techniques and running the examples.
 
 - [ROS indigo.](http://wiki.ros.org/indigo/Installation)
 
@@ -30,11 +30,7 @@ The code has been tested on Ubuntu 14.04 (64bits).
 Installation
 ------------
 - Download the source code to your ROS workspace directory
-- ROS fuerte:
-  - Make sure you are in branch fuerte  
 
-            $ git checkout fuerte
-  - Type `rosmake` in the package directory
 - ROS indigo (catkin):
   - Installation for ROS indigo is supported in the default branch (master)
   - In your catkin workspace 

@@ -11,6 +11,7 @@
 
 
 #include <nav_msgs/GetMap.h>
+#include <nav_msgs/GetPlan.h>
 
 
 #include "actionlib_msgs/GoalStatus.h"
@@ -43,13 +44,13 @@ public:
 
 	void publishGoal(std::array<int,2> goalCoord, std::string frame, coordVector goalPoints);
 
-	void makePlan();
+	void makePlan(std::string frame, geometry_msgs::Pose start, geometry_msgs::Pose goal);
 
 	bool requestOccupancyMap(); 	
 
 	void waitForGoal();
 
-	std::string getGoalStatus();
+	std::string getActionServerStatus();
 
 	cv::Mat getImageMap();
 
@@ -102,6 +103,7 @@ protected:
 
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
+	ros::ServiceClient _planClient;
 	ros::Subscriber _subCostMap;
 	MoveBaseClient ac;
 
