@@ -10,6 +10,7 @@
 
 
 
+
 float mapX;
 float mapY;
 float theta;
@@ -43,9 +44,12 @@ std::string status;
 float resolution;
 
 coordVector centroids;
-coordVector abortedGoals;
+floatCoordVector abortedGoals;
 coordVector goalPoints;
 regionVector regions;
+
+cv::Mat occupancyMap;
+cv::Mat costMap;
 
 arg.param("idRobot", idRobot, 0, "robot identifier" );
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
@@ -62,24 +66,25 @@ ros::NodeHandle nh;
 
 ros::Subscriber subActualPose = nh.subscribe(actualPoseTopic,1,actualPoseCallback);
 
-GoalPlanner goalPlanner(idRobot, "base_link", frontierPointsTopic, markersTopic, thresholdRegionSize);
+GoalPlanner goalPlanner(idRobot, &occupancyMap, "base_link", frontierPointsTopic, markersTopic, thresholdRegionSize);
+FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap, frontierPointsTopic, markersTopic, thresholdRegionSize);
 
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
-
+int num = 20;
  
-while (ros::ok()){
+while (ros::ok() && (num > 0)){
 	ros::spinOnce();
-	goalPlanner.requestOccupancyMap();
-	goalPlanner.computeFrontiers();
-	goalPlanner.rankFrontiers(mapX, mapY, theta);
-	goalPlanner.publishFrontiers();
 
+	frontiersDetector.requestOccupancyMap();
+	frontiersDetector.computeFrontiers();
+	frontiersDetector.rankRegions(mapX, mapY, theta);
+	frontiersDetector.publishFrontierPoints();
+   	frontiersDetector.publishCentroidMarkers();
 
-
-	resolution = goalPlanner.getResolution();
-	centroids = goalPlanner.getCentroids();
-	regions = goalPlanner.getRegions();
+	resolution = frontiersDetector.getResolution();
+	centroids = frontiersDetector.getFrontierCentroids();
+	regions = frontiersDetector.getFrontierRegions();
 
 	abortedGoals = goalPlanner.getAbortedGoals();
 
@@ -93,8 +98,10 @@ while (ros::ok()){
 
 
 		int goalID; 
+		floatCoordVector meterCentroids;
 		for (int i = 0; i < centroids.size(); i ++){
-			if (std::find(abortedGoals.begin(), abortedGoals.end(), centroids[i]) == abortedGoals.end()){
+			meterCentroids.push_back({centroids[i][0]*resolution, centroids[i][1]*resolution});
+			if (std::find(abortedGoals.begin(), abortedGoals.end(), meterCentroids[i]) == abortedGoals.end()){
 				goalID = i;
 				break;
 			}
@@ -102,22 +109,44 @@ while (ros::ok()){
 		}
 
 		//Specify goals wrt base link frame
-		/*int goalX = round((centroids[0][0] - mapX )*resolution);
-		int goalY = round((centroids[0][1]- mapY)*resolution);
-		std::array<int,2> coordGoal = {goalY,-goalX}; //Rotated 90 deg if referring to base_link
+		/*float goalX = (centroids[goalID][0] - mapX )*resolution;
+		float goalY = (centroids[goalID][1]- mapY)*resolution;
+		std::array<float,2> coordGoal = {goalY,-goalX}; //Rotated 90 deg if referring to base_link
 		std::string frame = "base_link";*/
 		
+		
 		//Specify goals wrt map frame
-		int goalX = round(centroids[goalID][0]*resolution);
-		int goalY = round(centroids[goalID][1]*resolution);
-		std::array<int,2> coordGoal = {goalX,goalY}; 
+		std::array<float,2> goalPosition = {meterCentroids[goalID][0],meterCentroids[goalID][1]}; 
 		std::string frame = "map";
-
 		goalPoints = regions[goalID];
 
+		geometry_msgs::Pose startPose;
+		geometry_msgs::Pose goalPose;
 
-		goalPlanner.publishGoal(coordGoal, frame, goalPoints);
-		goalPlanner.waitForGoal();
+		startPose.position.x = mapY*resolution;
+		startPose.position.y = mapX*resolution;
+
+		goalPose.position.x = goalPosition[1];  //These are inverted to compute in costmap_rotated
+		goalPose.position.y = goalPosition[0];
+
+		floatCoordVector sampledPlan;
+
+		sampledPlan = goalPlanner.makeSampledPlan("map_rotated", startPose, goalPose );
+
+		std::cout<<"PLAN: "<<sampledPlan.size()<<std::endl;
+		for (int i = 0; i < sampledPlan.size(); i ++){
+				ros::spinOnce();
+			goalPosition = {sampledPlan[i][1],sampledPlan[i][0]}; ////These are inverted because are compute in costmap_rotated
+			frame = "map";
+			//std::cout<< mapX*resolution << " "<<mapY*resolution << " -> "<< goalPosition[0]<< " "<<goalPosition[1]<<std::endl;	
+			goalPlanner.publishGoal(goalPosition, frame, goalPoints);
+			goalPlanner.waitForGoal();
+
+		}
+
+
+
+		num = num - 1;
 	}
 
 

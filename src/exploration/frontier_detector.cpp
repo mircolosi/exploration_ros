@@ -3,10 +3,64 @@
 using namespace sensor_msgs;
 using namespace cv;
 
+void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+	_costMapMsg = *msg;
+
+
+	int currentCell = 0;
+	*_costMap = cv::Mat(msg->info.height, msg->info.width, CV_8UC1);
+		for(int r = 0; r < msg->info.height; r++) {
+			for(int c = 0; c < msg->info.width; c++) {
+      		
+      		    _costMap->at<unsigned char>(r, c) = msg->data[currentCell];
+      		    currentCell++;
+      		}
+      	}
+
+
+}
+
+
 
 
 FrontierDetector::FrontierDetector(){}
 
+FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, int thresholdSize){
+
+	_occupancyMap = occupancyImage;
+	_costMap = costImage;
+	
+	_idRobot = idRobot;
+	_sizeThreshold = thresholdSize;
+
+	std::stringstream fullPointsTopicName;
+    std::stringstream fullMarkersTopicName;
+
+    //fullPointsTopicName << "/robot_" << _idRobot << "/" << namePoints;
+    //fullMarkersTopicName << "/robot_" << _idRobot << "/" << nameMarkers;
+    fullPointsTopicName << namePoints;
+    fullMarkersTopicName << nameMarkers;
+
+
+   	_topicPointsName = fullPointsTopicName.str();
+	_topicMarkersName = fullMarkersTopicName.str();
+
+	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
+	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
+
+	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &FrontierDetector::costMapCallback, this);
+
+	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
+
+	std::stringstream fullFixedFrameId;
+	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
+	fullFixedFrameId << "map";
+	_fixedFrameId = fullFixedFrameId.str();
+
+	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
+
+
+}
 
 void FrontierDetector::init (int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, float res, std::string namePoints, std::string nameMarkers, int thresholdSize){
 	
@@ -41,26 +95,57 @@ void FrontierDetector::init (int idRobot, cv::Mat *occupancyImage, cv::Mat *cost
 
 }
 
+bool FrontierDetector::requestOccupancyMap(){
+
+	nav_msgs::GetMap::Request req;
+	nav_msgs::GetMap::Response res;
+
+
+
+	if (_mapClient.call(req,res)){
+		_mapResolution = res.map.info.resolution;
+
+		int currentCell = 0;
+		*_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
+		for(int r = 0; r < res.map.info.height; r++) {
+			for(int c = 0; c < res.map.info.width; c++) {
+      		
+      		    _occupancyMap->at<unsigned char>(r, c) = res.map.data[currentCell];
+      		    currentCell++;
+      		}
+      	}
+
+
+		return true;
+	}
+
+	else {
+		ROS_ERROR("Failed to call service map");
+		return false;
+	}
+
+
+}	
+
 
 
 void FrontierDetector::computeFrontiers(){
 	
 	_frontiers.clear();
 	_regions.clear();
+	_centroids.clear();
 
 	for(int c = 0; c < _occupancyMap->cols; c++) {
     	for(int r = 0; r < _occupancyMap->rows; r++) {
 
     		if (_occupancyMap->at<unsigned char>(r, c) == _freeColor ){ //If the current cell is free
     			std::array<int,2> coord = {r,c};
-    			
     			if (_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold) //If the current free cell is too close to an obstacle
-    				continue;													
+    				continue;	
     			coordVector neighbors = getColoredNeighbors(coord, _unknownColor); 
     			if (neighbors.empty())	//If the current free cell has no unknown cells around
     				continue;
     			for (int i = 0; i < neighbors.size(); i++){
-
     				if ((isSurrounded(neighbors[i], _freeColor)) == false){ //If the neighbor unknown cell is sourrounded by free cells 
     					_frontiers.push_back(coord);	
     					break;					}
@@ -69,9 +154,7 @@ void FrontierDetector::computeFrontiers(){
 
     				}
     			}
-
     coordVector examined;	
-
 
     for (int i = 0; i < _frontiers.size(); i++){
 
@@ -108,6 +191,56 @@ void FrontierDetector::computeFrontiers(){
 						}
 
     			}
+
+	for (int i = 0; i < _regions.size(); i++){
+
+		int accX = 0;
+		int accY = 0;
+
+		for (int j = 0; j <_regions[i].size(); j++){
+			accX+=_regions[i][j][0];
+			accY+=_regions[i][j][1];
+										}
+
+
+		int meanX = round(accX/_regions[i].size());
+		int meanY = round(accY/_regions[i].size());
+
+		std::array<int,2> centroid = {meanX, meanY};
+
+		_centroids.push_back(centroid);
+
+						}
+
+	//Make all the centroids reachable
+	for (int i = 0; i < _centroids.size(); i++){
+		if (_occupancyMap->at<unsigned char>(_centroids[i][0], _centroids[i][1]) != _freeColor ){  //If the centroid is in a non-free cell
+			float distance = std::numeric_limits<float>::max();
+			std::array<int,2> closestPoint;
+
+			for (int j = 0; j < _regions[i].size(); j++){
+
+				int dx = _centroids[i][0] - _regions[i][j][0];
+				int dy = _centroids[i][1] - _regions[i][j][1];
+
+				float dist = sqrt(dx*dx + dy*dy);
+
+				if (dist < distance){
+					distance = dist;
+					closestPoint = _regions[i][j];
+								}
+
+						}
+
+			_centroids[i] = closestPoint;
+
+
+		}
+
+
+
+	}
+
 
 
 }
@@ -336,6 +469,9 @@ regionVector FrontierDetector::getFrontierRegions(){
 
 coordVector FrontierDetector::getFrontierCentroids(){
 	return _centroids;	}
+
+float FrontierDetector::getResolution(){
+	return _mapResolution;	}
 
 
 bool FrontierDetector::isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ){

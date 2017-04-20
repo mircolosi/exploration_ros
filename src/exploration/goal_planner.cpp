@@ -21,32 +21,26 @@ void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 
 
 
-GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
+GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
 {
 
+	_occupancyMap = occupancyImage;
 
 	_idRobot = idRobot;
-
-
-	_frontiersDetector.init(idRobot,&_occupancyMap,&_costMap,0.05, namePoints, nameMarkers, threhsoldSize);
 
 	std::stringstream fullFixedFrameId;
 	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
 	fullFixedFrameId << "map";
 	_fixedFrameId = fullFixedFrameId.str();
 
-
-	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
+	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
-
-
 	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
+
 	while(!ac.waitForServer(ros::Duration(5.0))){}
 }
-
-
 
 bool GoalPlanner::requestOccupancyMap(){
 
@@ -59,11 +53,11 @@ bool GoalPlanner::requestOccupancyMap(){
 		_mapResolution = res.map.info.resolution;
 
 		int currentCell = 0;
-		_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
+		*_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
 		for(int r = 0; r < res.map.info.height; r++) {
 			for(int c = 0; c < res.map.info.width; c++) {
       		
-      		    _occupancyMap.at<unsigned char>(r, c) = res.map.data[currentCell];
+      		    _occupancyMap->at<unsigned char>(r, c) = res.map.data[currentCell];
       		    currentCell++;
       		}
       	}
@@ -81,7 +75,10 @@ bool GoalPlanner::requestOccupancyMap(){
 }	
 
 
-void GoalPlanner::makePlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
+
+
+
+floatCoordVector GoalPlanner::makeSampledPlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
 
 	nav_msgs::GetPlan::Request req;
 	nav_msgs::GetPlan::Response res;
@@ -92,14 +89,13 @@ void GoalPlanner::makePlan(std::string frame, geometry_msgs::Pose startPose, geo
 	req.goal.header.frame_id = frame;
 	req.goal.pose = goalPose;
 
-	float k = 0;
+	floatCoordVector sampledPlan;
+
 	if (_planClient.call(req,res)){
         if (!res.plan.poses.empty()) {
-        	 for (const geometry_msgs::PoseStamped &p : res.plan.poses) {
 
-        	 	ROS_INFO("%f-> x = %f, y = %f", k,p.pose.position.x, p.pose.position.y);
-        	 	k++;
-        	 }
+        	 sampledPlan = sampleTrajectory(res.plan);
+
             }
         
         else {
@@ -110,57 +106,17 @@ void GoalPlanner::makePlan(std::string frame, geometry_msgs::Pose startPose, geo
         ROS_ERROR("Failed to call service %s - is the robot moving?", _planClient.getService().c_str());
     }
 
+    return sampledPlan;
 
 }
 
 
-void GoalPlanner::computeFrontiers(){
 
 
-	_frontiersDetector.computeFrontiers();
-    _frontiersDetector.computeCentroids();
 
-    _points = _frontiersDetector.getFrontierPoints();
-    _regions = _frontiersDetector.getFrontierRegions();
-    _centroids = _frontiersDetector.getFrontierCentroids();
+void GoalPlanner::publishGoal(std::array<float,2> goalPosition, std::string frame, coordVector goalPoints){
 
-
-}
-
-void GoalPlanner::rankFrontiers(){
-
-	_frontiersDetector.rankRegions(_mapX, _mapY, _theta);
-	_regions = _frontiersDetector.getFrontierRegions();
-    _centroids = _frontiersDetector.getFrontierCentroids();
-
-
-}
-
-void GoalPlanner::rankFrontiers(float mapX, float mapY, float theta){
-
-	_mapX = mapX;
-	_mapY = mapY;
-	_theta = theta;
-	
-	_frontiersDetector.rankRegions(mapX, mapY, theta);
-	_regions = _frontiersDetector.getFrontierRegions();
-    _centroids = _frontiersDetector.getFrontierCentroids();
-
-}
-
-
-void GoalPlanner::publishFrontiers(){
-
-	_frontiersDetector.publishFrontierPoints();
-   	_frontiersDetector.publishCentroidMarkers();
-
-
-}
-
-
-void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame, coordVector goalPoints){
-
-	_goal = goalCoord;
+	_goal = goalPosition;
 	_goalPoints = goalPoints;
 
 	  	/*	float accTheta = 0;
@@ -173,16 +129,22 @@ void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame, co
 
   	goalMsg.pose.orientation = tf::createQuaternionMsgFromYaw(accTheta);*/
   
-  	move_base_msgs::MoveBaseGoal goal;
+ 	move_base_msgs::MoveBaseGoal goal;
 
 	goal.target_pose.header.frame_id = frame;
   	goal.target_pose.header.stamp = ros::Time::now();
 
-	goal.target_pose.pose.position.x = goalCoord[0];
-	goal.target_pose.pose.position.y = goalCoord[1];	
+	goal.target_pose.pose.position.x = goalPosition[0];
+	goal.target_pose.pose.position.y = goalPosition[1];	
 	goal.target_pose.pose.orientation.w = 1.0;
 
-	ROS_INFO("Sending goal");
+	std::stringstream infoGoal;
+
+	time_t _now = time(0);
+	tm *ltm = localtime(&_now);
+	infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]Sending goal "<< goalPosition[0] << " "<< goalPosition[1]<<std::endl;
+
+	std::cout<<infoGoal.str()<<std::endl;
 	ac.sendGoal(goal);
 
 
@@ -204,13 +166,8 @@ void GoalPlanner::waitForGoal(){
 	}
 
 	while (reached == false){
-  	
-  		requestOccupancyMap(); //Necessary to check if the actual goal points have been explored
 
-  		//These are needed just for visualization.......
-  		computeFrontiers();
-  		rankFrontiers(); //Without parameters since I want to rank wrt previous stored pose
-		publishFrontiers();
+		requestOccupancyMap();
 
 		reached = isGoalReached();
 
@@ -268,17 +225,60 @@ bool GoalPlanner::isGoalReached(){
 }
 
 
-coordVector GoalPlanner::getCentroids(){
-	return _centroids;
+floatCoordVector GoalPlanner::sampleTrajectory(nav_msgs::Path path){
+
+	floatCoordVector sampledPath;
+
+	if (!path.poses.empty()){
+
+		std::array<float,2> position2D;
+
+		position2D[0] = path.poses[0].pose.position.x;
+		position2D[1] = path.poses[0].pose.position.y;
+
+		sampledPath.push_back(position2D);
+
+		std::array<float,2> lastPose = position2D;
+
+		for (int i = 0; i < path.poses.size(); i++){
+
+			float distance = sqrt(pow((lastPose[0] - path.poses[i].pose.position.x),2) + pow((lastPose[1] - path.poses[i].pose.position.y),2));
+
+			if (distance >= _sampledPathThreshold){
+
+				//std::cout<<lastPose[0]<<" "<<lastPose[1]<<" -> "<< path.poses[i].pose.position.x << " "<< path.poses[i].pose.position.y << std::endl;
+
+
+				lastPose[0] = path.poses[i].pose.position.x;
+				lastPose[1] = path.poses[i].pose.position.y;
+
+				sampledPath.push_back(lastPose);
+
+
+													}
+
+		}
+
+		float distance = sqrt(pow((lastPose[0] - path.poses.back().pose.position.x),2) + pow((lastPose[1] - path.poses.back().pose.position.y),2));
+
+		if (distance >= 0.25){  //This should be the xy_threshold set in the local planner
+
+			lastPose[0] = path.poses.back().pose.position.x;
+			lastPose[1] = path.poses.back().pose.position.y;
+			sampledPath.push_back(lastPose);
+		}
+
+	}
+
+	//std::cout<<"Size: "<< sampledPath.size()<<std::endl;
+	return sampledPath;
+
 }
 
-regionVector GoalPlanner::getRegions(){
-	return _regions;
-}
 
 
 cv::Mat GoalPlanner::getImageMap(){
-	return _occupancyMap;
+	return *_occupancyMap;
 }
 
 std::string GoalPlanner::getActionServerStatus(){
@@ -289,9 +289,12 @@ float GoalPlanner::getResolution(){
 	return _mapResolution;
 }
 
-coordVector GoalPlanner::getAbortedGoals(){
+floatCoordVector GoalPlanner::getAbortedGoals(){
 	return _abortedGoals;
 }
+
+
+
 
 coordVector GoalPlanner::getColoredNeighbors (std::array<int,2> coord, int color){
 
@@ -299,42 +302,42 @@ coordVector GoalPlanner::getColoredNeighbors (std::array<int,2> coord, int color
 	coordVector neighbors;
 	std::array<int,2> coordN;
 
-    if (_occupancyMap.at<unsigned char>(coord[0] + 1, coord[1]) == color ){
+    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
     	coordN = {coord[0] + 1, coord[1]};
     	neighbors.push_back(coordN);
     }
 
-    if (_occupancyMap.at<unsigned char>(coord[0] - 1, coord[1]) == color ){
+    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) == color ){
     	coordN = {coord[0] - 1, coord[1]};
     	neighbors.push_back(coordN);
     }
 
-   	if (_occupancyMap.at<unsigned char>(coord[0], coord[1] + 1) == color ){
+   	if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) == color ){
    		coordN = {coord[0], coord[1] + 1};
    		neighbors.push_back(coordN);
    	}
 
-   	if (_occupancyMap.at<unsigned char>(coord[0], coord[1] - 1) == color ){
+   	if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) == color ){
    		coordN = {coord[0], coord[1] - 1};
    		neighbors.push_back(coordN);
    	}
 
-    if (_occupancyMap.at<unsigned char>(coord[0] + 1, coord[1] + 1) == color ){
+    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] + 1) == color ){
     	coordN = {coord[0] + 1, coord[1] + 1};
     	neighbors.push_back(coordN);
     }
 
-	if (_occupancyMap.at<unsigned char>(coord[0] + 1, coord[1] - 1) == color ){
+	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] - 1) == color ){
     	coordN = {coord[0] + 1, coord[1] - 1};
     	neighbors.push_back(coordN);
     }
 
-    if (_occupancyMap.at<unsigned char>(coord[0] - 1, coord[1] + 1) == color ){
+    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] + 1) == color ){
     	coordN = {coord[0] - 1, coord[1] + 1};
     	neighbors.push_back(coordN);
     }
 
-    if (_occupancyMap.at<unsigned char>(coord[0] - 1, coord[1] - 1) == color ){
+    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] - 1) == color ){
     	coordN = {coord[0] - 1, coord[1] - 1};
     	neighbors.push_back(coordN);
     }  

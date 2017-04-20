@@ -1,6 +1,7 @@
 #include <iostream>
 #include <opencv2/highgui/highgui.hpp>
 #include <math.h> 
+#include <ctime>
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
@@ -25,6 +26,9 @@
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
+typedef std::vector<std::array<float,2>> floatCoordVector;
+typedef std::vector<floatCoordVector> vecFloatCoordVector;
+
 
 class GoalPlanner {
 
@@ -32,21 +36,15 @@ public:
 	
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
-	GoalPlanner(int idRobot, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
+	GoalPlanner(int idRobot, cv::Mat* occupancyImage, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
 
-	void computeFrontiers();
-
-	void rankFrontiers();
+	bool requestOccupancyMap();
 
 	void rankFrontiers(float mapX, float mapY, float theta);
 
-	void publishFrontiers();
+	void publishGoal(std::array<float,2> goalPosition, std::string frame, coordVector goalPoints);
 
-	void publishGoal(std::array<int,2> goalCoord, std::string frame, coordVector goalPoints);
-
-	void makePlan(std::string frame, geometry_msgs::Pose start, geometry_msgs::Pose goal);
-
-	bool requestOccupancyMap(); 	
+	floatCoordVector makeSampledPlan(std::string frame, geometry_msgs::Pose start, geometry_msgs::Pose goal);
 
 	void waitForGoal();
 
@@ -54,13 +52,9 @@ public:
 
 	cv::Mat getImageMap();
 
-	coordVector getCentroids();
-
-	regionVector getRegions();
-
 	float getResolution();
 
-	coordVector getAbortedGoals();
+	floatCoordVector getAbortedGoals();
 
 	void printCostVal(std::array<int,2> point);
 
@@ -69,9 +63,9 @@ protected:
 
 	bool isGoalReached();
 	coordVector getColoredNeighbors(std::array<int,2> coord, int color);
+	floatCoordVector sampleTrajectory(nav_msgs::Path path);
 
 
-	FrontierDetector _frontiersDetector;
 
 	int _idRobot;
 	float _mapResolution;
@@ -84,20 +78,22 @@ protected:
 	int _unknownColor = 50;
 	int _occupiedColor = 100;
 
-	std::array<int,2> _goal;
+	std::array<float,2> _goal;
 	coordVector _points;
 	regionVector _regions;
 	coordVector _centroids;
 
+	float _sampledPathThreshold = 1;
+
 	coordVector _goalPoints;
-	coordVector _abortedGoals;
+	floatCoordVector _abortedGoals;
 
 	std::string _fixedFrameId;
 	std::string _topicGoalName;
 
 	nav_msgs::OccupancyGrid _costMapMsg;
 
-	cv::Mat _occupancyMap;
+	cv::Mat* _occupancyMap;
 	cv::Mat _costMap;
 	actionlib::SimpleClientGoalState::StateEnum _status;
 
@@ -106,5 +102,7 @@ protected:
 	ros::ServiceClient _planClient;
 	ros::Subscriber _subCostMap;
 	MoveBaseClient ac;
+
+
 
 };
