@@ -19,18 +19,10 @@ void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 }
 
 
-void GoalPlanner::goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg){
-	_statusMsg = *msg;
-
-	if (msg->status_list.size()>=1){
-		int lastEntry = msg->status_list.size() - 1;
-		_status = _statusMsg.status_list[lastEntry].status;
-	}
-
-}
 
 
-GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize){
+GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
+{
 
 
 	_idRobot = idRobot;
@@ -46,16 +38,11 @@ GoalPlanner::GoalPlanner(int idRobot, std::string nameFrame, std::string namePoi
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
-
-	_pubGoal = _nh.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 1);
-	_pubGoalCancel = _nh.advertise<actionlib_msgs::GoalID>("move_base/cancel",1);
-
-	_subGoalStatus = _nh.subscribe<actionlib_msgs::GoalStatusArray>("/move_base/status", 100, &GoalPlanner::goalStatusCallback, this);
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
 
 
 	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
-
+	while(!ac.waitForServer(ros::Duration(5.0))){}
 }
 
 
@@ -107,7 +94,20 @@ void GoalPlanner::computeFrontiers(){
 
 }
 
+void GoalPlanner::rankFrontiers(){
+
+	_frontiersDetector.rankRegions(_mapX, _mapY, _theta);
+	_regions = _frontiersDetector.getFrontierRegions();
+    _centroids = _frontiersDetector.getFrontierCentroids();
+
+
+}
+
 void GoalPlanner::rankFrontiers(float mapX, float mapY, float theta){
+
+	_mapX = mapX;
+	_mapY = mapY;
+	_theta = theta;
 	
 	_frontiersDetector.rankRegions(mapX, mapY, theta);
 	_regions = _frontiersDetector.getFrontierRegions();
@@ -130,18 +130,7 @@ void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame, co
 	_goal = goalCoord;
 	_goalPoints = goalPoints;
 
-
-
-  	geometry_msgs::PoseStamped goalMsg;
-  
-
-  	goalMsg.header.frame_id = frame;
-  	goalMsg.header.stamp = ros::Time::now();
-
-  	goalMsg.pose.position.x = goalCoord[0];
-  	goalMsg.pose.position.y = goalCoord[1];
-
-  	/*	float accTheta = 0;
+	  	/*	float accTheta = 0;
 	std::array<int,2> goalCentroid = _centroids[0];
 
 	for (int i = 0; i< _goalPoints.size(); i++){
@@ -150,17 +139,26 @@ void GoalPlanner::publishGoal(std::array<int,2> goalCoord, std::string frame, co
 	accTheta = accTheta/_goalPoints.size();
 
   	goalMsg.pose.orientation = tf::createQuaternionMsgFromYaw(accTheta);*/
+  
+  	move_base_msgs::MoveBaseGoal goal;
 
-  	goalMsg.pose.orientation.w = 1.0;
+	goal.target_pose.header.frame_id = frame;
+  	goal.target_pose.header.stamp = ros::Time::now();
 
-	_pubGoal.publish(goalMsg);
+	goal.target_pose.pose.position.x = goalCoord[0];
+	goal.target_pose.pose.position.y = goalCoord[1];	
+	goal.target_pose.pose.orientation.w = 1.0;
+
+	ROS_INFO("Sending goal");
+	ac.sendGoal(goal);
+
 
 }
 
 
 
 
-int GoalPlanner::waitForGoal(){
+void GoalPlanner::waitForGoal(){
 	
 	bool reached = false;
 	ros::Rate loop_rate1(10);
@@ -168,17 +166,17 @@ int GoalPlanner::waitForGoal(){
 
 
 	//This loop is needed to wait for the message status to be updated
-	while(_status != 1){
-		ros::spinOnce();
+	while(ac.getState() != actionlib::SimpleClientGoalState::ACTIVE){
 		loop_rate1.sleep();
 	}
 
 	while (reached == false){
-  		ros::spinOnce();
+  	
   		requestOccupancyMap(); //Necessary to check if the actual goal points have been explored
 
   		//These are needed just for visualization.......
   		computeFrontiers();
+  		rankFrontiers(); //Without parameters since I want to rank wrt previous stored pose
 		publishFrontiers();
 
 		reached = isGoalReached();
@@ -186,7 +184,7 @@ int GoalPlanner::waitForGoal(){
   		loop_rate2.sleep();
   	}  	
 
-  	return _status;
+
 
 
 }
@@ -205,30 +203,30 @@ bool GoalPlanner::isGoalReached(){
 		}
 	}
 
-	if (_status == 3){
+	if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
 		ROS_INFO("Hooray, the goal has been reached");
 		return true;
 
 	}
 
-	if (_status == 4){
+	if (ac.getState() == actionlib::SimpleClientGoalState::ABORTED){
 		//I have to discard the goal as not reachable
 		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The robot failed to reach the goal...Aborting");
+		ac.cancelAllGoals();
 		return true;
 	}
 
-/*)	if ((_status == 2) || (_status == 6)){
+	//Used if aborting from terminal or some other node
+	if ((ac.getState() == actionlib::SimpleClientGoalState::RECALLED) || (ac.getState() == actionlib::SimpleClientGoalState::PREEMPTED)){
 		_abortedGoals.push_back(_goal);
 		ROS_ERROR("The goal has been preempted...");
 		return true;
-	}*/
+	}
 
 	if (_goalPoints.size() - countDiscovered < 5){
 		ROS_INFO("The area has been explored");
-		actionlib_msgs::GoalID cancelGoalsMsg;
-		//Sending it empty cancels all the goals
-		_pubGoalCancel.publish(cancelGoalsMsg);
+		ac.cancelAllGoals();
 		return true;
 	}
 
@@ -250,8 +248,8 @@ cv::Mat GoalPlanner::getImageMap(){
 	return _occupancyMap;
 }
 
-int GoalPlanner::getGoalStatus(){
-	return _status;
+std::string GoalPlanner::getGoalStatus(){
+	return ac.getState().toString();
 }
 
 float GoalPlanner::getResolution(){

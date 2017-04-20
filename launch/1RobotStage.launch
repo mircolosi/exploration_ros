@@ -1,0 +1,24 @@
+<launch>
+  <master auto="start"/>
+  <param name="/use_sim_time" value="true"/>
+
+	<node pkg="mr_exploration" name="sim" type="slam_node" output="screen" args="-idRobot 0 -nRobots 1 -scanTopic base_scan -fixedFrame trajectory -o testmrslam.g2o" />
+
+
+<node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" />
+
+  <node pkg="stage_ros" type="stageros" name="stageros" args="$(find mr_exploration)/stagefiles/hospital.world" respawn="false" >
+    <param name="base_watchdog_timeout" value="0.2"/>
+  </node>
+
+
+<node pkg="rviz" type="rviz" name="visualizer" output="screen" args="-d $(find mr_exploration)/config.rviz"/>
+
+<node pkg="tf" type="static_transform_publisher" name="rotatedCostmap" args="0 0 0 -0.707 -0.707 0 0 map map_rotated 1000"/>
+
+  <include file="$(find mr_exploration)/move_base_config/move_base.xml"/>
+
+
+
+</launch>
+

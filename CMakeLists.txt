@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(cg_mrslam)
+project(mr_exploration)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
    std_msgs
    message_generation
    tf
+   cg_mrslam
 )
 
 ## System dependencies are found with CMake's conventions
@@ -53,7 +54,6 @@ add_message_files(
   SLAM.msg
   VSE2.msg
 )
-
 ## Generate services in the 'srv' folder
 # add_service_files(
 #   FILES
@@ -68,7 +68,7 @@ add_message_files(
 #   Action2.action
 # )
 
-# Generate added messages and services with any dependencies listed here
+## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
@@ -85,8 +85,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES cg_mrslam
-   CATKIN_DEPENDS message_runtime
+#  LIBRARIES mr_exploration
+   CATKIN_DEPENDS message_runtime cg_mrslam
 #  DEPENDS system_lib
 )
 
@@ -99,19 +99,19 @@ catkin_package(
 # include_directories(include)
 
 ## Declare a cpp library
-# add_library(cg_mrslam
-#   src/${PROJECT_NAME}/cg_mrslam.cpp
+# add_library(mr_exploration
+#   src/${PROJECT_NAME}/mr_exploration.cpp
 # )
 
 ## Declare a cpp executable
-# add_executable(cg_mrslam_node src/cg_mrslam_node.cpp)
+# add_executable(mr_exploration_node src/mr_exploration_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(cg_mrslam_node cg_mrslam_generate_messages_cpp)
+# add_dependencies(mr_exploration_node mr_exploration_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(cg_mrslam_node
+# target_link_libraries(mr_exploration_node
 #   ${catkin_LIBRARIES}
 # )
 
@@ -134,6 +134,13 @@ INCLUDE_DIRECTORIES(${CSPARSE_INCLUDE_DIR})
 FIND_PACKAGE(OpenCV)
 INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
 
+#FIND_PACKAGE(cg_mrslam) 
+#INCLUDE_DIRECTORIES(${cg_mrslam_SOURCE_DIR}/src)
+#INCLUDE_DIRECTORIES(${cg_mrslam_LIBRARIES})
+MESSAGE("CIAOOOOOOO ${cg_mrslam_LIBRARIES}")
+
+
+
 # Find g2o
 FIND_PACKAGE(G2O REQUIRED)
 IF(G2O_FOUND)
@@ -143,36 +150,12 @@ ELSE(G2O_FOUND)
   SET(${PROJECT_NAME}_G2O_INCLUDE "" CACHE PATH "Directory of G2O include")
 ENDIF(G2O_FOUND)
 
+
 include_directories(${G2O_INCLUDE_DIR})
 
 include_directories(src)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
-
-add_executable(srslam 
-  src/srslam.cpp
-  src/ros_handler.cpp
-  src/graph_ros_publisher.cpp
-  src/matcher/scan_matcher.cpp
-  src/matcher/chargrid.cpp
-  src/slam/closure_checker.cpp
-  src/slam/closure_buffer.cpp
-  src/slam/vertices_finder.cpp
-  src/slam/graph_manipulator.cpp
-  src/slam/graph_slam.cpp
-  src/mrslam/msg_factory.cpp
-)
-target_link_libraries(srslam 
-  ${catkin_LIBRARIES}  
-  ${CSPARSE_LIBRARY}
-  ${G2O_TYPES_DATA}
-  ${G2O_SOLVER_CSPARSE_EXTENSION}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_TYPES_SLAM2D}
-)
-add_dependencies(srslam cg_mrslam_generate_messages_cpp)
 
 add_executable(frontier_planner
   src/frontier_planner.cpp
@@ -190,33 +173,21 @@ target_link_libraries(frontier_planner
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(frontier_planner cg_mrslam_generate_messages_cpp)
+add_dependencies(frontier_planner mr_exploration_generate_messages_cpp)
 
-add_executable(sim_mrslam
-  src/sim_mrslam.cpp 
-  src/ros_handler.cpp
-  src/graph_ros_publisher.cpp
-  src/exploration/graph2occupancy.cpp
-  src/exploration/frequency_map.cpp
-  src/exploration/grid_line_traversal.cpp
-  src/exploration/frontier_detector.cpp
-  src/exploration/goal_planner.cpp
-  src/matcher/scan_matcher.cpp
-  src/matcher/chargrid.cpp
-  src/slam/closure_checker.cpp
-  src/slam/closure_buffer.cpp
-  src/slam/vertices_finder.cpp
-  src/slam/graph_manipulator.cpp
-  src/slam/graph_slam.cpp
-  src/mrslam/mr_graph_slam.cpp
-  src/mrslam/msg_factory.cpp
-  src/mrslam/mr_closure_buffer.cpp
-  src/mrslam/graph_comm.cpp
-  src/mrslam/condensedGraphs/condensed_graph_buffer.cpp
-  src/mrslam/condensedGraphs/edge_labeler.cpp
-  src/mrslam/condensedGraphs/condensed_graph_creator.cpp
+
+add_executable(slam_node
+  src/slam_node.cpp
+  src/map_creation/grid_line_traversal.cpp
+  src/map_creation/frequency_map.cpp
+  src/map_creation/graph2occupancy.cpp
+
 )
-target_link_libraries(sim_mrslam
+target_link_libraries(slam_node
+#cg_mrslam_matcher_library  #Commented because included as dir
+#cg_mrslam_ros_utils_library
+#cg_mrslam_slam_library
+#cg_mrslam_library   
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}    
   ${CSPARSE_LIBRARY}
@@ -227,78 +198,15 @@ target_link_libraries(sim_mrslam
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(sim_mrslam cg_mrslam_generate_messages_cpp)
+add_dependencies(slam_node mr_exploration_generate_messages_cpp)
 
-add_executable(real_mrslam
-  src/real_mrslam.cpp 
-  src/ros_handler.cpp
-  src/graph_ros_publisher.cpp
-  src/matcher/scan_matcher.cpp
-  src/matcher/chargrid.cpp
-  src/slam/closure_checker.cpp
-  src/slam/closure_buffer.cpp
-  src/slam/vertices_finder.cpp
-  src/slam/graph_manipulator.cpp
-  src/slam/graph_slam.cpp
-  src/mrslam/mr_graph_slam.cpp
-  src/mrslam/msg_factory.cpp
-  src/mrslam/mr_closure_buffer.cpp
-  src/mrslam/graph_comm.cpp
-  src/mrslam/condensedGraphs/condensed_graph_buffer.cpp
-  src/mrslam/condensedGraphs/edge_labeler.cpp
-  src/mrslam/condensedGraphs/condensed_graph_creator.cpp
-)
-target_link_libraries(real_mrslam
-  ${catkin_LIBRARIES}  
-  ${CSPARSE_LIBRARY}
-  ${G2O_TYPES_DATA}
-  ${G2O_SOLVER_CSPARSE_EXTENSION}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_TYPES_SLAM2D}
-)
-add_dependencies(real_mrslam cg_mrslam_generate_messages_cpp)
 
-add_executable(bag_mrslam
-  src/bag_mrslam.cpp 
-  src/ros_handler.cpp
-  src/graph_ros_publisher.cpp
-  src/matcher/scan_matcher.cpp
-  src/matcher/chargrid.cpp
-  src/slam/closure_checker.cpp
-  src/slam/closure_buffer.cpp
-  src/slam/vertices_finder.cpp
-  src/slam/graph_manipulator.cpp
-  src/slam/graph_slam.cpp
-  src/mrslam/mr_graph_slam.cpp
-  src/mrslam/msg_factory.cpp
-  src/mrslam/mr_closure_buffer.cpp
-  src/mrslam/graph_comm.cpp
-  src/mrslam/condensedGraphs/condensed_graph_buffer.cpp
-  src/mrslam/condensedGraphs/edge_labeler.cpp
-  src/mrslam/condensedGraphs/condensed_graph_creator.cpp
-)
-target_link_libraries(bag_mrslam
-  ${catkin_LIBRARIES}  
-  ${CSPARSE_LIBRARY}
-  ${G2O_TYPES_DATA}
-  ${G2O_SOLVER_CSPARSE_EXTENSION}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_TYPES_SLAM2D}
-)
-add_dependencies(bag_mrslam cg_mrslam_generate_messages_cpp)
 
-add_executable(comm_publisher
-  src/comm_publisher.cpp 
-)
-target_link_libraries(comm_publisher
-  ${catkin_LIBRARIES}  
-  ${G2O_STUFF_LIBRARY}
-)
-add_dependencies(comm_publisher cg_mrslam_generate_messages_cpp)
+
+
+
+
+
 
 #############
 ## Install ##
@@ -315,7 +223,7 @@ add_dependencies(comm_publisher cg_mrslam_generate_messages_cpp)
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS cg_mrslam cg_mrslam_node
+# install(TARGETS mr_exploration mr_exploration_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -340,7 +248,7 @@ add_dependencies(comm_publisher cg_mrslam_generate_messages_cpp)
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_cg_mrslam.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_mr_exploration.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

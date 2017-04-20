@@ -5,13 +5,13 @@
 #include <algorithm>
 
 
-#include "mrslam/mr_graph_slam.h" 
-
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
 #include "sensor_msgs/point_cloud2_iterator.h"
 #include "visualization_msgs/MarkerArray.h"
+
+#include <Eigen/Dense>
 
 
 typedef std::vector<std::array<int,2>> coordVector;

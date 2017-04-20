@@ -14,7 +14,7 @@ TrajectoryPlannerROS:
   min_in_place_rotational_vel: 0.4
 
   #The velocity the robot will command when trying to escape from a stuck situation
-  escape_vel: -0.15
+  escape_vel: -0.1
   
   holonomic_robot: false
 
@@ -27,21 +27,24 @@ TrajectoryPlannerROS:
 
   #We'll configure how long and with what granularity we'll forward simulate trajectories
   sim_time: 2
-  sim_granularity: 0.01
+  sim_granularity: 0.025
   vx_samples: 20
-  vtheta_samples: 80
+  vtheta_samples: 60
 
   #Parameters for scoring trajectories
-  goal_distance_bias: 0.8
-  path_distance_bias: 0.6
-  occdist_scale: 0.01
+  #goal_distance_bias: 0.8
+  #path_distance_bias: 0.6
+
+  #gdist_scale: 1 
+  #pdist_scale: 3.5 
+  occdist_scale: 0.05
   heading_lookahead: 0.325
 
   #We'll use the Dynamic Window Approach to control instead of Trajectory Rollout for this example
   dwa: true
 
   #How far the robot must travel before oscillation flags are reset
-  oscillation_reset_dist: 0.075
+  oscillation_reset_dist: 0.05
 
   #Eat up the plan as the robot moves along it
   prune_plan: true

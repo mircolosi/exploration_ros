@@ -3,7 +3,6 @@
 
 #include "g2o/stuff/command_args.h"
 
-#include "ros_handler.h"
 #include "ros/ros.h"
 #include "geometry_msgs/Pose2D.h"
 
@@ -29,14 +28,14 @@ void actualPoseCallback(const geometry_msgs::Pose2D msg){
 
 int main (int argc, char **argv){
 
-CommandArgs arg;
+g2o::CommandArgs arg;
 
 std::string frontierPointsTopic;
 std::string markersTopic;
 std::string actualPoseTopic;
 int thresholdRegionSize;
 int idRobot;
-int status;
+std::string status;
 float resolution;
 
 coordVector centroids;
@@ -89,16 +88,17 @@ while (ros::ok()){
 	//else if (goalNum > 0){
 	else {
 
-		/*int goalID; 
+
+		int goalID; 
 		for (int i = 0; i < centroids.size(); i ++){
 			if (std::find(abortedGoals.begin(), abortedGoals.end(), centroids[i]) == abortedGoals.end()){
 				goalID = i;
 				break;
 			}
 
-		}*/
+		}
 
-		int goalID = 0;
+		//int goalID = 0;
 
 		//Specify goals wrt base link frame
 		/*int goalX = round((centroids[0][0] - mapX )*resolution);
@@ -114,8 +114,9 @@ while (ros::ok()){
 
 		goalPoints = regions[goalID];
 
+		std::cout<< coordGoal[0]<< " "<<coordGoal[1]<<std::endl; 
 		goalPlanner.publishGoal(coordGoal, frame, goalPoints);
-		status = goalPlanner.waitForGoal();
+		goalPlanner.waitForGoal();
 		goalNum = goalNum - 1;
 	}
 

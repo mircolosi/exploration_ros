@@ -4,10 +4,10 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
-#include <move_base_msgs/MoveBaseAction.h>
 #include "tf/transform_broadcaster.h"
-#include <actionlib/client/simple_action_client.h>
 
+#include <move_base_msgs/MoveBaseAction.h>
+#include <actionlib/client/simple_action_client.h>
 
 
 #include <nav_msgs/GetMap.h>
@@ -18,9 +18,11 @@
 #include "nav_msgs/OccupancyGrid.h"
 
 
-#include "mrslam/mr_graph_slam.h" //Search for SE2 class
+
+#include "g2o/types/slam2d/se2.h"
 #include "frontier_detector.h"
 
+typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 
 class GoalPlanner {
@@ -29,26 +31,25 @@ public:
 	
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
-	void goalStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg);
-
-
 	GoalPlanner(int idRobot, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
-
 
 	void computeFrontiers();
 
-	void rankFrontiers(float mapX, float mapY, float theta);
+	void rankFrontiers();
 
+	void rankFrontiers(float mapX, float mapY, float theta);
 
 	void publishFrontiers();
 
 	void publishGoal(std::array<int,2> goalCoord, std::string frame, coordVector goalPoints);
 
+	void makePlan();
+
 	bool requestOccupancyMap(); 	
 
-	int waitForGoal();
+	void waitForGoal();
 
-	int getGoalStatus();
+	std::string getGoalStatus();
 
 	cv::Mat getImageMap();
 
@@ -65,11 +66,8 @@ public:
 
 protected:
 
-
-
 	bool isGoalReached();
 	coordVector getColoredNeighbors(std::array<int,2> coord, int color);
-
 
 
 	FrontierDetector _frontiersDetector;
@@ -96,21 +94,15 @@ protected:
 	std::string _fixedFrameId;
 	std::string _topicGoalName;
 
-	actionlib_msgs::GoalStatusArray _statusMsg;
 	nav_msgs::OccupancyGrid _costMapMsg;
 
 	cv::Mat _occupancyMap;
 	cv::Mat _costMap;
-	int _status;
-
+	actionlib::SimpleClientGoalState::StateEnum _status;
 
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
-	ros::Publisher  _pubGoal;
-	ros::Publisher _pubGoalCancel;
-	ros::Subscriber _subGoalStatus;
 	ros::Subscriber _subCostMap;
-
-
+	MoveBaseClient ac;
 
 };
