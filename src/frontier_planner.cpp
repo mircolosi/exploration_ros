@@ -7,7 +7,11 @@
 #include "geometry_msgs/Pose2D.h"
 
 #include "exploration/goal_planner.h"
+#include "exploration/paths_rollout.h"
 
+
+using namespace srrg_core;
+using namespace Eigen;
 
 
 
@@ -43,9 +47,9 @@ int idRobot;
 std::string status;
 float resolution;
 
-coordVector centroids;
-floatCoordVector abortedGoals;
-coordVector goalPoints;
+Vector2iVector centroids;
+Vector2fVector abortedGoals;
+Vector2iVector goalPoints;
 regionVector regions;
 
 cv::Mat occupancyMap;
@@ -66,8 +70,9 @@ ros::NodeHandle nh;
 
 ros::Subscriber subActualPose = nh.subscribe(actualPoseTopic,1,actualPoseCallback);
 
-GoalPlanner goalPlanner(idRobot, &occupancyMap, "base_link", frontierPointsTopic, markersTopic, thresholdRegionSize);
+GoalPlanner goalPlanner(idRobot, &occupancyMap, &costMap, "base_link", frontierPointsTopic, markersTopic, thresholdRegionSize);
 FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap, frontierPointsTopic, markersTopic, thresholdRegionSize);
+PathsRollout pathsRollout;
 
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
@@ -98,7 +103,7 @@ while (ros::ok() && (num > 0)){
 
 
 		int goalID; 
-		floatCoordVector meterCentroids;
+		Vector2fVector meterCentroids;
 		for (int i = 0; i < centroids.size(); i ++){
 			meterCentroids.push_back({centroids[i][0]*resolution, centroids[i][1]*resolution});
 			if (std::find(abortedGoals.begin(), abortedGoals.end(), meterCentroids[i]) == abortedGoals.end()){
@@ -116,7 +121,7 @@ while (ros::ok() && (num > 0)){
 		
 		
 		//Specify goals wrt map frame
-		std::array<float,2> goalPosition = {meterCentroids[goalID][0],meterCentroids[goalID][1]}; 
+		Vector2f goalPosition = {meterCentroids[goalID][0],meterCentroids[goalID][1]}; 
 		std::string frame = "map";
 		goalPoints = regions[goalID];
 
@@ -129,13 +134,14 @@ while (ros::ok() && (num > 0)){
 		goalPose.position.x = goalPosition[1];  //These are inverted to compute in costmap_rotated
 		goalPose.position.y = goalPosition[0];
 
-		floatCoordVector sampledPlan;
+		Vector2fVector sampledPlan;
 
-		sampledPlan = goalPlanner.makeSampledPlan("map_rotated", startPose, goalPose );
+		sampledPlan = pathsRollout.makeSampledPlan("map_rotated", startPose, goalPose );
 
 		std::cout<<"PLAN: "<<sampledPlan.size()<<std::endl;
 		for (int i = 0; i < sampledPlan.size(); i ++){
-				ros::spinOnce();
+			
+			ros::spinOnce();
 			goalPosition = {sampledPlan[i][1],sampledPlan[i][0]}; ////These are inverted because are compute in costmap_rotated
 			frame = "map";
 			//std::cout<< mapX*resolution << " "<<mapY*resolution << " -> "<< goalPosition[0]<< " "<<goalPosition[1]<<std::endl;	

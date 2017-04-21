@@ -2,6 +2,9 @@
 
 using namespace sensor_msgs;
 using namespace cv;
+using namespace Eigen;
+using namespace srrg_core;
+
 
 void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 	_costMapMsg = *msg;
@@ -26,6 +29,7 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
 FrontierDetector::FrontierDetector(){}
 
 FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, int thresholdSize){
+
 
 	_occupancyMap = occupancyImage;
 	_costMap = costImage;
@@ -139,10 +143,10 @@ void FrontierDetector::computeFrontiers(){
     	for(int r = 0; r < _occupancyMap->rows; r++) {
 
     		if (_occupancyMap->at<unsigned char>(r, c) == _freeColor ){ //If the current cell is free
-    			std::array<int,2> coord = {r,c};
+    			Vector2i coord = {r,c};
     			if (_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold) //If the current free cell is too close to an obstacle
     				continue;	
-    			coordVector neighbors = getColoredNeighbors(coord, _unknownColor); 
+    			Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
     			if (neighbors.empty())	//If the current free cell has no unknown cells around
     				continue;
     			for (int i = 0; i < neighbors.size(); i++){
@@ -154,19 +158,19 @@ void FrontierDetector::computeFrontiers(){
 
     				}
     			}
-    coordVector examined;	
+    Vector2iVector examined;	
 
     for (int i = 0; i < _frontiers.size(); i++){
 
     	if (!contains(examined, _frontiers[i])){ //I proceed only if the current coord has not been already considered
 
-    		coordVector tempRegion;
+    		Vector2iVector tempRegion;
     		tempRegion.push_back(_frontiers[i]);
     		examined.push_back(_frontiers[i]);
 
     		for (int k = 0; k < tempRegion.size(); k ++){
 
-    		coordVector neighbor;
+    		Vector2iVector neighbor;
     		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1]});
     		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1]});
     		neighbor.push_back({tempRegion[k][0], tempRegion[k][1] + 1});
@@ -206,7 +210,7 @@ void FrontierDetector::computeFrontiers(){
 		int meanX = round(accX/_regions[i].size());
 		int meanY = round(accY/_regions[i].size());
 
-		std::array<int,2> centroid = {meanX, meanY};
+		Vector2i centroid = {meanX, meanY};
 
 		_centroids.push_back(centroid);
 
@@ -216,7 +220,7 @@ void FrontierDetector::computeFrontiers(){
 	for (int i = 0; i < _centroids.size(); i++){
 		if (_occupancyMap->at<unsigned char>(_centroids[i][0], _centroids[i][1]) != _freeColor ){  //If the centroid is in a non-free cell
 			float distance = std::numeric_limits<float>::max();
-			std::array<int,2> closestPoint;
+			Vector2i closestPoint;
 
 			for (int j = 0; j < _regions[i].size(); j++){
 
@@ -266,7 +270,7 @@ void FrontierDetector::computeCentroids(){
 		int meanX = round(accX/_regions[i].size());
 		int meanY = round(accY/_regions[i].size());
 
-		std::array<int,2> centroid = {meanX, meanY};
+		Vector2i centroid = {meanX, meanY};
 
 		_centroids.push_back(centroid);
 
@@ -277,7 +281,7 @@ void FrontierDetector::computeCentroids(){
 	for (int i = 0; i < _centroids.size(); i++){
 		if (_occupancyMap->at<unsigned char>(_centroids[i][0], _centroids[i][1]) != _freeColor ){  //If the centroid is in a non-free cell
 			float distance = std::numeric_limits<float>::max();
-			std::array<int,2> closestPoint;
+			Vector2i closestPoint;
 
 			for (int j = 0; j < _regions[i].size(); j++){
 
@@ -312,7 +316,7 @@ void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
 
 	std::vector<float> scores(_centroids.size());
 
-	Eigen::Vector2f mapCoord(mapX, mapY);
+	Vector2f mapCoord(mapX, mapY);
 
 
 	std::vector<coordWithScore> vecCentroidScore;
@@ -461,20 +465,20 @@ void FrontierDetector::publishCentroidMarkers(){
 }
 
 
-coordVector FrontierDetector::getFrontierPoints(){
+Vector2iVector FrontierDetector::getFrontierPoints(){
 	return _frontiers;	}
 
 regionVector FrontierDetector::getFrontierRegions(){
 	return _regions;	}
 
-coordVector FrontierDetector::getFrontierCentroids(){
+Vector2iVector FrontierDetector::getFrontierCentroids(){
 	return _centroids;	}
 
 float FrontierDetector::getResolution(){
 	return _mapResolution;	}
 
 
-bool FrontierDetector::isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ){
+bool FrontierDetector::isNeighbor(Vector2i coordI, Vector2i coordJ){
 	if (coordI == coordJ)
 		return false;
 
@@ -487,11 +491,11 @@ bool FrontierDetector::isNeighbor(std::array<int,2> coordI, std::array<int,2> co
 }
 
 
-coordVector FrontierDetector::getColoredNeighbors (std::array<int,2> coord, int color){
+Vector2iVector FrontierDetector::getColoredNeighbors (Vector2i coord, int color){
 
 
-	coordVector neighbors;
-	std::array<int,2> coordN;
+	Vector2iVector neighbors;
+	Vector2i coordN;
 
     if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
     	coordN = {coord[0] + 1, coord[1]};
@@ -541,7 +545,7 @@ coordVector FrontierDetector::getColoredNeighbors (std::array<int,2> coord, int 
 
 
 
-bool FrontierDetector::isSurrounded (std::array<int,2> coord , int color){
+bool FrontierDetector::isSurrounded (Vector2i coord , int color){
 
 
 	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) != color ){

@@ -14,12 +14,16 @@
 
 #include <Eigen/Dense>
 
+#include "srrg_types/defs.h"
 
-typedef std::vector<std::array<int,2>> coordVector;
-typedef std::vector<coordVector> regionVector;
+
+using namespace Eigen;
+using namespace srrg_core;
+
+typedef std::vector<Vector2iVector> regionVector;
 
 struct coordWithScore {
-	std::array<int,2> coord;
+	Vector2i coord;
 	float score;
 
 	bool operator <(const coordWithScore& cws)const
@@ -29,7 +33,7 @@ struct coordWithScore {
 };
 
 struct regionWithScore {
-	coordVector region;
+	Vector2iVector region;
 	float score;
 
 	bool operator <(const regionWithScore& rws)const
@@ -58,9 +62,9 @@ public:
 	
 	void computeCentroids();
 
-	coordVector getFrontierPoints();
+	Vector2iVector getFrontierPoints();
 	regionVector getFrontierRegions();
-	coordVector getFrontierCentroids();
+	Vector2iVector getFrontierCentroids();
 	float getResolution();
 
 
@@ -73,11 +77,11 @@ public:
 
 protected:
 
-	bool isNeighbor(std::array<int,2> coordI, std::array<int,2> coordJ);
-	coordVector getColoredNeighbors(std::array<int,2> coord, int color);
-	bool isSurrounded(std::array<int,2> coord, int color);
+	bool isNeighbor(Vector2i coordI, Vector2i coordJ);
+	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
+	bool isSurrounded(Vector2i coord, int color);
 
-	inline bool contains(coordVector vector, std::array<int,2> element){
+	inline bool contains(Vector2iVector vector, Vector2i element){
 		if (std::find(vector.begin(), vector.end(), element) != vector.end())
 			return true;
 		else 
@@ -100,9 +104,9 @@ protected:
 	int _circumscribedThreshold = 99;
 
 
-	coordVector _frontiers;
+	Vector2iVector _frontiers;
 	regionVector _regions;
-	coordVector _centroids;
+	Vector2iVector _centroids;
 
 	std::string _topicPointsName;
 	std::string _topicMarkersName;

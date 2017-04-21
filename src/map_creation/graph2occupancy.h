@@ -77,7 +77,7 @@ public:
 	float getFreeThreshold ();
 	string getTopicName ();
 
-	Eigen::Vector2f getOffset();
+	Vector2f getOffset();
 
 
 
@@ -91,7 +91,7 @@ protected:
 	FrequencyMap _map;
 	cv::Mat  _mapImage;
 
-	Eigen::Vector2f _offset;
+	Vector2f _offset;
 	SE2 _groundTruthPose;
 
 	float _resolution;

@@ -89,7 +89,7 @@ void Graph2occupancy::computeMap(){
    *                          Compute map size                            *
    ************************************************************************/
   // Check the entire graph to find map bounding box
-  Eigen::Matrix2d boundingBox = Eigen::Matrix2d::Zero();
+  Matrix2d boundingBox = Matrix2d::Zero();
   std::vector<RobotLaser*> robotLasers;
   std::vector<SE2> robotPoses;
   double xmin=std::numeric_limits<double>::max();
@@ -146,10 +146,10 @@ void Graph2occupancy::computeMap(){
    *                          Compute the map                             *
    ************************************************************************/
   // Create the map
-  Eigen::Vector2i size;
-  if(_rows != 0 && _cols != 0) { size = Eigen::Vector2i(_rows, _cols); }
+  Vector2i size;
+  if(_rows != 0 && _cols != 0) { size = Vector2i(_rows, _cols); }
   else {
-    size = Eigen::Vector2i((boundingBox(0, 1) - boundingBox(0, 0))/ _resolution,
+    size = Vector2i((boundingBox(0, 1) - boundingBox(0, 0))/ _resolution,
          (boundingBox(1, 1) - boundingBox(1, 0))/ _resolution);
     } 
  // std::cout << "Map size: " << size.transpose() << std::endl;
@@ -160,7 +160,7 @@ void Graph2occupancy::computeMap(){
 
   
 
-  //Eigen::Vector2f offset(-size.x() * _resolution / 2.0f, -size.y() * _resolution / 2.0f);
+  //Vector2f offset(-size.x() * _resolution / 2.0f, -size.y() * _resolution / 2.0f);
   _offset<<boundingBox(0, 0),boundingBox(1, 0);
   FrequencyMapCell unknownCell;
   
@@ -368,7 +368,7 @@ void Graph2occupancy::publishMap() {
     return _topicName;
   }
 
-  Eigen::Vector2f Graph2occupancy::getOffset(){
+  Vector2f Graph2occupancy::getOffset(){
     return _offset;
   }
 
@@ -384,7 +384,7 @@ void Graph2occupancy::saveMap(string outputFileName) {
 
 
   std::ofstream ofs(string(outputFileName + ".yaml").c_str());
-  Eigen::Vector3f origin(0.0f, 0.0f, 0.0f);
+  Vector3f origin(0.0f, 0.0f, 0.0f);
   ofs << "image: " << outputFileName << ".png" << endl
       << "resolution: " << _resolution << endl
       << "origin: [" << origin.x() << ", " << origin.y() << ", " << origin.z() << "]" << endl

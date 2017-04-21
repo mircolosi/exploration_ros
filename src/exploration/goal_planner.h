@@ -12,7 +12,6 @@
 
 
 #include <nav_msgs/GetMap.h>
-#include <nav_msgs/GetPlan.h>
 
 
 #include "actionlib_msgs/GoalStatus.h"
@@ -24,10 +23,12 @@
 #include "g2o/types/slam2d/se2.h"
 #include "frontier_detector.h"
 
+#include "srrg_types/defs.h"
+
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
-typedef std::vector<std::array<float,2>> floatCoordVector;
-typedef std::vector<floatCoordVector> vecFloatCoordVector;
+//typedef std::vector<std::array<float,2>> floatCoordVector;
+//typedef std::vector<floatCoordVector> vecFloatCoordVector;
 
 
 class GoalPlanner {
@@ -36,15 +37,13 @@ public:
 	
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
-	GoalPlanner(int idRobot, cv::Mat* occupancyImage, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
+	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
 
 	bool requestOccupancyMap();
 
 	void rankFrontiers(float mapX, float mapY, float theta);
 
-	void publishGoal(std::array<float,2> goalPosition, std::string frame, coordVector goalPoints);
-
-	floatCoordVector makeSampledPlan(std::string frame, geometry_msgs::Pose start, geometry_msgs::Pose goal);
+	void publishGoal(Vector2f goalPosition, std::string frame, Vector2iVector goalPoints);
 
 	void waitForGoal();
 
@@ -54,16 +53,15 @@ public:
 
 	float getResolution();
 
-	floatCoordVector getAbortedGoals();
+	Vector2fVector getAbortedGoals();
 
-	void printCostVal(std::array<int,2> point);
+	void printCostVal(Vector2i point);
 
 
 protected:
 
 	bool isGoalReached();
-	coordVector getColoredNeighbors(std::array<int,2> coord, int color);
-	floatCoordVector sampleTrajectory(nav_msgs::Path path);
+	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
 
 
 
@@ -78,15 +76,17 @@ protected:
 	int _unknownColor = 50;
 	int _occupiedColor = 100;
 
-	std::array<float,2> _goal;
-	coordVector _points;
+	Vector2f _goal;
+	Vector2iVector _points;
 	regionVector _regions;
-	coordVector _centroids;
+	Vector2iVector _centroids;
 
 	float _sampledPathThreshold = 1;
+	int _circumscribedThreshold = 99;
 
-	coordVector _goalPoints;
-	floatCoordVector _abortedGoals;
+
+	Vector2iVector _goalPoints;
+	Vector2fVector _abortedGoals;
 
 	std::string _fixedFrameId;
 	std::string _topicGoalName;
@@ -94,12 +94,11 @@ protected:
 	nav_msgs::OccupancyGrid _costMapMsg;
 
 	cv::Mat* _occupancyMap;
-	cv::Mat _costMap;
+	cv::Mat* _costMap;
 	actionlib::SimpleClientGoalState::StateEnum _status;
 
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
-	ros::ServiceClient _planClient;
 	ros::Subscriber _subCostMap;
 	MoveBaseClient ac;
 

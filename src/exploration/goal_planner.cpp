@@ -1,16 +1,18 @@
 #include "goal_planner.h"
 
+using namespace srrg_core;
+using namespace Eigen;
 
 void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 	_costMapMsg = *msg;
 
 
 	int currentCell = 0;
-	_costMap = cv::Mat(msg->info.height, msg->info.width, CV_8UC1);
+	*_costMap = cv::Mat(msg->info.height, msg->info.width, CV_8UC1);
 		for(int r = 0; r < msg->info.height; r++) {
 			for(int c = 0; c < msg->info.width; c++) {
       		
-      		    _costMap.at<unsigned char>(r, c) = msg->data[currentCell];
+      		    _costMap->at<unsigned char>(r, c) = msg->data[currentCell];
       		    currentCell++;
       		}
       	}
@@ -21,10 +23,11 @@ void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 
 
 
-GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
+GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
 {
 
 	_occupancyMap = occupancyImage;
+	_costMap = costImage;
 
 	_idRobot = idRobot;
 
@@ -33,7 +36,6 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, std::string nameF
 	fullFixedFrameId << "map";
 	_fixedFrameId = fullFixedFrameId.str();
 
-	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
@@ -78,49 +80,17 @@ bool GoalPlanner::requestOccupancyMap(){
 
 
 
-floatCoordVector GoalPlanner::makeSampledPlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
-
-	nav_msgs::GetPlan::Request req;
-	nav_msgs::GetPlan::Response res;
-
-	req.start.header.frame_id = frame;
-	req.start.pose = startPose;
-
-	req.goal.header.frame_id = frame;
-	req.goal.pose = goalPose;
-
-	floatCoordVector sampledPlan;
-
-	if (_planClient.call(req,res)){
-        if (!res.plan.poses.empty()) {
-
-        	 sampledPlan = sampleTrajectory(res.plan);
-
-            }
-        
-        else {
-            ROS_WARN("Got empty plan");
-        }
-    }
-    else {
-        ROS_ERROR("Failed to call service %s - is the robot moving?", _planClient.getService().c_str());
-    }
-
-    return sampledPlan;
-
-}
 
 
 
 
-
-void GoalPlanner::publishGoal(std::array<float,2> goalPosition, std::string frame, coordVector goalPoints){
+void GoalPlanner::publishGoal(Vector2f goalPosition, std::string frame, Vector2iVector goalPoints){
 
 	_goal = goalPosition;
 	_goalPoints = goalPoints;
 
 	  	/*	float accTheta = 0;
-	std::array<int,2> goalCentroid = _centroids[0];
+	Vector2i goalCentroid = _centroids[0];
 
 	for (int i = 0; i< _goalPoints.size(); i++){
 		accTheta = accTheta + atan2(goalCentroid[1] - _goalPoints[i][1], goalCentroid[0] - _goalPoints[i][0]);
@@ -155,7 +125,6 @@ void GoalPlanner::publishGoal(std::array<float,2> goalPosition, std::string fram
 
 void GoalPlanner::waitForGoal(){
 	
-	bool reached = false;
 	ros::Rate loop_rate1(10);
 	ros::Rate loop_rate2(1);
 
@@ -165,11 +134,9 @@ void GoalPlanner::waitForGoal(){
 		loop_rate1.sleep();
 	}
 
-	while (reached == false){
+	while (!isGoalReached()){
 
 		requestOccupancyMap();
-
-		reached = isGoalReached();
 
   		loop_rate2.sleep();
   	}  	
@@ -187,8 +154,8 @@ bool GoalPlanner::isGoalReached(){
 	for (int i = 0; i < _goalPoints.size(); i++){
 		int r = _goalPoints[i][0];
 		int c = _goalPoints[i][1];
-		std::array<int,2> coord = {r,c};
-		if((getColoredNeighbors(coord, _unknownColor).empty())||(_costMap.at<unsigned char>(r, c) >= 90 )) {
+		Vector2i coord = {r,c};
+		if((getColoredNeighbors(coord, _unknownColor).empty())||(_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold )) {
 			countDiscovered++;
 		}
 	}
@@ -225,56 +192,6 @@ bool GoalPlanner::isGoalReached(){
 }
 
 
-floatCoordVector GoalPlanner::sampleTrajectory(nav_msgs::Path path){
-
-	floatCoordVector sampledPath;
-
-	if (!path.poses.empty()){
-
-		std::array<float,2> position2D;
-
-		position2D[0] = path.poses[0].pose.position.x;
-		position2D[1] = path.poses[0].pose.position.y;
-
-		sampledPath.push_back(position2D);
-
-		std::array<float,2> lastPose = position2D;
-
-		for (int i = 0; i < path.poses.size(); i++){
-
-			float distance = sqrt(pow((lastPose[0] - path.poses[i].pose.position.x),2) + pow((lastPose[1] - path.poses[i].pose.position.y),2));
-
-			if (distance >= _sampledPathThreshold){
-
-				//std::cout<<lastPose[0]<<" "<<lastPose[1]<<" -> "<< path.poses[i].pose.position.x << " "<< path.poses[i].pose.position.y << std::endl;
-
-
-				lastPose[0] = path.poses[i].pose.position.x;
-				lastPose[1] = path.poses[i].pose.position.y;
-
-				sampledPath.push_back(lastPose);
-
-
-													}
-
-		}
-
-		float distance = sqrt(pow((lastPose[0] - path.poses.back().pose.position.x),2) + pow((lastPose[1] - path.poses.back().pose.position.y),2));
-
-		if (distance >= 0.25){  //This should be the xy_threshold set in the local planner
-
-			lastPose[0] = path.poses.back().pose.position.x;
-			lastPose[1] = path.poses.back().pose.position.y;
-			sampledPath.push_back(lastPose);
-		}
-
-	}
-
-	//std::cout<<"Size: "<< sampledPath.size()<<std::endl;
-	return sampledPath;
-
-}
-
 
 
 cv::Mat GoalPlanner::getImageMap(){
@@ -289,18 +206,18 @@ float GoalPlanner::getResolution(){
 	return _mapResolution;
 }
 
-floatCoordVector GoalPlanner::getAbortedGoals(){
+Vector2fVector GoalPlanner::getAbortedGoals(){
 	return _abortedGoals;
 }
 
 
 
 
-coordVector GoalPlanner::getColoredNeighbors (std::array<int,2> coord, int color){
+Vector2iVector GoalPlanner::getColoredNeighbors (Vector2i coord, int color){
 
 
-	coordVector neighbors;
-	std::array<int,2> coordN;
+	Vector2iVector neighbors;
+	Vector2i coordN;
 
     if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
     	coordN = {coord[0] + 1, coord[1]};
@@ -351,10 +268,10 @@ coordVector GoalPlanner::getColoredNeighbors (std::array<int,2> coord, int color
 
 
 
-   void GoalPlanner::printCostVal(std::array<int,2> point){
+   void GoalPlanner::printCostVal(Vector2i point){
    	std::cout<<point[0]<< " "<<point[1]<<"->";
    	for (int i =0; i< 101; i++){
-   		if (_costMap.at<unsigned char>(point[0], point[1]) == i ){
+   		if (_costMap->at<unsigned char>(point[0], point[1]) == i ){
    			std::cout<<i<<std::endl;
    		}
    	}

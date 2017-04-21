@@ -19,7 +19,11 @@ Requirements:
             export LD_LIBRARY_PATH=${G2O_LIB}:${LD_LIBRARY_PATH}  
             export PATH=${G2O_BIN}:${PATH}  
 
-- This code uses the **cg_mrslam**(https://github.com/mtlazaro/cg_mrslam) developed by M.T. Lazaro for implementing SLAM techniques and running the examples.
+- This code uses [cg_mrslam](https://github.com/mtlazaro/cg_mrslam) developed by M.T. Lazaro for implementing SLAM techniques and running the examples.
+
+- The srrg_scan_matcher developed by G. Grisetti is used to implement the projector2d.
+ 
+- The srrg_core package provides libraries and utilities.
 
 - [ROS indigo.](http://wiki.ros.org/indigo/Installation)
 
@@ -53,7 +57,7 @@ The default parameters work well in general, anyway for specific program options
 
     $ rosrun mr_exploration mainProgram --help
   
-###Example of use:###
+**Example of use:**
 
 It's possible to test the whole system by launching the launch file present in the launch directory
 

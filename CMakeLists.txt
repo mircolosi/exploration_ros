@@ -9,7 +9,9 @@ find_package(catkin REQUIRED COMPONENTS
    std_msgs
    message_generation
    tf
+   srrg_core
    cg_mrslam
+   srrg_scan_matcher
 )
 
 ## System dependencies are found with CMake's conventions
@@ -134,12 +136,6 @@ INCLUDE_DIRECTORIES(${CSPARSE_INCLUDE_DIR})
 FIND_PACKAGE(OpenCV)
 INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
 
-#FIND_PACKAGE(cg_mrslam) 
-#INCLUDE_DIRECTORIES(${cg_mrslam_SOURCE_DIR}/src)
-#INCLUDE_DIRECTORIES(${cg_mrslam_LIBRARIES})
-MESSAGE("CIAOOOOOOO ${cg_mrslam_LIBRARIES}")
-
-
 
 # Find g2o
 FIND_PACKAGE(G2O REQUIRED)
@@ -161,6 +157,7 @@ add_executable(frontier_planner
   src/frontier_planner.cpp
   src/exploration/frontier_detector.cpp
   src/exploration/goal_planner.cpp
+  src/exploration/paths_rollout.cpp
 )
 target_link_libraries(frontier_planner
   ${catkin_LIBRARIES}
@@ -183,11 +180,7 @@ add_executable(slam_node
   src/map_creation/graph2occupancy.cpp
 
 )
-target_link_libraries(slam_node
-#cg_mrslam_matcher_library  #Commented because included as dir
-#cg_mrslam_ros_utils_library
-#cg_mrslam_slam_library
-#cg_mrslam_library   
+target_link_libraries(slam_node  
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}    
   ${CSPARSE_LIBRARY}
