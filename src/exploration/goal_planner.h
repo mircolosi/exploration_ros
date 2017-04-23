@@ -27,10 +27,6 @@
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
-//typedef std::vector<std::array<float,2>> floatCoordVector;
-//typedef std::vector<floatCoordVector> vecFloatCoordVector;
-
-
 class GoalPlanner {
 
 public:
@@ -43,7 +39,7 @@ public:
 
 	void rankFrontiers(float mapX, float mapY, float theta);
 
-	void publishGoal(Vector2f goalPosition, std::string frame, Vector2iVector goalPoints);
+	void publishGoal(Vector2f goalPosition, float orientation, std::string frame, Vector2iVector goalPoints);
 
 	void waitForGoal();
 

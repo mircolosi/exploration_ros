@@ -50,7 +50,6 @@ bool GoalPlanner::requestOccupancyMap(){
 	nav_msgs::GetMap::Response res;
 
 
-
 	if (_mapClient.call(req,res)){
 		_mapResolution = res.map.info.resolution;
 
@@ -84,20 +83,10 @@ bool GoalPlanner::requestOccupancyMap(){
 
 
 
-void GoalPlanner::publishGoal(Vector2f goalPosition, std::string frame, Vector2iVector goalPoints){
+void GoalPlanner::publishGoal(Vector2f goalPosition, float orientation, std::string frame, Vector2iVector goalPoints){
 
 	_goal = goalPosition;
 	_goalPoints = goalPoints;
-
-	  	/*	float accTheta = 0;
-	Vector2i goalCentroid = _centroids[0];
-
-	for (int i = 0; i< _goalPoints.size(); i++){
-		accTheta = accTheta + atan2(goalCentroid[1] - _goalPoints[i][1], goalCentroid[0] - _goalPoints[i][0]);
-	}
-	accTheta = accTheta/_goalPoints.size();
-
-  	goalMsg.pose.orientation = tf::createQuaternionMsgFromYaw(accTheta);*/
   
  	move_base_msgs::MoveBaseGoal goal;
 
@@ -106,13 +95,16 @@ void GoalPlanner::publishGoal(Vector2f goalPosition, std::string frame, Vector2i
 
 	goal.target_pose.pose.position.x = goalPosition[0];
 	goal.target_pose.pose.position.y = goalPosition[1];	
-	goal.target_pose.pose.orientation.w = 1.0;
+
+
+	
+	goal.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(orientation);
 
 	std::stringstream infoGoal;
 
 	time_t _now = time(0);
 	tm *ltm = localtime(&_now);
-	infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]Sending goal "<< goalPosition[0] << " "<< goalPosition[1]<<std::endl;
+	infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]Sending goal "<< goalPosition[0] << " "<< goalPosition[1]<< " "<<orientation<<std::endl;
 
 	std::cout<<infoGoal.str()<<std::endl;
 	ac.sendGoal(goal);
@@ -127,7 +119,6 @@ void GoalPlanner::waitForGoal(){
 	
 	ros::Rate loop_rate1(10);
 	ros::Rate loop_rate2(1);
-
 
 	//This loop is needed to wait for the message status to be updated
 	while(ac.getState() != actionlib::SimpleClientGoalState::ACTIVE){
@@ -159,6 +150,7 @@ bool GoalPlanner::isGoalReached(){
 			countDiscovered++;
 		}
 	}
+
 
 	if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
 		ROS_INFO("Hooray, the goal has been reached");
@@ -214,7 +206,6 @@ Vector2fVector GoalPlanner::getAbortedGoals(){
 
 
 Vector2iVector GoalPlanner::getColoredNeighbors (Vector2i coord, int color){
-
 
 	Vector2iVector neighbors;
 	Vector2i coordN;

@@ -19,7 +19,10 @@ Requirements:
             export LD_LIBRARY_PATH=${G2O_LIB}:${LD_LIBRARY_PATH}  
             export PATH=${G2O_BIN}:${PATH}  
 
-- This code uses [cg_mrslam](https://github.com/mtlazaro/cg_mrslam) developed by M.T. Lazaro for implementing SLAM techniques and running the examples.
+- This code uses **cg_mrslam** developed by M.T. Lazaro for implementing SLAM techniques and running the examples
+
+        $ git clone https://github.com/mtlazaro/cg_mrslam.git
+
 
 - The srrg_scan_matcher developed by G. Grisetti is used to implement the projector2d.
  

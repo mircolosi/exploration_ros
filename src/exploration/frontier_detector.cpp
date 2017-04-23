@@ -314,7 +314,7 @@ void FrontierDetector::computeCentroids(){
 
 void FrontierDetector::rankRegions(float mapX, float mapY, float theta){
 
-	std::vector<float> scores(_centroids.size());
+	FloatVector scores(_centroids.size());
 
 	Vector2f mapCoord(mapX, mapY);
 
@@ -553,17 +553,14 @@ bool FrontierDetector::isSurrounded (Vector2i coord , int color){
     }
 
 	if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) != color ){
-
     	return false;
     }
 
     if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) != color ){
-
     	return false;
     }
 
     if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) != color ){
-
     	return false;
     }    
  /*   if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]+1) != color ){

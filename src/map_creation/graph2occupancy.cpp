@@ -223,13 +223,19 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
 
   Vector2D translation = actualPose.translation();
 
-  int mapX = (abs(translation[0] - _offset[0]))/_resolution;
-  int mapY = (abs(translation[1] - _offset[1]))/_resolution;
+
+  //float mapX = (abs(translation[0] - _offset[0]))/_resolution;
+  //float mapY = (abs(translation[1] - _offset[1]))/_resolution;
+
+  float mapX = translation[0] - _offset[0];
+  float mapY = translation[1] - _offset[1];
 
   poseMsg.x = mapX;
   poseMsg.y = mapY;
   poseMsg.theta = actualPose.rotation().angle();
 
+  //std::cout<<"translation "<<translation[0]<<" "<<translation[1]<<std::endl;
+  //std::cout<<"actual pose "<<poseMsg.x<<" "<<poseMsg.y<<std::endl;
 
   _pubActualCoord.publish(poseMsg);
 
@@ -379,7 +385,6 @@ void Graph2occupancy::showMap() {}
 
 void Graph2occupancy::saveMap(string outputFileName) {
 
-
   cv::imwrite(outputFileName + ".png", _mapImage);
 
 
@@ -391,9 +396,6 @@ void Graph2occupancy::saveMap(string outputFileName) {
       << "negate: 0" << endl
       << "occupied_thresh: " << _threshold << endl
       << "free_thresh: " << _freeThreshold << endl;
-
-
-
 
 }
 

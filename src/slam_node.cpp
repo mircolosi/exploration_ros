@@ -145,11 +145,10 @@ int main(int argc, char **argv)
       char buf[100];
       sprintf(buf, "robot-%i-%s", idRobot, outputFilename.c_str());
       gslam.saveGraph(buf);
- 
-
-      graphPublisher.publishGraph();
        
     }
+
+    graphPublisher.publishGraph();
 
     SE2 lastPose = gslam.lastVertex()->estimate();
     occupancyPublisher.publishMapPose(lastPose);

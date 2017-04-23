@@ -22,8 +22,8 @@ TrajectoryPlannerROS:
   y_vels: [-0.3, -0.1, 0.1, -0.3]
 
   #Set the tolerance on achieving a goal
-  xy_goal_tolerance: 0.25
-  yaw_goal_tolerance: 6.28
+  xy_goal_tolerance: 0.15
+  yaw_goal_tolerance: 0.15
 
   #We'll configure how long and with what granularity we'll forward simulate trajectories
   sim_time: 2
@@ -32,11 +32,8 @@ TrajectoryPlannerROS:
   vtheta_samples: 60
 
   #Parameters for scoring trajectories
-  #goal_distance_bias: 0.8
-  #path_distance_bias: 0.6
-
-  #gdist_scale: 1 
-  #pdist_scale: 3.5 
+  gdist_scale: 1
+  pdist_scale: 3 
   occdist_scale: 0.05
   heading_lookahead: 0.325
 
