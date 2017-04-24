@@ -17,9 +17,11 @@
 
 
 
+
 using namespace srrg_core;
 using namespace Eigen;
 
+typedef std::vector<Vector2iVector> regionVector;
 
 typedef std::vector<Vector2fVector> Vector2DPlans;
 
@@ -27,7 +29,9 @@ struct PoseWithVisiblePoints {
 	Vector3f pose;
 	Vector2fVector points;
 	Vector2iVector mapPoints;
-	int numPoints = 0;
+	float score = -1;
+	int numPoints;
+	int planIndex;
 };
 
 
@@ -47,20 +51,20 @@ public:
 
 	PoseWithVisiblePoints extractGoalFromSampledPlans(Vector2DPlans vectorSampledPlans);
 
-	PoseWithVisiblePoints extractBestPoseInPlan(Vector2fVector sampledPlan);
+	PoseWithVisiblePoints extractBestPoseInPlan(Vector2fVector sampledPlan, std::vector<int> indices, srrg_scan_matcher::Cloud2D cloud);
 
 
 	Vector2fVector makeSampledPlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
-	Vector2fVector sampleTrajectory(nav_msgs::Path path);
+	Vector2fVector sampleTrajectory(nav_msgs::Path path, std::vector<int> *indices);
 
-	void setFrontierPoints(Vector2iVector points);
+	void setFrontierPoints(Vector2iVector points, regionVector regions);
 
 
 
 
 protected: 
 
-	srrg_scan_matcher::Cloud2D createFrontierPointsCloud();
+	srrg_scan_matcher::Cloud2D createAugmentedPointsCloud();
 
 	void project(const Isometry2f& T, srrg_scan_matcher::Cloud2D cloud);
 
@@ -74,11 +78,15 @@ protected:
 	float _intervalOrientation;
 	float _lastSampleThreshold;
 
+	std::vector<std::vector<int>> _vectorPlanIndices;
 
 	Vector2f _rangesLimits;
 	float _fov;
 	int _numRanges;
+
+	regionVector _regions;
 	Vector2iVector _frontierPoints;
+
 	srrg_scan_matcher::Cloud2D _laserPointsCloud;
 	FloatVector _ranges;
 	IntVector _pointsIndices;

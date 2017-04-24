@@ -98,11 +98,6 @@ int main(int argc, char **argv)
 	float angle = 0.0;
 	float freeThrehsold = 0.3;
 
-  std::string frontierPointsTopic = "points";
-  std::string markersTopic = "markers";
-  occupancyTopic = "map";
-  int threhsoldSize = 50;
-  int threhsoldNeighbors = 5;
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
   Graph2occupancy occupancyPublisher(gslam.graph(), idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);

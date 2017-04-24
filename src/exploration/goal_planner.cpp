@@ -154,6 +154,7 @@ bool GoalPlanner::isGoalReached(){
 
 	if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
 		ROS_INFO("Hooray, the goal has been reached");
+		std::cout<< countDiscovered << " Points explored"<<std::endl;
 		return true;
 
 	}

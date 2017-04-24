@@ -15,22 +15,22 @@ using namespace Eigen;
 
 
 
-float mapX;
-float mapY;
-float theta;
+float poseX;
+float poseY;
+float poseTheta;
 
 geometry_msgs::Pose2D poseMsg;
 
 
 void actualPoseCallback(const geometry_msgs::Pose2D msg){
 
-	mapX = msg.x;
-	mapY = msg.y;
-	theta = msg.theta;
+	poseX = msg.x;
+	poseY = msg.y;
+	poseTheta = msg.theta;
 
 	poseMsg = msg;
 
-	std::cout<<"callback "<< mapX<<" "<<mapY<<std::endl;
+	//std::cout<<"callback "<< poseX<<" "<<poseY<<std::endl;
 
 
 }
@@ -88,7 +88,7 @@ while (ros::ok() && (num > 0)){
 
 	frontiersDetector.requestOccupancyMap();
 	frontiersDetector.computeFrontiers();
-	//frontiersDetector.rankRegions(mapX, mapY, theta);
+
 	frontiersDetector.publishFrontierPoints();
    	frontiersDetector.publishCentroidMarkers();
 
@@ -118,14 +118,25 @@ while (ros::ok() && (num > 0)){
 
 		}
 
-		pathsRollout.setFrontierPoints(frontierPoints);
+		pathsRollout.setFrontierPoints(frontierPoints, regions);
+
+		float cellOffset = resolution;
 
 		geometry_msgs::Pose startPose;
-		startPose.position.x = mapY; //Inverted because plans are computed in the costmap
-		startPose.position.y = mapX;
-		
-		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(startPose, meterCentroids, "map_rotated");
+		startPose.position.x = poseY + cellOffset/2; //Inverted because plans are computed in the costmap
+		startPose.position.y = poseX + cellOffset;
 
+		tf::Quaternion q;
+  		q.setRPY(0, 0, poseTheta);
+  		geometry_msgs::Quaternion qMsg;
+
+  		tf::quaternionTFToMsg(q,qMsg);	
+
+		startPose.orientation = qMsg;  //It seems like global planner does not consider initial orientation
+		//The idea would be to use orientation to rank goal poses: if the planner would compute intermediate poses WITH orientation, I could compute the difference
+		//Between the expected orientation when a pose is reached and the one that ensures the most explored points.
+
+		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(startPose, meterCentroids, "map_rotated");
 		PoseWithVisiblePoints goal = pathsRollout.extractGoalFromSampledPlans(vectorSampledPlans);
 
 		
@@ -133,9 +144,9 @@ while (ros::ok() && (num > 0)){
 		float orientation = goal.pose[2];
 		std::string frame = "map";
 		goalPoints = goal.mapPoints;
-		//std::cout<< mapX*resolution << " "<<mapY*resolution <<std::endl;	
-		//goalPlanner.publishGoal(goalPosition, orientation, frame, goalPoints);
-		//goalPlanner.waitForGoal();
+
+		goalPlanner.publishGoal(goalPosition, orientation, frame, goalPoints);
+		goalPlanner.waitForGoal();
 
 
 

@@ -150,7 +150,7 @@ void FrontierDetector::computeFrontiers(){
     			if (neighbors.empty())	//If the current free cell has no unknown cells around
     				continue;
     			for (int i = 0; i < neighbors.size(); i++){
-    				if ((isSurrounded(neighbors[i], _freeColor)) == false){ //If the neighbor unknown cell is sourrounded by free cells 
+    				if (hasSomeNeighbors(neighbors[i], _unknownColor, 4)){ //If the neighbor unknown cell is sourrounded by free cells 
     					_frontiers.push_back(coord);	
     					break;					}
     									}
@@ -580,6 +580,48 @@ bool FrontierDetector::isSurrounded (Vector2i coord , int color){
     }  */
 
     return true;
+
+}
+
+bool FrontierDetector::hasSomeNeighbors (Vector2i coord , int color, int num){
+
+	int count = 0;
+
+	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
+		count++;
+    }
+
+	if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) == color ){
+		count++;
+    }
+
+    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) == color ){
+		count++;
+    }
+
+    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) == color ){
+		count++;
+    }    
+    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]+1) == color ){
+		count++;
+    }
+
+	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]-1) == color ){
+		count++;
+    }
+
+    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] + 1) == color ){
+		count++;
+    }
+
+    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] - 1) == color ){
+		count++;
+    }  
+
+
+    if (count >= num)
+    	return true;
+    else return false;
 
 }
 

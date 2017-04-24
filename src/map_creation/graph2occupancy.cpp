@@ -23,8 +23,8 @@ bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::Get
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = -0.707;
-  poseMsg.orientation.y = -0.707; 
+  poseMsg.orientation.x = 0.707;
+  poseMsg.orientation.y = 0.707; 
   poseMsg.orientation.z = 0.0; 
   poseMsg.orientation.w = 0.0;
 
@@ -234,8 +234,8 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
   poseMsg.y = mapY;
   poseMsg.theta = actualPose.rotation().angle();
 
-  //std::cout<<"translation "<<translation[0]<<" "<<translation[1]<<std::endl;
-  //std::cout<<"actual pose "<<poseMsg.x<<" "<<poseMsg.y<<std::endl;
+//std::cout<<"translation "<<translation[0]<<" "<<translation[1]<<std::endl;
+ //std::cout<<"actual pose "<<poseMsg.x<<" "<<poseMsg.y<<std::endl;
 
   _pubActualCoord.publish(poseMsg);
 
@@ -287,8 +287,8 @@ void Graph2occupancy::publishMap() {
   poseMsg.position.x = 0.0;
   poseMsg.position.y = 0.0;
   poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = -0.707;
-  poseMsg.orientation.y = -0.707; 
+  poseMsg.orientation.x = 0.707;
+  poseMsg.orientation.y = 0.707; 
   poseMsg.orientation.z = 0.0; 
   poseMsg.orientation.w = 0.0;
 

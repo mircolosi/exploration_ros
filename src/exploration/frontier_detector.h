@@ -80,6 +80,8 @@ protected:
 	bool isNeighbor(Vector2i coordI, Vector2i coordJ);
 	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
 	bool isSurrounded(Vector2i coord, int color);
+	bool hasSomeNeighbors (Vector2i coord , int color, int num);
+
 
 	inline bool contains(Vector2iVector vector, Vector2i element){
 		if (std::find(vector.begin(), vector.end(), element) != vector.end())

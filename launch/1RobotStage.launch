@@ -14,7 +14,8 @@
 
 <node pkg="rviz" type="rviz" name="visualizer" output="screen" args="-d $(find mr_exploration)/config.rviz"/>
 
-<node pkg="tf" type="static_transform_publisher" name="rotatedCostmap" args="0 0 0 -0.707 -0.707 0 0 map map_rotated 1000"/>
+<node pkg="tf" type="static_transform_publisher" name="rotatedCostmap" args="0 0 0 0.707 0.707 0 0 map map_rotated 1000"/>
+
 
   <include file="$(find mr_exploration)/move_base_config/move_base.xml"/>
 
