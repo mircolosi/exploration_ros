@@ -44,7 +44,8 @@ public:
 
 	void laserPointsCallback(const sensor_msgs::PointCloud::ConstPtr& msg);
 
-	PathsRollout(int idRobot, float res = 0.05, Vector2f rangesLimits = {0.0, 8.0}, float fov = M_PI, int numRanges = 361, float samplesThreshold = 1, int sampleOrientation = 8, std::string laserPointsName = "lasermap");
+	//PathsRollout(int idRobot, float res = 0.05, Vector2f rangesLimits = {0.0, 8.0}, float fov = M_PI, int numRanges = 361, float samplesThreshold = 1, int sampleOrientation = 8, std::string laserPointsName = "lasermap");
+	PathsRollout(int idRobot, srrg_scan_matcher::Projector2D *projector,float res = 0.05, float samplesThreshold = 1, int sampleOrientation = 8, std::string laserPointsName = "lasermap");
 
 
 	Vector2DPlans computeAllSampledPlans(geometry_msgs::Pose startPose, Vector2fVector meterCentroids, std::string frame);
@@ -57,16 +58,15 @@ public:
 	Vector2fVector makeSampledPlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
 	Vector2fVector sampleTrajectory(nav_msgs::Path path, std::vector<int> *indices);
 
-	void setFrontierPoints(Vector2iVector points, regionVector regions, Vector2iVector unknownCells, Vector2iVector occupiedCells);
+	void setFrontierPoints(Vector2iVector unknownCells, Vector2iVector occupiedCells);
+
+	void setPointClouds(srrg_scan_matcher::Cloud2D unknownCellsCloud, srrg_scan_matcher::Cloud2D occupiedCellsCloud);
 
 
-
+	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
+	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
 
 protected: 
-
-	srrg_scan_matcher::Cloud2D createAugmentedPointsCloud();
-
-	void project(const Isometry2f& T, srrg_scan_matcher::Cloud2D cloud);
 
 	srrg_scan_matcher::Projector2D * _projector;
 
@@ -86,8 +86,11 @@ protected:
 
 	regionVector _regions;
 	Vector2iVector _frontierPoints;
+
 	Vector2iVector _unknownCells;
 	Vector2iVector _occupiedCells;
+	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
+	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
 
 	srrg_scan_matcher::Cloud2D _laserPointsCloud;
 	FloatVector _ranges;

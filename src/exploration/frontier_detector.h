@@ -4,6 +4,7 @@
 #include <stdlib.h> 
 #include <algorithm>
 
+#include "mr_exploration/DoSomething.h"
 
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
@@ -11,6 +12,8 @@
 #include "sensor_msgs/point_cloud2_iterator.h"
 #include <nav_msgs/GetMap.h>
 #include "visualization_msgs/MarkerArray.h"
+
+#include "cloud2d.h"
 
 #include <Eigen/Dense>
 
@@ -47,10 +50,12 @@ class FrontierDetector {
 
 public:
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+	bool cloudsUpdateCallback(mr_exploration::DoSomething::Request &req, mr_exploration::DoSomething::Response &res);
+
 
 	FrontierDetector();
 
-	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost,  std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30);
+	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30);
 
 	void init(int idRobot, cv::Mat *occupancy, cv::Mat *cost, float res, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30);
 
@@ -62,11 +67,20 @@ public:
 	
 	void computeCentroids();
 
+	void updateClouds();
+
+void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector2iVector points, const float dist);
+
+
 	Vector2iVector getFrontierPoints();
 	regionVector getFrontierRegions();
 	Vector2iVector getFrontierCentroids();
 	Vector2iVector getUnknownCells();
 	Vector2iVector getOccupiedCells();
+
+	srrg_scan_matcher::Cloud2D* getUnknownCloud();
+	srrg_scan_matcher::Cloud2D* getOccupiedCloud();
+
 
 
 	float getResolution();
@@ -109,12 +123,16 @@ protected:
 
 	int _circumscribedThreshold = 99;
 
-
 	Vector2iVector _frontiers;
-	Vector2iVector _unknownFrontierCells;
-	Vector2iVector _occupiedCells;
 	regionVector _regions;
 	Vector2iVector _centroids;
+
+	Vector2iVector _unknownFrontierCells;
+	Vector2iVector _occupiedCells;
+
+	srrg_scan_matcher::Cloud2D _unknownCellsCloud;
+	srrg_scan_matcher::Cloud2D _occupiedCellsCloud;
+
 
 	std::string _topicPointsName;
 	std::string _topicMarkersName;
@@ -127,6 +145,7 @@ protected:
 	ros::Publisher _pubCentroidMarkers;
 	ros::Subscriber _subCostMap;
 	ros::ServiceClient _mapClient;
+	ros::ServiceServer _server;
 
 
 

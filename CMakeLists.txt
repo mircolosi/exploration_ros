@@ -48,21 +48,16 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * uncomment the generate_messages entry below
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
-# Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  Edge.msg
-  Ping.msg
-  RobotLaser.msg
-  SLAM.msg
-  VSE2.msg
-)
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+## Generate messages in the 'msg' folder
+#add_message_files(
+#  FILES
+#  Edge.msg
+#)
+# Generate services in the 'srv' folder
+ add_service_files(
+   FILES
+   DoSomething.srv
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(

@@ -18,7 +18,7 @@
 #include "actionlib_msgs/GoalID.h"
 #include "nav_msgs/OccupancyGrid.h"
 
-
+#include "projector2d.h"
 
 #include "g2o/types/slam2d/se2.h"
 #include "frontier_detector.h"
@@ -33,9 +33,10 @@ public:
 	
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
-	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
+	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, srrg_scan_matcher::Projector2D *projector, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
 
 	bool requestOccupancyMap();
+	bool requestCloudsUpdate();
 
 	void rankFrontiers(float mapX, float mapY, float theta);
 
@@ -53,6 +54,9 @@ public:
 
 	void printCostVal(Vector2i point);
 
+	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
+	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
+
 
 protected:
 
@@ -62,11 +66,10 @@ protected:
 
 
 	int _idRobot;
-	float _mapResolution;
 
-	float _mapX;
-	float _mapY;
-	float _theta;
+	srrg_scan_matcher::Projector2D *_projector;
+
+	float _mapResolution;
 
 	int _freeColor = 0;
 	int _unknownColor = 50;
@@ -79,6 +82,9 @@ protected:
 
 	float _sampledPathThreshold = 1;
 	int _circumscribedThreshold = 99;
+
+	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
+	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
 
 
 	Vector2iVector _goalPoints;
@@ -95,6 +101,7 @@ protected:
 
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
+	ros::ServiceClient _cloudsClient;
 	ros::Subscriber _subCostMap;
 	MoveBaseClient ac;
 

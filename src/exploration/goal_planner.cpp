@@ -23,11 +23,13 @@ void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 
 
 
-GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
+GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage,  srrg_scan_matcher::Projector2D *projector, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
 {
 
 	_occupancyMap = occupancyImage;
 	_costMap = costImage;
+
+	_projector = projector;
 
 	_idRobot = idRobot;
 
@@ -37,6 +39,8 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImag
 	_fixedFrameId = fullFixedFrameId.str();
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
+	_cloudsClient = _nh.serviceClient<mr_exploration::DoSomething>("updateClouds");
+
 
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
 	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
@@ -76,10 +80,22 @@ bool GoalPlanner::requestOccupancyMap(){
 }	
 
 
+bool GoalPlanner::requestCloudsUpdate(){
+
+	mr_exploration::DoSomething::Request req;
+	mr_exploration::DoSomething::Response res;
 
 
+	if (_cloudsClient.call(req,res)){
+		if (res.return_value == "done"){
+			return true;			}
 
+		
+	}
+	
+	else return false;
 
+}
 
 
 
@@ -133,7 +149,7 @@ void GoalPlanner::waitForGoal(){
   	}  	
 
 
-
+  	std::cout<<"wait ended"<<std::endl;
 
 }
 
@@ -142,20 +158,11 @@ bool GoalPlanner::isGoalReached(){
 
 	int countDiscovered = 0;
 
-/*	for (int i = 0; i < _goalPoints.size(); i++){
-		int r = _goalPoints[i][0];
-		int c = _goalPoints[i][1];
-		Vector2i coord = {r,c};
-		//if((getColoredNeighbors(coord, _unknownColor).empty())||(_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold )) {
-		if((_occupancyMap->at<unsigned char>(r, c) != _unknownColor )) {
-			countDiscovered++;
-		}
-	}*/
+	//_projector->
 
 
 	if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
 		ROS_INFO("Hooray, the goal has been reached");
-		std::cout<< countDiscovered << " Points explored"<<std::endl;
 		return true;
 
 	}
@@ -205,6 +212,13 @@ Vector2fVector GoalPlanner::getAbortedGoals(){
 }
 
 
+void GoalPlanner::setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud){
+	_unknownCellsCloud = cloud;
+}
+
+void GoalPlanner::setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud){
+	_occupiedCellsCloud = cloud;
+}
 
 
 Vector2iVector GoalPlanner::getColoredNeighbors (Vector2i coord, int color){

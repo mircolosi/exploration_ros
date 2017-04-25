@@ -23,26 +23,17 @@ void PathsRollout::laserPointsCallback(const sensor_msgs::PointCloud::ConstPtr& 
 }
 
 
-PathsRollout::PathsRollout(int idRobot, float res, Vector2f ranges, float fov, int numRanges, float sampleThreshold, int sampleOrientation, std::string laserPointsName){
+	PathsRollout::PathsRollout(int idRobot, srrg_scan_matcher::Projector2D *projector,float res, float sampleThreshold, int sampleOrientation, std::string laserPointsName){
 
 	_idRobot = idRobot;
 	_resolution = res;
-
-	_rangesLimits = ranges;
-	_fov = fov;
-	_numRanges = numRanges;
 
 	_sampledPathThreshold = sampleThreshold;
 	_lastSampleThreshold = sampleThreshold/4;
 	_sampleOrientation = sampleOrientation;
 	_intervalOrientation = 2*M_PI/sampleOrientation;
 
-	_projector = new Projector2D;
-
-	_projector->setMaxRange(_rangesLimits[0]);
-	_projector->setMinRange(_rangesLimits[1]);
-	_projector->setFov(_fov);
-	_projector->setNumRanges(_numRanges);
+	_projector = projector;
 
 	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
 
@@ -65,7 +56,6 @@ Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose
 	_vectorPlanIndices.clear();
 
 	std::cout<<"Initial Position "<<startPose.position.x<< " "<<startPose.position.y<<std::endl;
-
 	for (int i = 0; i < meterCentroids.size(); i++){
 
 		geometry_msgs::Pose goalPose;
@@ -89,9 +79,10 @@ PoseWithVisiblePoints PathsRollout::extractGoalFromSampledPlans(Vector2DPlans ve
 	PoseWithVisiblePoints goal;
 	PoseWithVisiblePoints bestPose;
 
-	Cloud2D augmentedCloud = createAugmentedPointsCloud();
+	Cloud2D augmentedCloud = *_unknownCellsCloud;
 
-//vectorSampledPlans.size()
+	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
+
 	for (int i = 0; i < vectorSampledPlans.size(); i++){
 
 		bestPose = extractBestPoseInPlan(vectorSampledPlans[i], _vectorPlanIndices[i], augmentedCloud);
@@ -103,14 +94,13 @@ PoseWithVisiblePoints PathsRollout::extractGoalFromSampledPlans(Vector2DPlans ve
 
 	goal.mapPoints.resize(goal.points.size());
 
-	std::cout<<"GOAL: "<<goal.score<<" points:"<<std::endl;
+	std::cout<<"GOAL score: "<<goal.score<<std::endl;
 
 	for (int i = 0; i < goal.points.size(); i++){
 		int pointX = round(goal.points[i][0]/_resolution);
 		int pointY = round(goal.points[i][1]/_resolution);
 		goal.mapPoints[i] = {pointX, pointY};
 	}
-	std::cout<<std::endl;
 
 
 
@@ -141,11 +131,7 @@ Vector2fVector PathsRollout::makeSampledPlan(std::string frame, geometry_msgs::P
 	if (_planClient.call(req,res)){
         if (!res.plan.poses.empty()) {
 
-
         	 sampledPlan = sampleTrajectory(res.plan, &sampledIndices);
-
-        	 for (int i = 0; i < sampledIndices.size(); i ++){
-        	 }
 
         	 _vectorPlanIndices.push_back(sampledIndices);
 
@@ -177,9 +163,6 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 
 		sampledPath.push_back(lastPose);
 		indices->push_back(0);
-
-		std::cout<<"first pose: "<<path.poses[0].pose.position.x<<" "<<path.poses[0].pose.position.y<<" "<<path.poses[0].pose.orientation.x<<" "<<path.poses[0].pose.orientation.y<<" "<<path.poses[0].pose.orientation.z<<" "<<path.poses[0].pose.orientation.w <<std::endl;
-
 
 		for (int i = 1; i < path.poses.size(); i++){
 
@@ -224,18 +207,7 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 	Vector3f laserPose;
 
 	tf::StampedTransform tf;
-
-
-
 	_tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tf);
-
-	//double roll, pitch, yaw;
-	//tf1.getRotation().getRPY(roll,pitch,yaw);
-	//Eigen::Isometry3d ciao;
-	//tf::transformTFToEigen (tf5, ciao);
-	// btMatrix3x3(tf1.getRotation()).getRPY(roll, pitch, yaw);
-	// std::cout<<"r "<<roll << " p "<<pitch << " y "<<yaw <<std::endl;
-
 
 	for (int i = 0; i < sampledPlan.size(); i ++){
 
@@ -262,8 +234,7 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 
 			transform = v2t(laserPose);
 
-			project(transform.inverse(), cloud);
-		
+			_projector->project(_ranges, _pointsIndices, transform.inverse(), cloud);
 
 			cv::Mat testImage = cv::Mat(50/_resolution, 50/_resolution, CV_8UC1);
 			testImage.setTo(cv::Scalar(0));
@@ -282,7 +253,7 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 					if (_pointsIndices[k] != -1){
 						countPoints ++;
 						testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution, cloud[_pointsIndices[k]].point()[1]/_resolution) = 100;
-						if (_pointsIndices[k] < _unknownCells.size()*9){
+						if (_pointsIndices[k] < _unknownCellsCloud->size()){
 							countFrontier ++;
 
 							seenFrontierPoints.push_back({cloud[_pointsIndices[k]].point()[0], cloud[_pointsIndices[k]].point()[1]});
@@ -319,157 +290,22 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 }
 
 
-Cloud2D PathsRollout::createAugmentedPointsCloud(){
-
-
-	Cloud2D augmentedCloud;
-	Cloud2D frontierPointsCloud;
-	Cloud2D occupiedPointsCloud;
-	
-	tf::StampedTransform tf1;
-	_tfListener.lookupTransform("map", "trajectory", ros::Time(0), tf1);
-
-
-
-	cv::Mat testImage1 = cv::Mat(50/_resolution, 50/_resolution, CV_8UC1);
-	testImage1.setTo(cv::Scalar(0));
-
-
-	for (int i = 0; i<_laserPointsCloud.size(); i++){
-		//_laserPointsCloud[i] = RichPoint2D({_laserPointsCloud[i].point()[0] + tf1.getOrigin().x(),_laserPointsCloud[i].point()[1] + tf1.getOrigin().y()});
-	}
-
-	/*Vector2iVector regionPoints;
-
-	for(auto && v : _regions){
-  		regionPoints.insert(regionPoints.end(), v.begin(), v.end());
-	}
-*/
-
-
-	//frontierPointsCloud.resize(_unknownCells.size());
-	for (int i = 0; i< _unknownCells.size(); i ++){
-		float x = _unknownCells[i][0] * _resolution;
-		float y = _unknownCells[i][1] * _resolution;
-		
-		float x1 = _unknownCells[i][0] * _resolution + 0.0125;
-		float y1 = _unknownCells[i][1] * _resolution; 
-		float x2 = _unknownCells[i][0] * _resolution - 0.0125;
-		float y2 = _unknownCells[i][1] * _resolution; 
-		float x3 = _unknownCells[i][0] * _resolution;
-		float y3 = _unknownCells[i][1] * _resolution + 0.0125; 
-		float x4 = _unknownCells[i][0] * _resolution;
-		float y4 = _unknownCells[i][1] * _resolution - 0.0125; 
-
-		float x5 = _unknownCells[i][0] * _resolution + 0.0125;
-		float y5 = _unknownCells[i][1] * _resolution + 0.0125;
-		float x6 = _unknownCells[i][0] * _resolution - 0.0125;
-		float y6 = _unknownCells[i][1] * _resolution - 0.0125;
-		float x7 = _unknownCells[i][0] * _resolution - 0.0125;
-		float y7 = _unknownCells[i][1] * _resolution + 0.0125; 
-		float x8 = _unknownCells[i][0] * _resolution + 0.0125;
-		float y8 = _unknownCells[i][1] * _resolution - 0.0125;  
-
-		//frontierPointsCloud[i] = (RichPoint2D({x,y}));
-		frontierPointsCloud.push_back(RichPoint2D({x,y}));
-		frontierPointsCloud.push_back(RichPoint2D({x1,y1}));
-		frontierPointsCloud.push_back(RichPoint2D({x2,y2}));
-		frontierPointsCloud.push_back(RichPoint2D({x3,y3}));
-		frontierPointsCloud.push_back(RichPoint2D({x4,y4}));
-		frontierPointsCloud.push_back(RichPoint2D({x5,y5}));
-		frontierPointsCloud.push_back(RichPoint2D({x6,y6}));
-		frontierPointsCloud.push_back(RichPoint2D({x7,y7}));
-		frontierPointsCloud.push_back(RichPoint2D({x8,y8}));
-
-	}
-
-	//occupiedPointsCloud.resize(_occupiedCells.size());
-	for (int i = 0; i< _occupiedCells.size(); i ++){
-		float x = _occupiedCells[i][0] * _resolution;
-		float y = _occupiedCells[i][1] * _resolution;
-
-		float x1 = _occupiedCells[i][0] * _resolution + 0.0125;
-		float y1 = _occupiedCells[i][1] * _resolution; 
-		float x2 = _occupiedCells[i][0] * _resolution - 0.0125;
-		float y2 = _occupiedCells[i][1] * _resolution; 
-		float x3 = _occupiedCells[i][0] * _resolution;
-		float y3 = _occupiedCells[i][1] * _resolution + 0.0125; 
-		float x4 = _occupiedCells[i][0] * _resolution;
-		float y4 = _occupiedCells[i][1] * _resolution - 0.0125;
-
-		float x5 = _occupiedCells[i][0] * _resolution + 0.0125;
-		float y5 = _occupiedCells[i][1] * _resolution + 0.0125;
-		float x6 = _occupiedCells[i][0] * _resolution - 0.0125;
-		float y6 = _occupiedCells[i][1] * _resolution - 0.0125;
-		float x7 = _occupiedCells[i][0] * _resolution - 0.0125;
-		float y7 = _occupiedCells[i][1] * _resolution + 0.0125; 
-		float x8 = _occupiedCells[i][0] * _resolution + 0.0125;
-		float y8 = _occupiedCells[i][1] * _resolution - 0.0125;  
-		//occupiedPointsCloud[i] = (RichPoint2D({x,y}));
-		occupiedPointsCloud.push_back(RichPoint2D({x,y}));
-		occupiedPointsCloud.push_back(RichPoint2D({x1,y1}));
-		occupiedPointsCloud.push_back(RichPoint2D({x2,y2}));
-		occupiedPointsCloud.push_back(RichPoint2D({x3,y3}));
-		occupiedPointsCloud.push_back(RichPoint2D({x4,y4}));
-		occupiedPointsCloud.push_back(RichPoint2D({x5,y5}));
-		occupiedPointsCloud.push_back(RichPoint2D({x6,y6}));
-		occupiedPointsCloud.push_back(RichPoint2D({x7,y7}));
-		occupiedPointsCloud.push_back(RichPoint2D({x8,y8}));
-
-	}
-
-
-	//augmentedCloud = _laserPointsCloud;
-	//augmentedCloud = occupiedPointsCloud;
-	augmentedCloud = frontierPointsCloud;
-
-	augmentedCloud.insert(augmentedCloud.end(), occupiedPointsCloud.begin(), occupiedPointsCloud.end());
-
-
-	for (int i = 0; i<augmentedCloud.size(); i++){
-		//testImage1.at<unsigned char>(augmentedCloud[i].point()[0]/_resolution, augmentedCloud[i].point()[1]/_resolution) = 255;
-	}
-
-	//imwrite("virtualscan_test/test1.jpg", testImage1);
-
-
-
-	return augmentedCloud;
-
-}
-		
-
-
-
-
-void PathsRollout::project(const Isometry2f& transform, Cloud2D cloud){
-
-
-	_projector->project(_ranges, _pointsIndices, transform, cloud);
-
-	int count = 0;
-	int countFrontier = 0;
-
-	for (int i = 0; i < _pointsIndices.size(); i++){
-		if (_pointsIndices[i] != -1){
-			count ++;
-			if (_pointsIndices[i] >= _laserPointsCloud.size())
-				countFrontier ++;
-		}
-	}
-
-
-
-
-
-
-}
-
-
-void PathsRollout::setFrontierPoints(Vector2iVector points, regionVector regions, Vector2iVector unknownCells, Vector2iVector occupiedCells){
-	_frontierPoints = points;
-	_regions = regions;
+void PathsRollout::setFrontierPoints(Vector2iVector unknownCells, Vector2iVector occupiedCells){
 	_unknownCells = unknownCells;
 	_occupiedCells = occupiedCells;
+}
+
+void PathsRollout::setPointClouds(Cloud2D unknownCellsCloud, Cloud2D occupiedCellsCloud){
+	*_unknownCellsCloud = unknownCellsCloud;
+	*_occupiedCellsCloud = occupiedCellsCloud;
+
+}
+
+void PathsRollout::setUnknownCellsCloud(Cloud2D* cloud){
+	_unknownCellsCloud = cloud;
+}
+
+void PathsRollout::setOccupiedCellsCloud(Cloud2D* cloud){
+	_occupiedCellsCloud = cloud;
 }
 

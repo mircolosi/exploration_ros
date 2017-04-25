@@ -29,10 +29,6 @@ void actualPoseCallback(const geometry_msgs::Pose2D msg){
 	poseTheta = msg.theta;
 
 	poseMsg = msg;
-
-	//std::cout<<"callback "<< poseX<<" "<<poseY<<std::endl;
-
-
 }
 
 
@@ -49,6 +45,9 @@ int idRobot;
 std::string status;
 float resolution;
 
+int maxCentroidsNumber = 8;
+float farCentroidsThreshold = 8.0;
+
 Vector2iVector centroids;
 Vector2iVector frontierPoints;
 Vector2fVector abortedGoals;
@@ -56,11 +55,17 @@ Vector2iVector goalPoints;
 Vector2iVector unknownCells;
 Vector2iVector occupiedCells;
 regionVector regions;
+srrg_scan_matcher::Cloud2D* unknownCellsCloud;
+srrg_scan_matcher::Cloud2D* occupiedCellsCloud;
+
+srrg_scan_matcher::Projector2D projector;
 
 cv::Mat occupancyMap;
 cv::Mat costMap;
 
 Vector2f rangesLimits = {0.0, 8.0};
+float fov = M_PI;
+int numRanges = 361;
 
 arg.param("idRobot", idRobot, 0, "robot identifier" );
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
@@ -69,28 +74,43 @@ arg.param("actualPoseTopic", actualPoseTopic, "map_pose", "robot actual pose ROS
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
 arg.parseArgs(argc, argv);
 
-
 ros::init(argc, argv, "frontier_planner");
 
 ros::NodeHandle nh;
 
-
 ros::Subscriber subActualPose = nh.subscribe(actualPoseTopic,1,actualPoseCallback);
 
-GoalPlanner goalPlanner(idRobot, &occupancyMap, &costMap, "base_link", frontierPointsTopic, markersTopic, thresholdRegionSize);
-FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap, frontierPointsTopic, markersTopic, thresholdRegionSize);
-PathsRollout pathsRollout(idRobot, 0.05, rangesLimits);
+projector.setMaxRange(rangesLimits[0]);
+projector.setMinRange(rangesLimits[1]);
+projector.setFov(fov);
+projector.setNumRanges(numRanges);
+
+
+FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPointsTopic, markersTopic, thresholdRegionSize);
+
+unknownCellsCloud = frontiersDetector.getUnknownCloud();
+occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
+
+PathsRollout pathsRollout(idRobot, &projector, 0.05);
+
+pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
+pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
+
+GoalPlanner goalPlanner(idRobot, &occupancyMap, &costMap,&projector, "base_link", frontierPointsTopic, markersTopic, thresholdRegionSize);
+
+goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
+goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
+
 
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
-int num = 25;
+int num = 10;
  
 while (ros::ok() && (num > 0)){
 	ros::spinOnce();
-
 	frontiersDetector.requestOccupancyMap();
 	frontiersDetector.computeFrontiers();
-
+	frontiersDetector.rankRegions(poseX, poseY, poseTheta);
 	frontiersDetector.publishFrontierPoints();
    	frontiersDetector.publishCentroidMarkers();
 
@@ -101,28 +121,39 @@ while (ros::ok() && (num > 0)){
 	occupiedCells = frontiersDetector.getOccupiedCells();
 	centroids = frontiersDetector.getFrontierCentroids();
 
+	frontiersDetector.updateClouds();
+
 	abortedGoals = goalPlanner.getAbortedGoals();
 
 
 	if (centroids.size() == 0){
 		std::cout<<"NO CENTROIDS"<<std::endl;
+		return 0;
 	}
 
 
 	else {
 
 
-		int goalID; 
 		Vector2fVector meterCentroids;
 		for (int i = 0; i < centroids.size(); i ++){
 			Vector2f meterCentroid = {centroids[i][0]*resolution, centroids[i][1]*resolution};
-			if (std::find(abortedGoals.begin(), abortedGoals.end(), meterCentroids[i]) == abortedGoals.end()){
-				meterCentroids.push_back(meterCentroid); 	 //meterCentroids contains only non aborted goals
+			float distance = sqrt(pow((centroids[i][0] - poseX),2) + pow((centroids[i][1] - poseY),2));
+			if ((i >= (round(maxCentroidsNumber/2) + 2))&&(distance > farCentroidsThreshold)){
+				continue;
+			}
+			if (std::find(abortedGoals.begin(), abortedGoals.end(), meterCentroid) == abortedGoals.end()){
+					meterCentroids.push_back(meterCentroid); 	 //meterCentroids contains only non aborted goals
+			}
+			
+			if (meterCentroids.size() == maxCentroidsNumber){
+				std::cout<<"max number"<<std::endl;
+				break;
 			}
 
 		}
 
-		pathsRollout.setFrontierPoints(frontierPoints, regions, unknownCells, occupiedCells);
+		pathsRollout.setFrontierPoints(unknownCells, occupiedCells);
 
 		geometry_msgs::Pose startPose;
 		startPose.position.x = poseY; //Inverted because plans will be computed in the costmap
