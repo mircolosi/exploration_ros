@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
    srrg_core
    cg_mrslam
    srrg_scan_matcher
+   move_base
 )
 
 ## System dependencies are found with CMake's conventions

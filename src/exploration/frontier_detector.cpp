@@ -136,6 +136,8 @@ bool FrontierDetector::requestOccupancyMap(){
 void FrontierDetector::computeFrontiers(){
 	
 	_frontiers.clear();
+	_unknownFrontierCells.clear();
+	_occupiedCells.clear();
 	_regions.clear();
 	_centroids.clear();
 
@@ -155,6 +157,13 @@ void FrontierDetector::computeFrontiers(){
     					break;					}
     									}
     							}
+
+    			if (_occupancyMap->at<unsigned char>(r, c) == _occupiedColor ){
+					_occupiedCells.push_back({r,c});
+
+    			}
+
+
 
     				}
     			}
@@ -188,13 +197,28 @@ void FrontierDetector::computeFrontiers(){
     										}
     								}
 						}
-		if (tempRegion.size() >= _sizeThreshold)
+		if (tempRegion.size() >= _sizeThreshold){
 		   	_regions.push_back(tempRegion);
 
+		   for (int l = 0; l < tempRegion.size(); l ++){
+		   		Vector2iVector neighbors = getColoredNeighbors(tempRegion[l], _unknownColor);
+		   		for (int m = 0; m < neighbors.size(); m++){
+
+		   			if ((hasSomeNeighbors(neighbors[m], _unknownColor, 4))&&(!contains(_unknownFrontierCells, neighbors[m]))){
+		   				_unknownFrontierCells.push_back(neighbors[m]);
+		   										}
+		   									}
+		   							}
+						
+							}
 
 						}
 
     			}
+
+
+
+
 
 	for (int i = 0; i < _regions.size(); i++){
 
@@ -473,6 +497,13 @@ regionVector FrontierDetector::getFrontierRegions(){
 
 Vector2iVector FrontierDetector::getFrontierCentroids(){
 	return _centroids;	}
+
+Vector2iVector FrontierDetector::getUnknownCells(){
+	return _unknownFrontierCells;
+}
+Vector2iVector FrontierDetector::getOccupiedCells(){
+	return _occupiedCells;
+}
 
 float FrontierDetector::getResolution(){
 	return _mapResolution;	}

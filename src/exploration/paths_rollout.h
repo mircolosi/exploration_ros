@@ -57,7 +57,7 @@ public:
 	Vector2fVector makeSampledPlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
 	Vector2fVector sampleTrajectory(nav_msgs::Path path, std::vector<int> *indices);
 
-	void setFrontierPoints(Vector2iVector points, regionVector regions);
+	void setFrontierPoints(Vector2iVector points, regionVector regions, Vector2iVector unknownCells, Vector2iVector occupiedCells);
 
 
 
@@ -86,6 +86,8 @@ protected:
 
 	regionVector _regions;
 	Vector2iVector _frontierPoints;
+	Vector2iVector _unknownCells;
+	Vector2iVector _occupiedCells;
 
 	srrg_scan_matcher::Cloud2D _laserPointsCloud;
 	FloatVector _ranges;

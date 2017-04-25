@@ -65,6 +65,10 @@ public:
 	Vector2iVector getFrontierPoints();
 	regionVector getFrontierRegions();
 	Vector2iVector getFrontierCentroids();
+	Vector2iVector getUnknownCells();
+	Vector2iVector getOccupiedCells();
+
+
 	float getResolution();
 
 
@@ -107,6 +111,8 @@ protected:
 
 
 	Vector2iVector _frontiers;
+	Vector2iVector _unknownFrontierCells;
+	Vector2iVector _occupiedCells;
 	regionVector _regions;
 	Vector2iVector _centroids;
 

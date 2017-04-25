@@ -9,7 +9,11 @@
     <param name="oscillation_timeout" value="30.0" />
     <param name="oscillation_distance" value="0.5" />
 
-    <!--
+    <param name="base_global_planner" value="global_planner/GlobalPlanner"/>
+    <param name="global_planner/GlobalPlanner/allow_unknown" value="false" />
+    <param name="global_planner/GlobalPlanner/default_tolerance" value="0.15" />
+    
+<!--
     <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
     -->
 

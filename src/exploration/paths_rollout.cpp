@@ -86,15 +86,13 @@ Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose
 
 PoseWithVisiblePoints PathsRollout::extractGoalFromSampledPlans(Vector2DPlans vectorSampledPlans){
 
-	//I HAVE TO DO IT FOR EVERY PLAN, AS SOON AS EVERYTHING WORKS
-
 	PoseWithVisiblePoints goal;
 	PoseWithVisiblePoints bestPose;
 
 	Cloud2D augmentedCloud = createAugmentedPointsCloud();
 
 //vectorSampledPlans.size()
-	for (int i = 0; i < 1; i++){
+	for (int i = 0; i < vectorSampledPlans.size(); i++){
 
 		bestPose = extractBestPoseInPlan(vectorSampledPlans[i], _vectorPlanIndices[i], augmentedCloud);
 
@@ -105,14 +103,16 @@ PoseWithVisiblePoints PathsRollout::extractGoalFromSampledPlans(Vector2DPlans ve
 
 	goal.mapPoints.resize(goal.points.size());
 
+	std::cout<<"GOAL: "<<goal.score<<" points:"<<std::endl;
+
 	for (int i = 0; i < goal.points.size(); i++){
 		int pointX = round(goal.points[i][0]/_resolution);
 		int pointY = round(goal.points[i][1]/_resolution);
 		goal.mapPoints[i] = {pointX, pointY};
 	}
+	std::cout<<std::endl;
 
 
-	std::cout<<"GOAL: "<<goal.score<<std::endl;
 
 	return goal;
 
@@ -184,16 +184,15 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 		for (int i = 1; i < path.poses.size(); i++){
 
 			float distance = sqrt(pow((lastPose[0] - path.poses[i].pose.position.x),2) + pow((lastPose[1] - path.poses[i].pose.position.y),2));
-		//std::cout<<"poses: "<<path.poses[i].pose.position.x<<" "<<path.poses[i].pose.position.y<<" "<<path.poses[i].pose.orientation.x<<" "<<path.poses[i].pose.orientation.y<<" "<<path.poses[i].pose.orientation.z<<" "<<path.poses[i].pose.orientation.w;
 			if (distance >= _sampledPathThreshold){
-				//std::cout << " OK ";
+
 				lastPose[0] = path.poses[i].pose.position.x;
 				lastPose[1] = path.poses[i].pose.position.y;
 
 				sampledPath.push_back(lastPose);
 				indices->push_back(i);
 											}
-			//std::cout<<std::endl;
+
 
 		}
 
@@ -222,32 +221,13 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 	PoseWithVisiblePoints goalPose;
 	Isometry2f transform;
 	Vector3f pose;
+	Vector3f laserPose;
 
 	tf::StampedTransform tf;
-	tf::StampedTransform tf1;
-	tf::StampedTransform tf2;
-	tf::StampedTransform tf3;
-	tf::StampedTransform tf4;
-	tf::StampedTransform tf5;
-	tf::StampedTransform tf6;
 
 
 
-	_tfListener.lookupTransform("map", "trajectory", ros::Time(0), tf1);
-	_tfListener.lookupTransform("map", "base_laser_link", ros::Time(0), tf5);
-	
-	_tfListener.lookupTransform("map", "odom", ros::Time(0), tf2);
-	_tfListener.lookupTransform("odom", "base_footprint", ros::Time(0), tf3);
-	_tfListener.lookupTransform("base_footprint", "base_link", ros::Time(0), tf4);
 	_tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tf);
-
-
-	std::cout<<"TF map to laser: "<<tf5.getOrigin().x() <<" "<< tf5.getOrigin().y()<< " "<< tf5.getOrigin().z()<<" rot "<<" "<< tf5.getRotation().x()<<" "<< tf5.getRotation().y()<<" "<< tf5.getRotation().z()<<" "<< tf5.getRotation().w()<<std::endl;
-	std::cout<<"TF map to traj: "<<tf1.getOrigin().x() <<" "<< tf1.getOrigin().y()<< " "<< tf1.getOrigin().z()<<" rot "<<" "<< tf1.getRotation().x()<<" "<< tf1.getRotation().y()<<" "<< tf1.getRotation().z()<<" "<< tf1.getRotation().w()<<std::endl;
-	std::cout<<"TF map to odom: "<<tf2.getOrigin().x() <<" "<< tf2.getOrigin().y()<< " "<< tf2.getOrigin().z()<<" rot "<<" "<< tf2.getRotation().x()<<" "<< tf2.getRotation().y()<<" "<< tf2.getRotation().z()<<" "<< tf2.getRotation().w()<<std::endl;
-	std::cout<<"TF odom to footprint: "<<tf3.getOrigin().x() <<" "<< tf3.getOrigin().y()<< " "<< tf3.getOrigin().z()<<" rot "<<" "<< tf3.getRotation().x()<<" "<< tf3.getRotation().y()<<" "<< tf3.getRotation().z()<<" "<< tf3.getRotation().w()<<std::endl;
-	std::cout<<"TF footprint to base: "<<tf4.getOrigin().x() <<" "<< tf4.getOrigin().y()<< " "<< tf4.getOrigin().z()<<" rot "<<" "<< tf4.getRotation().x()<<" "<< tf4.getRotation().y()<<" "<< tf4.getRotation().z()<<" "<< tf4.getRotation().w()<<std::endl;
-	std::cout<<"TF base to laser: "<<tf.getOrigin().x() <<" "<< tf.getOrigin().y()<< " "<< tf.getOrigin().z()<<" rot "<<" "<< tf.getRotation().x()<<" "<< tf.getRotation().y()<<" "<< tf.getRotation().z()<<" "<< tf.getRotation().w()<<std::endl;
 
 	//double roll, pitch, yaw;
 	//tf1.getRotation().getRPY(roll,pitch,yaw);
@@ -259,17 +239,28 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 
 	for (int i = 0; i < sampledPlan.size(); i ++){
 
-		pose[0] = sampledPlan[i][1] + tf.getOrigin().y(); //The plans are computed in rotated_costmap.... (x and y inverted)
-		pose[1] = sampledPlan[i][0] + tf.getOrigin().x();
+
+		pose[0] = sampledPlan[i][1] ; //The plans have been computed in rotated_costmap.... (x and y inverted), so here I restore them
+		pose[1] = sampledPlan[i][0] ;
 
 
 		for (int j = 0; j < _sampleOrientation; j++){
 
 			float yawAngle = _intervalOrientation*j;
+
+			Rotation2D<float> rot(-yawAngle);
+
+			Vector2f laserOffset = {tf.getOrigin().y(), tf.getOrigin().x()}; //Inverted because..
+
+			laserOffset = rot*laserOffset;
+
+			laserPose[0] = sampledPlan[i][1] + laserOffset[1];
+			laserPose[1] = sampledPlan[i][0] + laserOffset[0];
 			
+			laserPose[2] = yawAngle;
 			pose[2] = yawAngle;	
 
-			transform = v2t(pose);
+			transform = v2t(laserPose);
 
 			project(transform.inverse(), cloud);
 		
@@ -277,21 +268,28 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 			cv::Mat testImage = cv::Mat(50/_resolution, 50/_resolution, CV_8UC1);
 			testImage.setTo(cv::Scalar(0));
 
-			cv::circle(testImage, cv::Point(round(pose[1]/_resolution), round(pose[0]/_resolution)), 5, 200);
+			//cv::circle(testImage, cv::Point(round(pose[1]/_resolution), round(pose[0]/_resolution)), 5, 200);
+			//cv::circle(testImage, cv::Point(round(laserPose[1]/_resolution), round(laserPose[0]/_resolution)), 1, 200);
+
 
 			std::stringstream title;
 			title << "virtualscan_test/test_"<<i<<"_"<<j<<".jpg"; 
 
-			
-
+				int countPoints = 0;
 				int countFrontier = 0;
 				Vector2fVector seenFrontierPoints;
 				for (int k = 0; k < _pointsIndices.size(); k++){
-					if ((_pointsIndices[k] != -1)&&(_pointsIndices[k] >= _laserPointsCloud.size())){
-							countFrontier ++;	
+					if (_pointsIndices[k] != -1){
+						countPoints ++;
+						testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution, cloud[_pointsIndices[k]].point()[1]/_resolution) = 100;
+						if (_pointsIndices[k] < _unknownCells.size()*9){
+							countFrontier ++;
+
 							seenFrontierPoints.push_back({cloud[_pointsIndices[k]].point()[0], cloud[_pointsIndices[k]].point()[1]});
-							testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution, cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;}
+							//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution, cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;
+										}
 									}
+								}
 				cv::imwrite(title.str(), testImage);
 
 				float lambda = 0.3;
@@ -307,7 +305,7 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 				}
 
 			
-				std::cout<<i<<"-"<<j<<" Laser Pose: "<<pose[0] << " "<< pose[1]<< " "<<pose[2]<<" Index: "<< indices[i]<<" Points: " << countFrontier<<" Score: "<<score<<std::endl;
+			//	std::cout<<i<<"-"<<j<<" Laser Pose: "<<laserPose[0] << " "<< laserPose[1]<< " "<<laserPose[2]<<" Index: "<< indices[i]<<" Points: " << countFrontier<<"("<<countPoints<<") Score: "<<score<<std::endl;
 
 
 		}
@@ -315,7 +313,7 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 		
 	}
 		
-	std::cout<<"Best in plan: "<<goalPose.score <<" score, " <<goalPose.numPoints<< " visible points."<<std::endl;
+	//std::cout<<"Best in plan: "<<goalPose.score <<" score, " <<goalPose.numPoints<< " visible points."<<std::endl;
 	
 	return goalPose;
 }
@@ -326,6 +324,7 @@ Cloud2D PathsRollout::createAugmentedPointsCloud(){
 
 	Cloud2D augmentedCloud;
 	Cloud2D frontierPointsCloud;
+	Cloud2D occupiedPointsCloud;
 	
 	tf::StampedTransform tf1;
 	_tfListener.lookupTransform("map", "trajectory", ros::Time(0), tf1);
@@ -334,58 +333,104 @@ Cloud2D PathsRollout::createAugmentedPointsCloud(){
 
 	cv::Mat testImage1 = cv::Mat(50/_resolution, 50/_resolution, CV_8UC1);
 	testImage1.setTo(cv::Scalar(0));
-	cv::Mat testImage2 = cv::Mat(50/_resolution, 50/_resolution, CV_8UC1);
-	testImage2.setTo(cv::Scalar(0));
+
 
 	for (int i = 0; i<_laserPointsCloud.size(); i++){
-		_laserPointsCloud[i] = RichPoint2D({_laserPointsCloud[i].point()[0] + tf1.getOrigin().x(),_laserPointsCloud[i].point()[1] + tf1.getOrigin().y()});
-		testImage1.at<unsigned char>(_laserPointsCloud[i].point()[0]/_resolution, _laserPointsCloud[i].point()[1]/_resolution) = 255;
-		testImage2.at<unsigned char>(_laserPointsCloud[i].point()[0]/_resolution, _laserPointsCloud[i].point()[1]/_resolution) = 255;
+		//_laserPointsCloud[i] = RichPoint2D({_laserPointsCloud[i].point()[0] + tf1.getOrigin().x(),_laserPointsCloud[i].point()[1] + tf1.getOrigin().y()});
 	}
 
-	Vector2iVector regionPoints;
+	/*Vector2iVector regionPoints;
 
 	for(auto && v : _regions){
   		regionPoints.insert(regionPoints.end(), v.begin(), v.end());
 	}
+*/
 
 
+	//frontierPointsCloud.resize(_unknownCells.size());
+	for (int i = 0; i< _unknownCells.size(); i ++){
+		float x = _unknownCells[i][0] * _resolution;
+		float y = _unknownCells[i][1] * _resolution;
+		
+		float x1 = _unknownCells[i][0] * _resolution + 0.0125;
+		float y1 = _unknownCells[i][1] * _resolution; 
+		float x2 = _unknownCells[i][0] * _resolution - 0.0125;
+		float y2 = _unknownCells[i][1] * _resolution; 
+		float x3 = _unknownCells[i][0] * _resolution;
+		float y3 = _unknownCells[i][1] * _resolution + 0.0125; 
+		float x4 = _unknownCells[i][0] * _resolution;
+		float y4 = _unknownCells[i][1] * _resolution - 0.0125; 
 
-	frontierPointsCloud.resize(regionPoints.size());
-	//std::cout<<"FRONTIER ------------------------------"<<std::endl;
-	for (int i = 0; i< regionPoints.size(); i ++){
-		float x = regionPoints[i][0] * _resolution;
-		float y = regionPoints[i][1] * _resolution;
+		float x5 = _unknownCells[i][0] * _resolution + 0.0125;
+		float y5 = _unknownCells[i][1] * _resolution + 0.0125;
+		float x6 = _unknownCells[i][0] * _resolution - 0.0125;
+		float y6 = _unknownCells[i][1] * _resolution - 0.0125;
+		float x7 = _unknownCells[i][0] * _resolution - 0.0125;
+		float y7 = _unknownCells[i][1] * _resolution + 0.0125; 
+		float x8 = _unknownCells[i][0] * _resolution + 0.0125;
+		float y8 = _unknownCells[i][1] * _resolution - 0.0125;  
 
-		//std::cout<<x << " "<< y<< "("<<x*_resolution<< " "<<y*_resolution<<") ... ";
-		frontierPointsCloud[i] = (RichPoint2D({x,y}));
+		//frontierPointsCloud[i] = (RichPoint2D({x,y}));
+		frontierPointsCloud.push_back(RichPoint2D({x,y}));
+		frontierPointsCloud.push_back(RichPoint2D({x1,y1}));
+		frontierPointsCloud.push_back(RichPoint2D({x2,y2}));
+		frontierPointsCloud.push_back(RichPoint2D({x3,y3}));
+		frontierPointsCloud.push_back(RichPoint2D({x4,y4}));
+		frontierPointsCloud.push_back(RichPoint2D({x5,y5}));
+		frontierPointsCloud.push_back(RichPoint2D({x6,y6}));
+		frontierPointsCloud.push_back(RichPoint2D({x7,y7}));
+		frontierPointsCloud.push_back(RichPoint2D({x8,y8}));
 
 	}
-	//std::cout<<std::endl;
 
-	for (int i = 0; i<frontierPointsCloud.size(); i++){
-		frontierPointsCloud[i] = RichPoint2D({frontierPointsCloud[i].point()[0],frontierPointsCloud[i].point()[1]});
-		//std::cout<<frontierPointsCloud[i].point()[0]/_resolution<<" "<<frontierPointsCloud[i].point()[1]/_resolution<<" ... ";
-		testImage1.at<unsigned char>(frontierPointsCloud[i].point()[0]/_resolution, frontierPointsCloud[i].point()[1]/_resolution) = 255;
-		testImage2.at<unsigned char>(frontierPointsCloud[i].point()[0]/_resolution, frontierPointsCloud[i].point()[1]/_resolution) = 255;
+	//occupiedPointsCloud.resize(_occupiedCells.size());
+	for (int i = 0; i< _occupiedCells.size(); i ++){
+		float x = _occupiedCells[i][0] * _resolution;
+		float y = _occupiedCells[i][1] * _resolution;
+
+		float x1 = _occupiedCells[i][0] * _resolution + 0.0125;
+		float y1 = _occupiedCells[i][1] * _resolution; 
+		float x2 = _occupiedCells[i][0] * _resolution - 0.0125;
+		float y2 = _occupiedCells[i][1] * _resolution; 
+		float x3 = _occupiedCells[i][0] * _resolution;
+		float y3 = _occupiedCells[i][1] * _resolution + 0.0125; 
+		float x4 = _occupiedCells[i][0] * _resolution;
+		float y4 = _occupiedCells[i][1] * _resolution - 0.0125;
+
+		float x5 = _occupiedCells[i][0] * _resolution + 0.0125;
+		float y5 = _occupiedCells[i][1] * _resolution + 0.0125;
+		float x6 = _occupiedCells[i][0] * _resolution - 0.0125;
+		float y6 = _occupiedCells[i][1] * _resolution - 0.0125;
+		float x7 = _occupiedCells[i][0] * _resolution - 0.0125;
+		float y7 = _occupiedCells[i][1] * _resolution + 0.0125; 
+		float x8 = _occupiedCells[i][0] * _resolution + 0.0125;
+		float y8 = _occupiedCells[i][1] * _resolution - 0.0125;  
+		//occupiedPointsCloud[i] = (RichPoint2D({x,y}));
+		occupiedPointsCloud.push_back(RichPoint2D({x,y}));
+		occupiedPointsCloud.push_back(RichPoint2D({x1,y1}));
+		occupiedPointsCloud.push_back(RichPoint2D({x2,y2}));
+		occupiedPointsCloud.push_back(RichPoint2D({x3,y3}));
+		occupiedPointsCloud.push_back(RichPoint2D({x4,y4}));
+		occupiedPointsCloud.push_back(RichPoint2D({x5,y5}));
+		occupiedPointsCloud.push_back(RichPoint2D({x6,y6}));
+		occupiedPointsCloud.push_back(RichPoint2D({x7,y7}));
+		occupiedPointsCloud.push_back(RichPoint2D({x8,y8}));
+
 	}
 
-	/*int count = 0;
 
-	augmentedCloud.resize(_laserPointsCloud.size() + frontierPointsCloud.size());
-	
-	for (int i = 0; i < _laserPointsCloud.size(); i++){
-		augmentedCloud[i] = _laserPointsCloud[i];
+	//augmentedCloud = _laserPointsCloud;
+	//augmentedCloud = occupiedPointsCloud;
+	augmentedCloud = frontierPointsCloud;
+
+	augmentedCloud.insert(augmentedCloud.end(), occupiedPointsCloud.begin(), occupiedPointsCloud.end());
+
+
+	for (int i = 0; i<augmentedCloud.size(); i++){
+		//testImage1.at<unsigned char>(augmentedCloud[i].point()[0]/_resolution, augmentedCloud[i].point()[1]/_resolution) = 255;
 	}
-	
-	for (int i = _laserPointsCloud.size() - 1; i < augmentedCloud.size(); i ++){
-		augmentedCloud[i] = frontierPointsCloud[count];
-		count ++;
-	}*/
 
-	augmentedCloud = _laserPointsCloud;
-
-	augmentedCloud.insert( augmentedCloud.end(), frontierPointsCloud.begin(), frontierPointsCloud.end() );
+	//imwrite("virtualscan_test/test1.jpg", testImage1);
 
 
 
@@ -398,7 +443,6 @@ Cloud2D PathsRollout::createAugmentedPointsCloud(){
 
 
 void PathsRollout::project(const Isometry2f& transform, Cloud2D cloud){
-
 
 
 	_projector->project(_ranges, _pointsIndices, transform, cloud);
@@ -414,13 +458,18 @@ void PathsRollout::project(const Isometry2f& transform, Cloud2D cloud){
 		}
 	}
 
-	//std::cout<<"Tot points: "<<cloud.size()<<" -> Found points: "<<count<<" Found frontierPoints: "<<countFrontier<<std::endl;
+
+
+
+
 
 }
 
 
-void PathsRollout::setFrontierPoints(Vector2iVector points, regionVector regions){
+void PathsRollout::setFrontierPoints(Vector2iVector points, regionVector regions, Vector2iVector unknownCells, Vector2iVector occupiedCells){
 	_frontierPoints = points;
 	_regions = regions;
+	_unknownCells = unknownCells;
+	_occupiedCells = occupiedCells;
 }
 

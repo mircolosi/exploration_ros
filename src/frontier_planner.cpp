@@ -53,6 +53,8 @@ Vector2iVector centroids;
 Vector2iVector frontierPoints;
 Vector2fVector abortedGoals;
 Vector2iVector goalPoints;
+Vector2iVector unknownCells;
+Vector2iVector occupiedCells;
 regionVector regions;
 
 cv::Mat occupancyMap;
@@ -81,7 +83,7 @@ PathsRollout pathsRollout(idRobot, 0.05, rangesLimits);
 
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
-int num = 1;
+int num = 25;
  
 while (ros::ok() && (num > 0)){
 	ros::spinOnce();
@@ -95,6 +97,8 @@ while (ros::ok() && (num > 0)){
 	resolution = frontiersDetector.getResolution();
 	frontierPoints = frontiersDetector.getFrontierPoints();
 	regions = frontiersDetector.getFrontierRegions();
+	unknownCells = frontiersDetector.getUnknownCells();
+	occupiedCells = frontiersDetector.getOccupiedCells();
 	centroids = frontiersDetector.getFrontierCentroids();
 
 	abortedGoals = goalPlanner.getAbortedGoals();
@@ -118,23 +122,18 @@ while (ros::ok() && (num > 0)){
 
 		}
 
-		pathsRollout.setFrontierPoints(frontierPoints, regions);
-
-		float cellOffset = resolution;
+		pathsRollout.setFrontierPoints(frontierPoints, regions, unknownCells, occupiedCells);
 
 		geometry_msgs::Pose startPose;
-		startPose.position.x = poseY + cellOffset/2; //Inverted because plans are computed in the costmap
-		startPose.position.y = poseX + cellOffset;
+		startPose.position.x = poseY; //Inverted because plans will be computed in the costmap
+		startPose.position.y = poseX;
 
 		tf::Quaternion q;
   		q.setRPY(0, 0, poseTheta);
   		geometry_msgs::Quaternion qMsg;
 
   		tf::quaternionTFToMsg(q,qMsg);	
-
-		startPose.orientation = qMsg;  //It seems like global planner does not consider initial orientation
-		//The idea would be to use orientation to rank goal poses: if the planner would compute intermediate poses WITH orientation, I could compute the difference
-		//Between the expected orientation when a pose is reached and the one that ensures the most explored points.
+		startPose.orientation = qMsg;  
 
 		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(startPose, meterCentroids, "map_rotated");
 		PoseWithVisiblePoints goal = pathsRollout.extractGoalFromSampledPlans(vectorSampledPlans);
@@ -145,9 +144,9 @@ while (ros::ok() && (num > 0)){
 		std::string frame = "map";
 		goalPoints = goal.mapPoints;
 
+		
 		goalPlanner.publishGoal(goalPosition, orientation, frame, goalPoints);
 		goalPlanner.waitForGoal();
-
 
 
 		num = num - 1;

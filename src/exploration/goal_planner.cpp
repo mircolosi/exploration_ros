@@ -142,14 +142,15 @@ bool GoalPlanner::isGoalReached(){
 
 	int countDiscovered = 0;
 
-	for (int i = 0; i < _goalPoints.size(); i++){
+/*	for (int i = 0; i < _goalPoints.size(); i++){
 		int r = _goalPoints[i][0];
 		int c = _goalPoints[i][1];
 		Vector2i coord = {r,c};
-		if((getColoredNeighbors(coord, _unknownColor).empty())||(_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold )) {
+		//if((getColoredNeighbors(coord, _unknownColor).empty())||(_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold )) {
+		if((_occupancyMap->at<unsigned char>(r, c) != _unknownColor )) {
 			countDiscovered++;
 		}
-	}
+	}*/
 
 
 	if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
@@ -174,11 +175,11 @@ bool GoalPlanner::isGoalReached(){
 		return true;
 	}
 
-	if (_goalPoints.size() - countDiscovered < 5){
+/*	if (_goalPoints.size() == countDiscovered ){
 		ROS_INFO("The area has been explored");
 		ac.cancelAllGoals();
 		return true;
-	}
+	}*/
 
 	return false;
 
