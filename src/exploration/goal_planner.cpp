@@ -2,6 +2,11 @@
 
 using namespace srrg_core;
 using namespace Eigen;
+using namespace srrg_scan_matcher;
+
+
+
+
 
 void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 	_costMapMsg = *msg;
@@ -23,15 +28,21 @@ void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 
 
 
-GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage,  srrg_scan_matcher::Projector2D *projector, std::string nameFrame, std::string namePoints, std::string nameMarkers, int threhsoldSize): ac("move_base",true)
+GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, int minThresholdSize, std::string nameFrame, std::string namePoints, std::string nameMarkers)
 {
+
+	_ac = ac;
 
 	_occupancyMap = occupancyImage;
 	_costMap = costImage;
 
 	_projector = projector;
 
+	_frontierDetector = frontierDetector;
+
 	_idRobot = idRobot;
+
+	_minUnknownRegionSize = minThresholdSize;
 
 	std::stringstream fullFixedFrameId;
 	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
@@ -45,7 +56,6 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImag
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
 	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 
-	while(!ac.waitForServer(ros::Duration(5.0))){}
 }
 
 bool GoalPlanner::requestOccupancyMap(){
@@ -86,22 +96,22 @@ bool GoalPlanner::requestCloudsUpdate(){
 	mr_exploration::DoSomething::Response res;
 
 
+	std::cout<<"asking.."<<std::endl;
 	if (_cloudsClient.call(req,res)){
 		if (res.return_value == "done"){
 			return true;			}
-
-		
 	}
 	
-	else return false;
+	
+	return false;
 
 }
 
 
 
-void GoalPlanner::publishGoal(Vector2f goalPosition, float orientation, std::string frame, Vector2iVector goalPoints){
+void GoalPlanner::publishGoal(Vector3f goalPose, std::string frame, Vector2iVector goalPoints){
 
-	_goal = goalPosition;
+	_goal = goalPose;
 	_goalPoints = goalPoints;
   
  	move_base_msgs::MoveBaseGoal goal;
@@ -109,21 +119,19 @@ void GoalPlanner::publishGoal(Vector2f goalPosition, float orientation, std::str
 	goal.target_pose.header.frame_id = frame;
   	goal.target_pose.header.stamp = ros::Time::now();
 
-	goal.target_pose.pose.position.x = goalPosition[0];
-	goal.target_pose.pose.position.y = goalPosition[1];	
+	goal.target_pose.pose.position.x = goalPose[0];
+	goal.target_pose.pose.position.y = goalPose[1];	
 
-
-	
-	goal.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(orientation);
+	goal.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(goalPose[2]);
 
 	std::stringstream infoGoal;
 
 	time_t _now = time(0);
 	tm *ltm = localtime(&_now);
-	infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]Sending goal "<< goalPosition[0] << " "<< goalPosition[1]<< " "<<orientation<<std::endl;
+	infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]Sending goal "<< goalPose[0] << " "<< goalPose[1]<< " "<<goalPose[2];
 
 	std::cout<<infoGoal.str()<<std::endl;
-	ac.sendGoal(goal);
+	_ac->sendGoal(goal);
 
 
 }
@@ -136,57 +144,97 @@ void GoalPlanner::waitForGoal(){
 	ros::Rate loop_rate1(10);
 	ros::Rate loop_rate2(1);
 
+	tf::StampedTransform tf;
+	_tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tf);
+	Vector3f laserPose;
+	Isometry2f transform;
+
+	Rotation2D<float> rot(-_goal[2]);
+
+	Vector2f laserOffset = {tf.getOrigin().y(), tf.getOrigin().x()}; //Inverted because..
+
+	laserOffset = rot*laserOffset;
+
+	laserPose[0] = _goal[0] + laserOffset[0];
+	laserPose[1] = _goal[1] + laserOffset[1];
+	
+	laserPose[2] = _goal[2];
+
+	transform = v2t(laserPose);
+
+	Cloud2D augmentedCloud = *_unknownCellsCloud;
+
+	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
+
+
 	//This loop is needed to wait for the message status to be updated
-	while(ac.getState() != actionlib::SimpleClientGoalState::ACTIVE){
+	while(_ac->getState() != actionlib::SimpleClientGoalState::ACTIVE){
 		loop_rate1.sleep();
 	}
 
-	while (!isGoalReached()){
+	while (!isGoalReached(transform, augmentedCloud)){
 
 		requestOccupancyMap();
+		
+		_frontierDetector->computeFrontiers();
+		_frontierDetector->updateClouds();
+
+		augmentedCloud = *_unknownCellsCloud;
+
+		augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
+
 
   		loop_rate2.sleep();
   	}  	
 
 
-  	std::cout<<"wait ended"<<std::endl;
-
 }
 
 
-bool GoalPlanner::isGoalReached(){
+bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D cloud){
 
-	int countDiscovered = 0;
+	int countDiscoverable = 0;
 
-	//_projector->
+	Isometry2f pointsToLaserTransform = originToLaserGoalTransform.inverse();
+	
+	FloatVector _ranges;
+	IntVector _pointsIndices;
+
+	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+
+	for (int i = 0; i < _pointsIndices.size(); i ++){
+		if ((_pointsIndices[i] != -1) &&(_pointsIndices[i] < _unknownCellsCloud->size())){
+			countDiscoverable ++;
+			}
+	}
 
 
-	if (ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+	if (_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
 		ROS_INFO("Hooray, the goal has been reached");
 		return true;
 
 	}
 
-	if (ac.getState() == actionlib::SimpleClientGoalState::ABORTED){
+	if (_ac->getState() == actionlib::SimpleClientGoalState::ABORTED){
 		//I have to discard the goal as not reachable
-		_abortedGoals.push_back(_goal);
+		_abortedGoals.push_back({_goal[1], _goal[0]}); //Inverted because they will be used in the costmap
 		ROS_ERROR("The robot failed to reach the goal...Aborting");
-		ac.cancelAllGoals();
+		_ac->cancelAllGoals();
 		return true;
 	}
 
 	//Used if aborting from terminal or some other node
-	if ((ac.getState() == actionlib::SimpleClientGoalState::RECALLED) || (ac.getState() == actionlib::SimpleClientGoalState::PREEMPTED)){
-		_abortedGoals.push_back(_goal);
+	if ((_ac->getState() == actionlib::SimpleClientGoalState::RECALLED) || (_ac->getState() == actionlib::SimpleClientGoalState::PREEMPTED)){
+		_abortedGoals.push_back({_goal[1], _goal[0]});//Inverted because they will be used in the costmap
 		ROS_ERROR("The goal has been preempted...");
 		return true;
 	}
 
-/*	if (_goalPoints.size() == countDiscovered ){
+	if ((countDiscoverable <= _goalPoints.size())&&(countDiscoverable <= _minUnknownRegionSize) ){
 		ROS_INFO("The area has been explored");
-		ac.cancelAllGoals();
+		_ac->cancelAllGoals();
 		return true;
-	}*/
+	}
 
 	return false;
 
@@ -200,7 +248,7 @@ cv::Mat GoalPlanner::getImageMap(){
 }
 
 std::string GoalPlanner::getActionServerStatus(){
-	return ac.getState().toString();
+	return _ac->getState().toString();
 }
 
 float GoalPlanner::getResolution(){
@@ -212,11 +260,11 @@ Vector2fVector GoalPlanner::getAbortedGoals(){
 }
 
 
-void GoalPlanner::setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud){
+void GoalPlanner::setUnknownCellsCloud(Cloud2D* cloud){
 	_unknownCellsCloud = cloud;
 }
 
-void GoalPlanner::setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud){
+void GoalPlanner::setOccupiedCellsCloud(Cloud2D* cloud){
 	_occupiedCellsCloud = cloud;
 }
 

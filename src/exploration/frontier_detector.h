@@ -52,12 +52,7 @@ public:
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 	bool cloudsUpdateCallback(mr_exploration::DoSomething::Request &req, mr_exploration::DoSomething::Response &res);
 
-
-	FrontierDetector();
-
-	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30);
-
-	void init(int idRobot, cv::Mat *occupancy, cv::Mat *cost, float res, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30);
+	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30, int minNeighborsThreshold = 4);
 
 	bool requestOccupancyMap();
 
@@ -114,6 +109,7 @@ protected:
 
 	int _idRobot;
 	float _mapResolution;
+	int _minNeighborsThreshold;
 	int _sizeThreshold;
 	float _mixtureParam = 1;
 

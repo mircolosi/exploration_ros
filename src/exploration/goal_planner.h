@@ -6,9 +6,11 @@
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
 #include "tf/transform_broadcaster.h"
+#include "tf/transform_listener.h"
 
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
+#include <sys/time.h>
 
 
 #include <nav_msgs/GetMap.h>
@@ -27,20 +29,19 @@
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
+
 class GoalPlanner {
 
 public:
 	
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
-	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, srrg_scan_matcher::Projector2D *projector, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int threhsoldSize = 5);
+	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, int minThresholdSize = 10, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker");
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
 
-	void rankFrontiers(float mapX, float mapY, float theta);
-
-	void publishGoal(Vector2f goalPosition, float orientation, std::string frame, Vector2iVector goalPoints);
+	void publishGoal(Vector3f goalPosition, std::string frame, Vector2iVector goalPoints);
 
 	void waitForGoal();
 
@@ -57,10 +58,9 @@ public:
 	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
 	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
 
-
 protected:
 
-	bool isGoalReached();
+	bool isGoalReached(Isometry2f transform, srrg_scan_matcher::Cloud2D cloud);
 	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
 
 
@@ -68,6 +68,7 @@ protected:
 	int _idRobot;
 
 	srrg_scan_matcher::Projector2D *_projector;
+	FrontierDetector *_frontierDetector;
 
 	float _mapResolution;
 
@@ -75,12 +76,13 @@ protected:
 	int _unknownColor = 50;
 	int _occupiedColor = 100;
 
-	Vector2f _goal;
+	Vector3f _goal;
 	Vector2iVector _points;
 	regionVector _regions;
 	Vector2iVector _centroids;
 
-	float _sampledPathThreshold = 1;
+	int _minUnknownRegionSize;
+
 	int _circumscribedThreshold = 99;
 
 	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
@@ -103,7 +105,8 @@ protected:
 	ros::ServiceClient _mapClient;
 	ros::ServiceClient _cloudsClient;
 	ros::Subscriber _subCostMap;
-	MoveBaseClient ac;
+	tf::TransformListener _tfListener;
+	MoveBaseClient* _ac;
 
 
 

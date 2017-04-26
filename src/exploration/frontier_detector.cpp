@@ -25,9 +25,13 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
 
 bool FrontierDetector::cloudsUpdateCallback(mr_exploration::DoSomething::Request &req, mr_exploration::DoSomething::Response &res){
 
+	std::cout<<"front1"<<std::endl;
 	computeFrontiers();
+	std::cout<<"front2"<<std::endl;
 
 	updateClouds();
+
+	std::cout<<"front3"<<std::endl;
 
 	res.return_value = "done";
 
@@ -35,12 +39,7 @@ bool FrontierDetector::cloudsUpdateCallback(mr_exploration::DoSomething::Request
 }
 
 
-
-
-
-FrontierDetector::FrontierDetector(){}
-
-FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, int thresholdSize){
+FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, int thresholdSize, int minNeighborsThreshold){
 
 
 	_occupancyMap = occupancyImage;
@@ -48,6 +47,7 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 	
 	_idRobot = idRobot;
 	_sizeThreshold = thresholdSize;
+	_minNeighborsThreshold = minNeighborsThreshold;
 
 	std::stringstream fullPointsTopicName;
     std::stringstream fullMarkersTopicName;
@@ -78,39 +78,6 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 
 	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 
-
-}
-
-void FrontierDetector::init (int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, float res, std::string namePoints, std::string nameMarkers, int thresholdSize){
-	
-	_occupancyMap = occupancyImage;
-	_costMap = costImage;
-
-	_mapResolution = res;
-	
-	_idRobot = idRobot;
-	_sizeThreshold = thresholdSize;
-
-	std::stringstream fullPointsTopicName;
-    std::stringstream fullMarkersTopicName;
-
-    //fullPointsTopicName << "/robot_" << _idRobot << "/" << namePoints;
-    //fullMarkersTopicName << "/robot_" << _idRobot << "/" << nameMarkers;
-    fullPointsTopicName << namePoints;
-    fullMarkersTopicName << nameMarkers;
-
-
-   	_topicPointsName = fullPointsTopicName.str();
-	_topicMarkersName = fullMarkersTopicName.str();
-
-	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
-	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
-
-
-	std::stringstream fullFixedFrameId;
-	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
-	fullFixedFrameId << "map";
-	_fixedFrameId = fullFixedFrameId.str();
 
 }
 
@@ -167,7 +134,7 @@ void FrontierDetector::computeFrontiers(){
     			if (neighbors.empty())	//If the current free cell has no unknown cells around
     				continue;
     			for (int i = 0; i < neighbors.size(); i++){
-    				if (hasSomeNeighbors(neighbors[i], _unknownColor, 4)){ //If the neighbor unknown cell is sourrounded by free cells 
+    				if (hasSomeNeighbors(neighbors[i], _unknownColor, _minNeighborsThreshold)){ //If the neighbor unknown cell is sourrounded by free cells 
     					_frontiers.push_back(coord);	
     					break;					}
     									}
@@ -219,7 +186,7 @@ void FrontierDetector::computeFrontiers(){
 		   		Vector2iVector neighbors = getColoredNeighbors(tempRegion[l], _unknownColor);
 		   		for (int m = 0; m < neighbors.size(); m++){
 
-		   			if ((hasSomeNeighbors(neighbors[m], _unknownColor, 4))&&(!contains(_unknownFrontierCells, neighbors[m]))){
+		   			if ((hasSomeNeighbors(neighbors[m], _unknownColor, _minNeighborsThreshold))&&(!contains(_unknownFrontierCells, neighbors[m]))){
 		   				_unknownFrontierCells.push_back(neighbors[m]);
 		   										}
 		   									}
