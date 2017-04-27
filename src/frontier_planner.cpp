@@ -77,6 +77,9 @@ float maxRange;
 int numRanges;
 float fov;
 
+Vector2f laserOffset;
+
+
 
 arg.param("idRobot", idRobot, 0, "robot identifier" );
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
@@ -109,8 +112,24 @@ projector.setFov(fov);
 projector.setNumRanges(numRanges);
 
 MoveBaseClient ac("move_base",true);
+
 ac.waitForServer(); //will wait for infinite time
+
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
+
+tf::TransformListener tfListener;
+tf::StampedTransform tf;
+try{
+	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time::now(), ros::Duration(3.0));
+	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tf);
+
+	laserOffset  = {tf.getOrigin().y(), tf.getOrigin().x()}; //Inverted because..
+}
+ 
+catch (...) {
+	laserOffset = {0.0, 0.0};
+	std::cout<<"Catch exception: base_laser_link frame not exists."<<std::endl;
+ }
 
 
 
@@ -119,18 +138,18 @@ FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPo
 unknownCellsCloud = frontiersDetector.getUnknownCloud();
 occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
 
-PathsRollout pathsRollout(idRobot,&ac, &projector);
+PathsRollout pathsRollout(idRobot, &occupancyMap, &ac, &projector, laserOffset);
 
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
 
-GoalPlanner goalPlanner(idRobot, &occupancyMap, &costMap, &ac ,&projector, &frontiersDetector,thresholdRegionSize, "base_link", frontierPointsTopic, markersTopic);
+GoalPlanner goalPlanner(idRobot, &occupancyMap, &costMap, &ac ,&projector, &frontiersDetector, laserOffset, thresholdRegionSize, "base_link", frontierPointsTopic, markersTopic);
 
 goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int num = 5;
+int num = 10;
  
 while (ros::ok() && (num > 0)){
 
@@ -160,8 +179,6 @@ while (ros::ok() && (num > 0)){
 
 
 	else {
-
-
 		meterCentroids.clear();
 
 		for (int i = 0; i < centroids.size(); i ++){
@@ -195,6 +212,11 @@ while (ros::ok() && (num > 0)){
 
 
 		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(startPose, meterCentroids, "map_rotated");
+
+		if (vectorSampledPlans.empty()){
+			std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
+			return 0;
+			}
 
 		PoseWithVisiblePoints goal = pathsRollout.extractGoalFromSampledPlans(vectorSampledPlans);
 

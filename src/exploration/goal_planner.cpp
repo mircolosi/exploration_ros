@@ -28,7 +28,7 @@ void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 
 
 
-GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, int minThresholdSize, std::string nameFrame, std::string namePoints, std::string nameMarkers)
+GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize, std::string nameFrame, std::string namePoints, std::string nameMarkers)
 {
 
 	_ac = ac;
@@ -42,6 +42,8 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImag
 
 	_idRobot = idRobot;
 
+	_laserOffset = laserOffset;
+
 	_minUnknownRegionSize = minThresholdSize;
 
 	std::stringstream fullFixedFrameId;
@@ -50,7 +52,6 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImag
 	_fixedFrameId = fullFixedFrameId.str();
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
-	_cloudsClient = _nh.serviceClient<mr_exploration::DoSomething>("updateClouds");
 
 
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
@@ -90,25 +91,6 @@ bool GoalPlanner::requestOccupancyMap(){
 }	
 
 
-bool GoalPlanner::requestCloudsUpdate(){
-
-	mr_exploration::DoSomething::Request req;
-	mr_exploration::DoSomething::Response res;
-
-
-	std::cout<<"asking.."<<std::endl;
-	if (_cloudsClient.call(req,res)){
-		if (res.return_value == "done"){
-			return true;			}
-	}
-	
-	
-	return false;
-
-}
-
-
-
 void GoalPlanner::publishGoal(Vector3f goalPose, std::string frame, Vector2iVector goalPoints){
 
 	_goal = goalPose;
@@ -144,19 +126,15 @@ void GoalPlanner::waitForGoal(){
 	ros::Rate loop_rate1(10);
 	ros::Rate loop_rate2(1);
 
-	tf::StampedTransform tf;
-	_tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tf);
 	Vector3f laserPose;
 	Isometry2f transform;
 
 	Rotation2D<float> rot(-_goal[2]);
 
-	Vector2f laserOffset = {tf.getOrigin().y(), tf.getOrigin().x()}; //Inverted because..
+	Vector2f laserOffsetRotated = rot*_laserOffset;
 
-	laserOffset = rot*laserOffset;
-
-	laserPose[0] = _goal[0] + laserOffset[0];
-	laserPose[1] = _goal[1] + laserOffset[1];
+	laserPose[0] = _goal[0] + laserOffsetRotated[0];
+	laserPose[1] = _goal[1] + laserOffsetRotated[1];
 	
 	laserPose[2] = _goal[2];
 
@@ -210,29 +188,51 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 
 
 	if (_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
-		ROS_INFO("Hooray, the goal has been reached");
+		
+		std::stringstream infoGoal;
+		time_t _now = time(0);
+		tm *ltm = localtime(&_now);
+		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The goal SUCCEEDED.";
+		std::cout<<infoGoal.str()<<std::endl;
+		
 		return true;
 
 	}
 
 	if (_ac->getState() == actionlib::SimpleClientGoalState::ABORTED){
-		//I have to discard the goal as not reachable
 		_abortedGoals.push_back({_goal[1], _goal[0]}); //Inverted because they will be used in the costmap
-		ROS_ERROR("The robot failed to reach the goal...Aborting");
 		_ac->cancelAllGoals();
+
+		std::stringstream infoGoal;
+		time_t _now = time(0);
+		tm *ltm = localtime(&_now);
+		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The goal has been ABORTED";
+		std::cout<<infoGoal.str()<<std::endl;
 		return true;
 	}
 
 	//Used if aborting from terminal or some other node
 	if ((_ac->getState() == actionlib::SimpleClientGoalState::RECALLED) || (_ac->getState() == actionlib::SimpleClientGoalState::PREEMPTED)){
 		_abortedGoals.push_back({_goal[1], _goal[0]});//Inverted because they will be used in the costmap
-		ROS_ERROR("The goal has been preempted...");
+		
+		std::stringstream infoGoal;
+		time_t _now = time(0);
+		tm *ltm = localtime(&_now);
+		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The goal has been PREEMPTED";
+		std::cout<<infoGoal.str()<<std::endl;
+
 		return true;
 	}
 
 	if ((countDiscoverable <= _goalPoints.size())&&(countDiscoverable <= _minUnknownRegionSize) ){
-		ROS_INFO("The area has been explored");
 		_ac->cancelAllGoals();
+
+		std::stringstream infoGoal;
+		time_t _now = time(0);
+		tm *ltm = localtime(&_now);
+		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The area has been already explored.";
+		std::cout<<infoGoal.str()<<std::endl;
+
 		return true;
 	}
 
@@ -319,15 +319,3 @@ Vector2iVector GoalPlanner::getColoredNeighbors (Vector2i coord, int color){
 
 }
 
-
-
-
-
-   void GoalPlanner::printCostVal(Vector2i point){
-   	std::cout<<point[0]<< " "<<point[1]<<"->";
-   	for (int i =0; i< 101; i++){
-   		if (_costMap->at<unsigned char>(point[0], point[1]) == i ){
-   			std::cout<<i<<std::endl;
-   		}
-   	}
-   }

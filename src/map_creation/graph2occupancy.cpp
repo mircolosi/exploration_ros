@@ -5,6 +5,7 @@ using namespace Eigen;
 using namespace g2o;
 
 
+#define MAP_IDX(totCols, row, col) ((totCols) * (row) + (col))
 
 bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res ){
 
@@ -13,29 +14,15 @@ bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::Get
  res.map.header.frame_id = _topicName;
   
   //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
+
+  res.map.info = _gridMsg.info;
   res.map.info.map_load_time = ros::Time::now();
-  res.map.info.resolution = _resolution;
-  res.map.info.width = _mapImage.cols;
-  res.map.info.height = _mapImage.rows;
 
-
-  geometry_msgs::Pose poseMsg;
-  poseMsg.position.x = 0.0;
-  poseMsg.position.y = 0.0;
-  poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 0.707;
-  poseMsg.orientation.y = 0.707; 
-  poseMsg.orientation.z = 0.0; 
-  poseMsg.orientation.w = 0.0;
-
-  res.map.info.origin = poseMsg;
 
   //data (int8[] data)
-  res.map.data.resize(res.map.info.width * res.map.info.height);
+  //res.map.data.resize(res.map.info.width * res.map.info.height);
 
-
-  res.map.data = _mapImage.reshape(1,1);
-  
+  res.map.data = _gridMsg.data;
 
   return true;
 }
@@ -70,6 +57,22 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, int idRobot, SE2 gtPos
     _pubActualCoord = _nh.advertise<geometry_msgs::Pose2D>("map_pose",1);
 
     _server = _nh.advertiseService("map", &Graph2occupancy::mapCallback, this);
+
+
+    _gridMsg.header.frame_id = _topicName;
+    _gridMsg.info.resolution = _resolution;
+    geometry_msgs::Pose poseMsg;
+    poseMsg.position.x = 0.0;
+    poseMsg.position.y = 0.0;
+    poseMsg.position.z = 0.0;
+    poseMsg.orientation.x = 0.707;
+    poseMsg.orientation.y = 0.707; 
+    poseMsg.orientation.z = 0.0; 
+    poseMsg.orientation.w = 0.0;
+
+    _gridMsg.info.origin = poseMsg;
+
+
 
 }
 
@@ -190,23 +193,26 @@ void Graph2occupancy::computeMap(){
    *                  Convert frequency map into int[8]                   *
    ************************************************************************/
 
-  _mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
-_mapImage.setTo(cv::Scalar(0));
+  _gridMsg.data.resize(_map.rows() * _map.cols());
 
-    for(int c = 0; c < _map.cols(); c++) {
-      for(int r = 0; r < _map.rows(); r++) {
+  _gridMsg.info.width = _map.cols();
+  _gridMsg.info.height = _map.rows();
+
+  unsigned char value;
+
+
+    for(int r = 0; r < _map.rows(); r++) {
+      for(int c = 0; c < _map.cols(); c++) {
           if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
-          _mapImage.at<unsigned char>(r, c) = _unknownColor;    }
+            _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _unknownColor;   }
           else {
-          float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
-          if (_freeThreshold && fraction < _freeThreshold){
-              _mapImage.at<unsigned char>(r, c) = _freeColor; }
-          else if (_threshold && fraction > _threshold){
-              _mapImage.at<unsigned char>(r, c) = _occupiedColor; }
-          else {
-            //float val = 255*(1-fraction);
-           // _mapRVIZ.at<unsigned char>(r, c) = (unsigned char)val;
-           _mapImage.at<unsigned char>(r, c) = _unknownColor;      }
+            float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
+            if (_freeThreshold && fraction < _freeThreshold){
+              _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _freeColor;   }
+            else if (_threshold && fraction > _threshold){
+              _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _occupiedColor;   }
+            else {
+              _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _unknownColor;      }
 
     
           }
@@ -223,10 +229,6 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
 
   Vector2D translation = actualPose.translation();
 
-
-  //float mapX = (abs(translation[0] - _offset[0]))/_resolution;
-  //float mapY = (abs(translation[1] - _offset[1]))/_resolution;
-
   float mapX = translation[0] - _offset[0];
   float mapY = translation[1] - _offset[1];
 
@@ -234,12 +236,7 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
   poseMsg.y = mapY;
   poseMsg.theta = actualPose.rotation().angle();
 
-//std::cout<<"translation "<<translation[0]<<" "<<translation[1]<<std::endl;
- //std::cout<<"actual pose "<<poseMsg.x<<" "<<poseMsg.y<<std::endl;
-
   _pubActualCoord.publish(poseMsg);
-
-
 
 }
 
@@ -267,38 +264,14 @@ void Graph2occupancy::publishTF() {
 
 void Graph2occupancy::publishMap() {
 
-  //Not recognised in mrslam project.... 
-  //assert(_mapImage && "Cannot publish: undefined occupancy grid");
-
-  nav_msgs::OccupancyGrid gridMsg;
-
   //header (uint32 seq, time stamp, string frame_id)
   //gridMsg.header.seq = id;
-  gridMsg.header.frame_id = _topicName;
+  //gridMsg.header.frame_id = _topicName;
   
   //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
-  gridMsg.info.map_load_time = ros::Time::now();
-  gridMsg.info.resolution = _resolution;
-  gridMsg.info.width = _mapImage.cols;
-  gridMsg.info.height = _mapImage.rows;
+  _gridMsg.info.map_load_time = ros::Time::now();
 
-
-  geometry_msgs::Pose poseMsg;
-  poseMsg.position.x = 0.0;
-  poseMsg.position.y = 0.0;
-  poseMsg.position.z = 0.0;
-  poseMsg.orientation.x = 0.707;
-  poseMsg.orientation.y = 0.707; 
-  poseMsg.orientation.z = 0.0; 
-  poseMsg.orientation.w = 0.0;
-
-  gridMsg.info.origin = poseMsg;
-
-  //data (int8[] data)
-  gridMsg.data = _mapImage.reshape(1,1);
-
-
-  _pubOccupGrid.publish(gridMsg);
+  _pubOccupGrid.publish(_gridMsg);
 
 
 
@@ -383,20 +356,5 @@ void Graph2occupancy::publishMap() {
 void Graph2occupancy::showMap() {}
 
 
-void Graph2occupancy::saveMap(string outputFileName) {
-
-  cv::imwrite(outputFileName + ".png", _mapImage);
-
-
-  std::ofstream ofs(string(outputFileName + ".yaml").c_str());
-  Vector3f origin(0.0f, 0.0f, 0.0f);
-  ofs << "image: " << outputFileName << ".png" << endl
-      << "resolution: " << _resolution << endl
-      << "origin: [" << origin.x() << ", " << origin.y() << ", " << origin.z() << "]" << endl
-      << "negate: 0" << endl
-      << "occupied_thresh: " << _threshold << endl
-      << "free_thresh: " << _freeThreshold << endl;
-
-}
 
 

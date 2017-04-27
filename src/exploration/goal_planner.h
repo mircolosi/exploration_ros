@@ -36,7 +36,7 @@ public:
 	
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
-	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, int minThresholdSize = 10, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker");
+	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker");
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
@@ -53,8 +53,6 @@ public:
 
 	Vector2fVector getAbortedGoals();
 
-	void printCostVal(Vector2i point);
-
 	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
 	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
 
@@ -68,13 +66,14 @@ protected:
 	int _idRobot;
 
 	srrg_scan_matcher::Projector2D *_projector;
+	Vector2f _laserOffset;
 	FrontierDetector *_frontierDetector;
 
 	float _mapResolution;
 
-	int _freeColor = 0;
-	int _unknownColor = 50;
-	int _occupiedColor = 100;
+	unsigned char _freeColor = 0;
+	unsigned char _unknownColor = -1;
+	unsigned char _occupiedColor = 100;
 
 	Vector3f _goal;
 	Vector2iVector _points;
@@ -99,13 +98,10 @@ protected:
 
 	cv::Mat* _occupancyMap;
 	cv::Mat* _costMap;
-	actionlib::SimpleClientGoalState::StateEnum _status;
 
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
-	ros::ServiceClient _cloudsClient;
 	ros::Subscriber _subCostMap;
-	tf::TransformListener _tfListener;
 	MoveBaseClient* _ac;
 
 

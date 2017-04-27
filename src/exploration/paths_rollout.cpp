@@ -23,10 +23,14 @@ void PathsRollout::laserPointsCallback(const sensor_msgs::PointCloud::ConstPtr& 
 }
 
 
-	PathsRollout::PathsRollout(int idRobot, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, float nearCentroidsThreshold, float sampleThreshold, int sampleOrientation, std::string laserPointsName){
+	PathsRollout::PathsRollout(int idRobot, cv::Mat* occupMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, float nearCentroidsThreshold, float sampleThreshold, int sampleOrientation, std::string laserPointsName){
 
 	_idRobot = idRobot;
 	_nearCentroidsThreshold = nearCentroidsThreshold;
+
+	_laserOffset = laserOffset;
+
+	_occupancyMap = occupMap;
 
 	_sampledPathThreshold = sampleThreshold;
 	_lastSampleThreshold = sampleThreshold/4;
@@ -62,8 +66,6 @@ Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose
 		checkReadyRate.sleep();
 	}
 
-
-
 	for (int i = 0; i < meterCentroids.size(); i++){
 
 		geometry_msgs::Pose goalPose;
@@ -78,9 +80,6 @@ Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose
 		}
 	}
 
-	if (vectorSampledPlans.empty()){
-		std::cout<<"NO POSE AVAILABLE FOR GOAL"<<std::endl;
-	}
 
 	return vectorSampledPlans;
 
@@ -126,10 +125,10 @@ Vector2fVector PathsRollout::makeSampledPlan(std::string frame, geometry_msgs::P
 	req.goal.header.frame_id = frame;
 	req.goal.pose = goalPose;
 
+	std::cout<<goalPose.position.x<<" "<<goalPose.position.y<<std::endl;
+
 	Vector2fVector sampledPlan;
 	std::vector<int> sampledIndices;
-
-	std::cout<<"makeSampledPlan from "<<startPose.position.x << " "<< startPose.position.y<< " to "<<goalPose.position.x << " "<< goalPose.position.y<<" (costmap_rotated frame)"<<std::endl;
 
 	if (_planClient.call(req,res)){
         if (!res.plan.poses.empty()) {
@@ -164,12 +163,16 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 		indices->push_back(0);
 
 		for (int i = 1; i < path.poses.size(); i++){
-			float distancePreviousPose = sqrt(pow((lastPose[0] - path.poses[i].pose.position.x),2) + pow((lastPose[1] - path.poses[i].pose.position.y),2));
 
-			if (distancePreviousPose >= _sampledPathThreshold){
+			Vector2f newPose = {path.poses[i].pose.position.x, path.poses[i].pose.position.y};
+			Vector2i newPoseMap = {round(newPose[0]/_resolution), round(newPose[1]/_resolution)};
+
+			float distancePreviousPose = sqrt(pow((lastPose[0] - newPose[0]),2) + pow((lastPose[1] - newPose[1]),2));
+
+			if ((distancePreviousPose >= _sampledPathThreshold)&&(_occupancyMap->at<unsigned char>(newPoseMap[1], newPoseMap[0]) == _freeColor)){
 				bool nearToAborted = false;
 				for (int j = 0; j < _abortedGoals.size(); j ++){
-					float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - path.poses[i].pose.position.x),2) + pow((_abortedGoals[j][1] - path.poses[i].pose.position.y),2));
+					float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - newPose[0]),2) + pow((_abortedGoals[j][1] - newPose[1]),2));
 					if (distanceAbortedGoal < _nearCentroidsThreshold){
 						nearToAborted = true;
 						break;
@@ -178,8 +181,8 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 
 				if (!nearToAborted){
 
-					lastPose[0] = path.poses[i].pose.position.x;
-					lastPose[1] = path.poses[i].pose.position.y;
+					lastPose[0] = newPose[0];
+					lastPose[1] = newPose[1];
 
 					sampledPath.push_back(lastPose);
 					indices->push_back(i);
@@ -228,8 +231,6 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 	Vector3f pose;
 	Vector3f laserPose;
 
-	tf::StampedTransform tf;
-	_tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tf);
 
 	for (int i = 0; i < sampledPlan.size(); i ++){
 
@@ -244,12 +245,12 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 
 			Rotation2D<float> rot(-yawAngle);
 
-			Vector2f laserOffset = {tf.getOrigin().y(), tf.getOrigin().x()}; //Inverted because..
+			
 
-			laserOffset = rot*laserOffset;
+			Vector2f laserOffsetRotated = rot*_laserOffset;
 
-			laserPose[0] = sampledPlan[i][1] + laserOffset[1];
-			laserPose[1] = sampledPlan[i][0] + laserOffset[0];
+			laserPose[0] = sampledPlan[i][1] + laserOffsetRotated[1];
+			laserPose[1] = sampledPlan[i][0] + laserOffsetRotated[0];
 			
 			laserPose[2] = yawAngle;
 			pose[2] = yawAngle;	

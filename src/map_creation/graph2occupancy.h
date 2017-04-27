@@ -26,7 +26,11 @@
 
 #include "g2o/stuff/command_args.h"
 
+#include "srrg_types/defs.h"
+
 #include "frequency_map.h"
+
+
 
 using namespace std;
 using namespace Eigen;
@@ -89,7 +93,9 @@ public:
 protected:
 	OptimizableGraph *_graph;
 	FrequencyMap _map;
-	cv::Mat  _mapImage;
+
+	nav_msgs::OccupancyGrid _gridMsg;
+
 
 	Vector2f _offset;
 	SE2 _groundTruthPose;
@@ -107,9 +113,9 @@ protected:
 
 	string _topicName;
 
-	int _freeColor = 0;
-	int _unknownColor = 50;
-	int _occupiedColor = 100;
+	unsigned char _freeColor = 0;
+	unsigned char _unknownColor = -1;
+	unsigned char _occupiedColor = 100;
 
 	ros::NodeHandle _nh;
 	ros::Publisher _pubOccupGrid;
@@ -119,6 +125,8 @@ protected:
 	tf::TransformBroadcaster _tfBroadcaster;
 	
 	nav_msgs::GetMap::Response _resp;
+
+
 	
 
 

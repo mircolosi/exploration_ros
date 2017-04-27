@@ -6,12 +6,13 @@ global_costmap:
   robot_base_frame: base_link
 
   #Set the update and publish frequency of the costmap
-  update_frequency: 5.0
-  publish_frequency: 5.0
+  update_frequency: 2
+  publish_frequency: 2.0
   always_send_full_costmap: true
 
   #We'll use a map served by the map_server to initialize this costmap
   static_map: true
   rolling_window: false
 
-  footprint_padding: 0.02
+  #track_unknown_space: true
+

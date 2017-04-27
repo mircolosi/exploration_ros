@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-  Graph2occupancy occupancyPublisher(gslam.graph(), idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
+  Graph2occupancy mapCreator(gslam.graph(), idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
   
   ////////////////////
   //Setting up network
@@ -146,13 +146,13 @@ int main(int argc, char **argv)
     graphPublisher.publishGraph();
 
     SE2 lastPose = gslam.lastVertex()->estimate();
-    occupancyPublisher.publishMapPose(lastPose);
+    mapCreator.publishMapPose(lastPose);
 
-    occupancyPublisher.computeMap();
-    Eigen::Vector2f offset = occupancyPublisher.getOffset();
-    occupancyPublisher.publishMap();
+    mapCreator.computeMap();
+    Eigen::Vector2f offset = mapCreator.getOffset();
+    mapCreator.publishMap();
 
-    occupancyPublisher.publishTF();
+    mapCreator.publishTF();
     
     loop_rate.sleep();
   }

@@ -1,3 +1,9 @@
+NavfnROS:
+  allow_unknown: false
+
 GlobalPlanner:
   allow_unknown: false
-  use_grid_path: false
+
+
+
+  

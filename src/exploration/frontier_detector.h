@@ -113,9 +113,9 @@ protected:
 	int _sizeThreshold;
 	float _mixtureParam = 1;
 
-	int _freeColor = 0;
-	int _unknownColor = 50;
-	int _occupiedColor = 100;
+	unsigned char _freeColor = 0;
+	unsigned char _unknownColor = -1;
+	unsigned char _occupiedColor = 100;
 
 	int _circumscribedThreshold = 99;
 

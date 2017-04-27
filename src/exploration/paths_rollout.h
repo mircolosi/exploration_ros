@@ -48,7 +48,7 @@ public:
 
 	void laserPointsCallback(const sensor_msgs::PointCloud::ConstPtr& msg);
 
-	PathsRollout(int idRobot, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,float nearCentroidsThreshold = 0.5, float samplesThreshold = 1, int sampleOrientation = 8, std::string laserPointsName = "lasermap");
+	PathsRollout(int idRobot,cv::Mat* occupMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.0, 0.5},  float nearCentroidsThreshold = 0.5, float samplesThreshold = 1, int sampleOrientation = 8, std::string laserPointsName = "lasermap");
 
 
 	Vector2DPlans computeAllSampledPlans(geometry_msgs::Pose startPose, Vector2fVector meterCentroids, std::string frame);
@@ -80,6 +80,9 @@ protected:
 	int _idRobot;
 	float _resolution = 0.05; //It's only used for image debug
 
+	cv::Mat *_occupancyMap;
+	unsigned char _freeColor = 0;
+
 	float _sampledPathThreshold;
 	int _sampleOrientation;
 	float _intervalOrientation;
@@ -90,6 +93,7 @@ protected:
 	Vector2f _rangesLimits;
 	float _fov;
 	int _numRanges;
+	Vector2f _laserOffset;
 
 	regionVector _regions;
 	Vector2iVector _frontierPoints;
@@ -114,7 +118,6 @@ protected:
 
 	ros::NodeHandle _nh;
 	ros::Subscriber _subLaserPoints;
-	tf::TransformListener _tfListener;
 	ros::ServiceClient _planClient;
 	MoveBaseClient *_ac;
 
