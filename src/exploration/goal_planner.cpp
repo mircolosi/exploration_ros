@@ -5,8 +5,16 @@ using namespace Eigen;
 using namespace srrg_scan_matcher;
 
 
+void GoalPlanner::actualPoseCallback(const geometry_msgs::Pose2D msg){
 
-GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize)
+
+_robotPose = {msg.x, msg.y, msg.theta};
+
+}
+
+
+
+GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize, std::string robotPoseTopic)
 {
 
 	_ac = ac;
@@ -28,7 +36,14 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient* a
 	fullFixedFrameId << "map";
 	_fixedFrameId = fullFixedFrameId.str();
 
+	_robotPoseTopicName = robotPoseTopic; 
+
+	_subActualPose = _nh.subscribe<geometry_msgs::Pose2D>(_robotPoseTopicName,1,&GoalPlanner::actualPoseCallback,this);
+
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
+
+	ros::topic::waitForMessage<geometry_msgs::Pose2D>(_robotPoseTopicName);
+
 
 }
 
@@ -64,10 +79,9 @@ bool GoalPlanner::requestOccupancyMap(){
 }	
 
 
-void GoalPlanner::publishGoal(Vector3f goalPose, std::string frame, Vector2iVector goalPoints){
+void GoalPlanner::publishGoal(Vector3f goalPose, std::string frame){
 
 	_goal = goalPose;
-	_goalPoints = goalPoints;
   
  	move_base_msgs::MoveBaseGoal goal;
 
@@ -95,7 +109,7 @@ void GoalPlanner::publishGoal(Vector3f goalPose, std::string frame, Vector2iVect
 
 
 void GoalPlanner::waitForGoal(){
-	
+
 	ros::Rate loop_rate1(10);
 	ros::Rate loop_rate2(1);
 
@@ -117,7 +131,6 @@ void GoalPlanner::waitForGoal(){
 
 	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
 
-
 	//This loop is needed to wait for the message status to be updated
 	while(_ac->getState() != actionlib::SimpleClientGoalState::ACTIVE){
 		loop_rate1.sleep();
@@ -125,13 +138,13 @@ void GoalPlanner::waitForGoal(){
 
 	while (!isGoalReached(transform, augmentedCloud)){
 
+		ros::spinOnce();
 		requestOccupancyMap();
 		
 		_frontierDetector->computeFrontiers();
 		_frontierDetector->updateClouds();
 
 		augmentedCloud = *_unknownCellsCloud;
-
 		augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
 
 
@@ -144,23 +157,79 @@ void GoalPlanner::waitForGoal(){
 
 bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D cloud){
 
-	int countDiscoverable = 0;
+	actionlib::SimpleClientGoalState goalState = _ac->getState();
 
-	Isometry2f pointsToLaserTransform = originToLaserGoalTransform.inverse();
-	
-	FloatVector _ranges;
-	IntVector _pointsIndices;
+	float distance = sqrt(pow(_robotPose[0] - _goal[0],2) + pow(_robotPose[1] - _goal[1],2));
 
-	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+	if (distance > 0.25){ // If distance greater than local planner xy threshold
+	//if (goalState == actionlib::SimpleClientGoalState::ACTIVE){
+		
+		Vector2f points_angle = {0,0};
 
-	for (int i = 0; i < _pointsIndices.size(); i ++){
-		if ((_pointsIndices[i] != -1) &&(_pointsIndices[i] < _unknownCellsCloud->size())){
-			countDiscoverable ++;
+		for (int j = 0; j < 8; j++){
+
+			int countDiscoverable = 0;
+			Vector3f laserPose;
+			Isometry2f transform;
+
+			float yawAngle = M_PI/4*j;
+			Rotation2D<float> rot(-yawAngle);
+			Vector2f laserOffsetRotated = rot*_laserOffset;
+
+			laserPose[0] = _goal[0] + laserOffsetRotated[0];
+			laserPose[1] = _goal[1] + laserOffsetRotated[1];
+			laserPose[2] = yawAngle;
+
+			transform = v2t(laserPose);
+
+			Isometry2f pointsToLaserTransform = transform.inverse();
+
+			FloatVector _ranges;
+			IntVector _pointsIndices;
+
+			_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+
+
+			for (int i = 0; i < _pointsIndices.size(); i ++){
+				if ((_pointsIndices[i] != -1) &&(_pointsIndices[i] < _unknownCellsCloud->size())){
+					countDiscoverable ++;
+					}
 			}
+
+			if (countDiscoverable > points_angle[0]){
+				points_angle[0] = countDiscoverable;
+				points_angle[1] = yawAngle;
+			}
+		}
+
+		if (points_angle[0] < _minUnknownRegionSize){
+			_ac->cancelAllGoals();
+
+			std::stringstream infoGoal;
+			time_t _now = time(0);
+			tm *ltm = localtime(&_now);
+			infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The area has been EXPLORED.";
+			std::cout<<infoGoal.str()<<std::endl;
+
+			return true;
+		}
+
+		else if (points_angle[1] != _goal[2]){
+
+			std::cout<<"Changed angle from "<< _goal[2]<<" to "<<points_angle[1]<<std::endl;
+			//_ac->cancelAllGoals();
+
+			publishGoal({_goal[0],_goal[1], points_angle[1]}, "map" );
+
+			return false;
+		}
+
 	}
 
 
-	if (_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+
+
+	if (goalState == actionlib::SimpleClientGoalState::SUCCEEDED){
 		
 		std::stringstream infoGoal;
 		time_t _now = time(0);
@@ -172,7 +241,7 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 
 	}
 
-	if (_ac->getState() == actionlib::SimpleClientGoalState::ABORTED){
+	if (goalState == actionlib::SimpleClientGoalState::ABORTED){
 		_abortedGoals.push_back({_goal[1], _goal[0]}); //Inverted because they will be used in the costmap
 		_ac->cancelAllGoals();
 
@@ -185,7 +254,7 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 	}
 
 	//Used if aborting from terminal or some other node
-	if ((_ac->getState() == actionlib::SimpleClientGoalState::RECALLED) || (_ac->getState() == actionlib::SimpleClientGoalState::PREEMPTED)){
+	/*if ((goalState == actionlib::SimpleClientGoalState::RECALLED) || (_ac->getState() == actionlib::SimpleClientGoalState::PREEMPTED)){
 		_abortedGoals.push_back({_goal[1], _goal[0]});//Inverted because they will be used in the costmap
 		
 		std::stringstream infoGoal;
@@ -195,19 +264,8 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 		std::cout<<infoGoal.str()<<std::endl;
 
 		return true;
-	}
+	}*/
 
-	if ((countDiscoverable <= _goalPoints.size())&&(countDiscoverable <= _minUnknownRegionSize) ){
-		_ac->cancelAllGoals();
-
-		std::stringstream infoGoal;
-		time_t _now = time(0);
-		tm *ltm = localtime(&_now);
-		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The area has been already explored.";
-		std::cout<<infoGoal.str()<<std::endl;
-
-		return true;
-	}
 
 	return false;
 
@@ -239,56 +297,5 @@ void GoalPlanner::setUnknownCellsCloud(Cloud2D* cloud){
 
 void GoalPlanner::setOccupiedCellsCloud(Cloud2D* cloud){
 	_occupiedCellsCloud = cloud;
-}
-
-
-Vector2iVector GoalPlanner::getColoredNeighbors (Vector2i coord, int color){
-
-	Vector2iVector neighbors;
-	Vector2i coordN;
-
-    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
-    	coordN = {coord[0] + 1, coord[1]};
-    	neighbors.push_back(coordN);
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) == color ){
-    	coordN = {coord[0] - 1, coord[1]};
-    	neighbors.push_back(coordN);
-    }
-
-   	if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) == color ){
-   		coordN = {coord[0], coord[1] + 1};
-   		neighbors.push_back(coordN);
-   	}
-
-   	if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) == color ){
-   		coordN = {coord[0], coord[1] - 1};
-   		neighbors.push_back(coordN);
-   	}
-
-    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] + 1) == color ){
-    	coordN = {coord[0] + 1, coord[1] + 1};
-    	neighbors.push_back(coordN);
-    }
-
-	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] - 1) == color ){
-    	coordN = {coord[0] + 1, coord[1] - 1};
-    	neighbors.push_back(coordN);
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] + 1) == color ){
-    	coordN = {coord[0] - 1, coord[1] + 1};
-    	neighbors.push_back(coordN);
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] - 1) == color ){
-    	coordN = {coord[0] - 1, coord[1] - 1};
-    	neighbors.push_back(coordN);
-    }  
-
-
-   	return neighbors;
-
 }
 

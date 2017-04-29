@@ -14,6 +14,7 @@
 
 
 #include <nav_msgs/GetMap.h>
+#include "geometry_msgs/Pose2D.h"
 
 
 #include "actionlib_msgs/GoalStatus.h"
@@ -33,13 +34,15 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseCl
 class GoalPlanner {
 
 public:
+
+	void actualPoseCallback(const geometry_msgs::Pose2D msg);
 	
-	GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10);
+	GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string robotPoseTopic = "map_pose");
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
 
-	void publishGoal(Vector3f goalPosition, std::string frame, Vector2iVector goalPoints);
+	void publishGoal(Vector3f goalPosition, std::string frame);
 
 	void waitForGoal();
 
@@ -57,9 +60,6 @@ public:
 protected:
 
 	bool isGoalReached(Isometry2f transform, srrg_scan_matcher::Cloud2D cloud);
-	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
-
-
 
 	int _idRobot;
 
@@ -69,18 +69,10 @@ protected:
 
 	float _mapResolution;
 
-	unsigned char _freeColor = 0;
-	unsigned char _unknownColor = -1;
-	unsigned char _occupiedColor = 100;
-
+	Vector3f _robotPose;
 	Vector3f _goal;
-	Vector2iVector _points;
-	regionVector _regions;
-	Vector2iVector _centroids;
-
 	int _minUnknownRegionSize;
 
-	int _circumscribedThreshold = 99;
 
 	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
 	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
@@ -91,10 +83,12 @@ protected:
 
 	std::string _fixedFrameId;
 	std::string _topicGoalName;
+	std::string _robotPoseTopicName;
 
 	cv::Mat* _occupancyMap;
 
 	ros::NodeHandle _nh;
+	ros::Subscriber _subActualPose;
 	ros::ServiceClient _mapClient;
 	MoveBaseClient* _ac;
 

@@ -22,23 +22,6 @@ double timeval_diff(struct timeval *a, struct timeval *b)
     (double)(b->tv_sec + (double)b->tv_usec/1000000);
 }
 
-float poseX;
-float poseY;
-float poseTheta;
-
-geometry_msgs::Pose2D poseMsg;
-
-
-void actualPoseCallback(const geometry_msgs::Pose2D msg){
-
-	poseX = msg.x;
-	poseY = msg.y;
-	poseTheta = msg.theta;
-
-	poseMsg = msg;
-}
-
-
 
 int main (int argc, char **argv){
 
@@ -57,7 +40,6 @@ float farCentroidsThreshold;
 float nearCentroidsThreshold;
 
 Vector2iVector centroids;
-Vector2fVector meterCentroids;
 Vector2iVector frontierPoints;
 Vector2fVector abortedGoals;
 Vector2iVector goalPoints;
@@ -105,8 +87,6 @@ ros::init(argc, argv, "frontier_planner");
 
 ros::NodeHandle nh;
 
-ros::Subscriber subActualPose = nh.subscribe(actualPoseTopic,1,actualPoseCallback);
-
 Vector2f rangesLimits = {minRange, maxRange};
 
 projector.setMaxRange(rangesLimits[0]);
@@ -118,35 +98,31 @@ MoveBaseClient ac("move_base",true);
 
 ac.waitForServer(); //will wait for infinite time
 
-ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
-
 tf::TransformListener tfListener;
 tf::StampedTransform tfBase2Laser;
 try{
-	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time::now(), ros::Duration(3.0));
+	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time::now(), ros::Duration(5.0));
 	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tfBase2Laser);
 
 	laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
 }
  
 catch (...) {
-	laserOffset = {0.0, 0.0};
-	std::cout<<"Catch exception: base_laser_link frame not exists."<<std::endl;
+	laserOffset = {0.05, 0.0};
+	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
  }
 
-
-
-FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPointsTopic, markersTopic, thresholdRegionSize);
+FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPointsTopic, markersTopic, actualPoseTopic, thresholdRegionSize);
 
 unknownCellsCloud = frontiersDetector.getUnknownCloud();
 occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
 
-PathsRollout pathsRollout(idRobot, &occupancyMap, &ac, &projector, laserOffset);
+PathsRollout pathsRollout(idRobot, &occupancyMap, &ac, &projector, laserOffset, maxCentroidsNumber, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, actualPoseTopic);
 
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
 
-GoalPlanner goalPlanner(idRobot, &occupancyMap, &ac ,&projector, &frontiersDetector, laserOffset, thresholdRegionSize);
+GoalPlanner goalPlanner(idRobot, &occupancyMap, &ac ,&projector, &frontiersDetector, laserOffset, thresholdRegionSize, actualPoseTopic);
 
 goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
@@ -160,7 +136,7 @@ while (ros::ok() && (num > 0)){
 
 	frontiersDetector.requestOccupancyMap();
 	frontiersDetector.computeFrontiers();
-	frontiersDetector.rankRegions(poseX, poseY, poseTheta);
+	frontiersDetector.rankRegions();
 	frontiersDetector.publishFrontierPoints();
    	frontiersDetector.publishCentroidMarkers();
 
@@ -182,40 +158,11 @@ while (ros::ok() && (num > 0)){
 
 
 	else {
-		meterCentroids.clear();
 
-		for (int i = 0; i < centroids.size(); i ++){
-			Vector2f meterCentroid = {centroids[i][0]*resolution, centroids[i][1]*resolution};
-			float distanceActualPose = sqrt(pow((meterCentroid[0] - poseX),2) + pow((meterCentroid[1] - poseY),2));
-			if ((i >= (round(maxCentroidsNumber/2) + 2))&&(distanceActualPose > farCentroidsThreshold)){ //If I have already some centroids and this is quite far, skip.
-				continue;
-			}
-
-			meterCentroids.push_back(meterCentroid); 	
-
-			if (meterCentroids.size() == maxCentroidsNumber){
-				break; 		}
-		
-		}
-
+		pathsRollout.setResolution(resolution);
 		pathsRollout.setAbortedGoals(abortedGoals);
 
-		geometry_msgs::Pose startPose;
-		startPose.position.x = poseX; 
-		startPose.position.y = poseY;
-
-		std::cout<<"start: "<<poseX<<" "<<poseY<<" "<<poseTheta<<std::endl;
-
-		tf::Quaternion q;
-  		q.setRPY(0, 0, poseTheta);
-  		geometry_msgs::Quaternion qMsg;
-
-  		tf::quaternionTFToMsg(q,qMsg);	
-		startPose.orientation = qMsg;  
-	
-
-
-		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(startPose, meterCentroids, mapFrame);
+		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(centroids, mapFrame);
 
 		if (vectorSampledPlans.empty()){
 			std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
@@ -226,9 +173,8 @@ while (ros::ok() && (num > 0)){
 
 		std::string frame = mapFrame;
 		goalPoints = goal.mapPoints;
-		std::cout<<"goal: "<<goal.pose[0]<<" "<<goal.pose[1]<<" "<<goal.pose[2]<<std::endl;
 
-		goalPlanner.publishGoal(goal.pose, frame, goalPoints);
+		goalPlanner.publishGoal(goal.pose, frame);
 		goalPlanner.waitForGoal();
 
 

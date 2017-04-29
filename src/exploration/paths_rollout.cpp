@@ -5,40 +5,87 @@ using namespace srrg_core;
 using namespace srrg_scan_matcher;
 using namespace Eigen;
 
+void PathsRollout::actualPoseCallback(const geometry_msgs::Pose2D msg){
+
+
+_robotPose = {msg.x, msg.y, msg.theta};
+
+}
 
 
 
-	PathsRollout::PathsRollout(int idRobot, cv::Mat* occupMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, float nearCentroidsThreshold, float sampleThreshold, int sampleOrientation){
+PathsRollout::PathsRollout(int idRobot, cv::Mat* costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, int maxCentroidsNumber, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, std::string robotPoseTopicName){
 
 	_idRobot = idRobot;
 	_nearCentroidsThreshold = nearCentroidsThreshold;
+	_farCentroidsThreshold = farCentroidsThreshold;
 
 	_laserOffset = laserOffset;
 
-	_occupancyMap = occupMap;
+	_costMap = costMap;
 
 	_sampledPathThreshold = sampleThreshold;
 	_lastSampleThreshold = sampleThreshold/4;
 	_sampleOrientation = sampleOrientation;
 	_intervalOrientation = 2*M_PI/sampleOrientation;
 
+	_maxCentroidsNumber = maxCentroidsNumber;
+
 	_projector = projector;
 
 	_ac = ac;
 
-	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
+	_topicRobotPoseName = robotPoseTopicName;
 
+	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
+	_subActualPose = _nh.subscribe<geometry_msgs::Pose2D>(_topicRobotPoseName,1,&PathsRollout::actualPoseCallback,this);
+
+	ros::topic::waitForMessage<geometry_msgs::Pose2D>(_topicRobotPoseName);
 
 
 }
 
 
 
-Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose, Vector2fVector meterCentroids, std::string frame){
+Vector2DPlans PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string frame){
 
 	ros::Rate checkReadyRate(100);
 	Vector2DPlans vectorSampledPlans;
 	_vectorPlanIndices.clear();
+
+	Vector2fVector meterCentroids;
+
+	for (int i = 0; i < centroids.size(); i ++){
+		Vector2f meterCentroid = {centroids[i][0]*_resolution, centroids[i][1]*_resolution};
+		
+		float distanceActualPose = sqrt(pow((meterCentroid[0] - _robotPose[0]),2) + pow((meterCentroid[1] - _robotPose[1]),2));
+
+		if ((i > (round(_maxCentroidsNumber/2)))&&(distanceActualPose > _farCentroidsThreshold)){ //If I have already some centroids and this is quite far, skip.
+				break;
+			}
+
+		meterCentroids.push_back(meterCentroid); 	
+
+		if (meterCentroids.size() == _maxCentroidsNumber){ //When I reach the limit I stop adding centroids
+			break; 		}
+
+	}
+
+
+	ros::spinOnce();
+
+	geometry_msgs::Pose startPose;
+	startPose.position.x = _robotPose[0]; 
+	startPose.position.y = _robotPose[1];
+
+	tf::Quaternion q;
+	q.setRPY(0, 0, _robotPose[2]);
+	geometry_msgs::Quaternion qMsg;
+	tf::quaternionTFToMsg(q,qMsg);
+
+	startPose.orientation = qMsg;  
+
+
 
 	while(!isActionDone(_ac)){
 		checkReadyRate.sleep();
@@ -57,8 +104,6 @@ Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose
 			vectorSampledPlans.push_back(sampledPlan);
 		}
 	}
-
-	std::cout<<"Sampled plans computed... "<<std::endl;
 
 	return vectorSampledPlans;
 
@@ -83,8 +128,6 @@ PoseWithVisiblePoints PathsRollout::extractGoalFromSampledPlans(Vector2DPlans ve
 	}
 
 	goal.mapPoints.resize(goal.points.size());
-
-	std::cout<<"GOAL score: "<<goal.score<<std::endl;
 
 	return goal;
 
@@ -133,8 +176,7 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 
 		Vector2f lastPose;
 
-		lastPose[0] = path.poses[0].pose.position.x;
-		lastPose[1] = path.poses[0].pose.position.y;
+		lastPose = {path.poses[0].pose.position.x, path.poses[0].pose.position.y};
 
 		sampledPath.push_back(lastPose);
 		indices->push_back(0);
@@ -146,7 +188,7 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 
 			float distancePreviousPose = sqrt(pow((lastPose[0] - newPose[0]),2) + pow((lastPose[1] - newPose[1]),2));
 
-			if ((distancePreviousPose >= _sampledPathThreshold)&&(_occupancyMap->at<unsigned char>(newPoseMap[1], newPoseMap[0]) == _freeColor)){
+			if ((distancePreviousPose >= _sampledPathThreshold)&&(_costMap->at<unsigned char>(newPoseMap[1], newPoseMap[0]) < _circumscribedThreshold)){
 				bool nearToAborted = false;
 				for (int j = 0; j < _abortedGoals.size(); j ++){
 					float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - newPose[0]),2) + pow((_abortedGoals[j][1] - newPose[1]),2));
@@ -157,17 +199,13 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 				}
 
 				if (!nearToAborted){
-
-					lastPose[0] = newPose[0];
-					lastPose[1] = newPose[1];
-
+					lastPose = newPose;
 					sampledPath.push_back(lastPose);
 					indices->push_back(i);
-													}
+									}
 
-
-								}
-						}
+							}
+					}
 
 		
 		float distancePreviousPose = sqrt(pow((lastPose[0] - path.poses.back().pose.position.x),2) + pow((lastPose[1] - path.poses.back().pose.position.y),2));
@@ -182,12 +220,11 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 					}
 				}
 			if (!nearToAborted){
-				lastPose[0] = path.poses.back().pose.position.x;
-				lastPose[1] = path.poses.back().pose.position.y;
+				lastPose = {path.poses.back().pose.position.x, path.poses.back().pose.position.y};
 				sampledPath.push_back(lastPose);
 				indices->push_back(path.poses.size() - 1);
-
-							}
+								}
+					
 					}
 
 	
@@ -211,8 +248,8 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 	for (int i = 0; i < sampledPlan.size(); i ++){
 
 
-		pose[0] = sampledPlan[i][0] ; 
-		pose[1] = sampledPlan[i][1] ;
+		pose[0] = sampledPlan[i][0]; 
+		pose[1] = sampledPlan[i][1];
 
 
 		for (int j = 0; j < _sampleOrientation; j++){
@@ -228,11 +265,9 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 			laserPose[1] = sampledPlan[i][1] + laserOffsetRotated[1];
 			
 			laserPose[2] = yawAngle;
-			pose[2] = yawAngle ;	
+			pose[2] = yawAngle;	
 
 			transform = v2t(laserPose);
-
-
 			_projector->project(_ranges, _pointsIndices, transform.inverse(), cloud);
 
 			//cv::Mat testImage = cv::Mat(25/_resolution, 25/_resolution, CV_8UC1);
@@ -263,9 +298,8 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 
 			//std::cout<<i<<"-"<<j<<" "<<laserPose[0]<<" "<<laserPose[1]<<" "<<laserPose[2]<<"("<<pose[2]<<") points: "<<seenFrontierPoints.size()<<" score: "<<score <<std::endl;
 
-
-
-			if (score > goalPose.score){
+			float distanceFromActualPose = sqrt(pow((pose[0] - _robotPose[0]),2) + pow((pose[1] - _robotPose[1]),2));
+			if ((score > goalPose.score) && (distanceFromActualPose >0.25) && (pose[2]!= _robotPose[2])){
 				goalPose.pose = pose;
 				goalPose.points = seenFrontierPoints;
 				goalPose.score = score;
@@ -310,4 +344,6 @@ void PathsRollout::setOccupiedCellsCloud(Cloud2D* cloud){
 	_occupiedCellsCloud = cloud;
 }
 
-
+void PathsRollout::setResolution(float res){
+	_resolution = res;
+}

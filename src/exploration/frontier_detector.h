@@ -10,6 +10,7 @@
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
 #include "sensor_msgs/point_cloud2_iterator.h"
+#include "geometry_msgs/Pose2D.h"
 #include <nav_msgs/GetMap.h>
 #include "visualization_msgs/MarkerArray.h"
 
@@ -49,15 +50,16 @@ struct regionWithScore {
 class FrontierDetector {
 
 public:
+	void actualPoseCallback(const geometry_msgs::Pose2D msg);
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
-	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30, int minNeighborsThreshold = 4);
+	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker",  std::string robotPoseTopic = "map_pose",int thresholdSize = 30, int minNeighborsThreshold = 4);
 
 	bool requestOccupancyMap();
 
 	void computeFrontiers();
 
-	void rankRegions(float mapX, float mapY, float theta);
+	void rankRegions();
 	
 	void computeCentroids();
 
@@ -124,12 +126,15 @@ protected:
 	Vector2iVector _unknownFrontierCells;
 	Vector2iVector _occupiedCells;
 
+	Vector3f _robotPose;
+
 	srrg_scan_matcher::Cloud2D _unknownCellsCloud;
 	srrg_scan_matcher::Cloud2D _occupiedCellsCloud;
 
 
 	std::string _topicPointsName;
 	std::string _topicMarkersName;
+	std::string _topicRobotPoseName;
 	std::string _fixedFrameId;
 
 	nav_msgs::OccupancyGrid _costMapMsg;
@@ -138,6 +143,7 @@ protected:
 	ros::Publisher _pubFrontierPoints;
 	ros::Publisher _pubCentroidMarkers;
 	ros::Subscriber _subCostMap;
+	ros::Subscriber _subActualPose;
 	ros::ServiceClient _mapClient;
 
 

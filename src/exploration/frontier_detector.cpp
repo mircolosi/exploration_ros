@@ -23,8 +23,16 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
 
 }
 
+void FrontierDetector::actualPoseCallback(const geometry_msgs::Pose2D msg){
 
-FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, int thresholdSize, int minNeighborsThreshold){
+
+_robotPose = {msg.x, msg.y, msg.theta};
+
+}
+
+
+
+FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, std::string robotPoseTopic, int thresholdSize, int minNeighborsThreshold){
 
 
 	_occupancyMap = occupancyImage;
@@ -46,10 +54,12 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
    	_topicPointsName = fullPointsTopicName.str();
 	_topicMarkersName = fullMarkersTopicName.str();
 
+	_topicRobotPoseName = robotPoseTopic;
+
 	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
 	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
 
-	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &FrontierDetector::costMapCallback, this);
+	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1, &FrontierDetector::costMapCallback, this);
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
@@ -57,6 +67,10 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
 	fullFixedFrameId << "map";
 	_fixedFrameId = fullFixedFrameId.str();
+
+	_subActualPose = _nh.subscribe<geometry_msgs::Pose2D>(_topicRobotPoseName,1,&FrontierDetector::actualPoseCallback,this);
+
+	ros::topic::waitForMessage<geometry_msgs::Pose2D>(_topicRobotPoseName);
 
 	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 
@@ -73,36 +87,14 @@ bool FrontierDetector::requestOccupancyMap(){
 
 	if (_mapClient.call(req,res)){
 
-uint8_t *data = (uint8_t*) res.map.data.data();
+		uint8_t *data = (uint8_t*) res.map.data.data();
+        _mapResolution = res.map.info.resolution;
+        *_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
 
-            _mapResolution = res.map.info.resolution;
-
-            *_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
-
-for (size_t i=0; i<res.map.data.size(); i++){
-
-	_occupancyMap->data[i] = data[i];
-
-
-}
-return true;
-
-
-
-/*		_mapResolution = res.map.info.resolution;
-
-		int currentCell = 0;
-		*_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
-		for(int r = 0; r < res.map.info.height; r++) {
-			for(int c = 0; c < res.map.info.width; c++) {
-      		
-      		    _occupancyMap->at<unsigned char>(r, c) = res.map.data[currentCell];
-      		    currentCell++;
-      		}
-      	}
-
-
-		return true;*/
+		for (size_t i=0; i<res.map.data.size(); i++){
+			_occupancyMap->data[i] = data[i];	}
+	
+		return true;
 	}
 
 	else {
@@ -141,14 +133,11 @@ void FrontierDetector::computeFrontiers(){
     							}
 
     			if (_occupancyMap->at<unsigned char>(r, c) == _occupiedColor ){
-					_occupiedCells.push_back({r,c});
-
-    			}
-
-
+					_occupiedCells.push_back({r,c});	}
 
     				}
     			}
+    			
     Vector2iVector examined;	
 
     for (int i = 0; i < _frontiers.size(); i++){
@@ -187,13 +176,13 @@ void FrontierDetector::computeFrontiers(){
 		   		for (int m = 0; m < neighbors.size(); m++){
 
 		   			if ((hasSomeNeighbors(neighbors[m], _unknownColor, _minNeighborsThreshold))&&(!contains(_unknownFrontierCells, neighbors[m]))){
-		   				_unknownFrontierCells.push_back(neighbors[m]);
-		   										}
+		   				_unknownFrontierCells.push_back(neighbors[m]);	}
+		   									
 		   									}
-		   							}
-						
-							}
+		   								}
+									}
 
+						
 						}
 
     			}
@@ -257,12 +246,12 @@ void FrontierDetector::computeFrontiers(){
 
 
 
-void FrontierDetector::rankRegions(float poseX, float poseY, float theta){
+void FrontierDetector::rankRegions(){
 
 	FloatVector scores(_centroids.size());
 
-	float mapX = poseX/_mapResolution;
-	float mapY = poseY/_mapResolution;
+	float mapX = _robotPose[0]/_mapResolution;
+	float mapY = _robotPose[1]/_mapResolution;
 
 	Vector2f mapCoord(mapX, mapY);
 
