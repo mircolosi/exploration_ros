@@ -69,6 +69,8 @@ srrg_scan_matcher::Cloud2D* occupiedCellsCloud;
 
 srrg_scan_matcher::Projector2D projector;
 
+std::string mapFrame;
+
 cv::Mat occupancyMap;
 cv::Mat costMap;
 
@@ -82,6 +84,7 @@ Vector2f laserOffset;
 
 
 arg.param("idRobot", idRobot, 0, "robot identifier" );
+arg.param("mapFrame", mapFrame, "map", "mapFrame for this robot");
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
 arg.param("actualPoseTopic", actualPoseTopic, "map_pose", "robot actual pose ROS topic");
@@ -118,12 +121,12 @@ ac.waitForServer(); //will wait for infinite time
 ros::topic::waitForMessage<geometry_msgs::Pose2D>(actualPoseTopic);
 
 tf::TransformListener tfListener;
-tf::StampedTransform tf;
+tf::StampedTransform tfBase2Laser;
 try{
 	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time::now(), ros::Duration(3.0));
-	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tf);
+	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tfBase2Laser);
 
-	laserOffset  = {tf.getOrigin().y(), tf.getOrigin().x()}; //Inverted because..
+	laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
 }
  
 catch (...) {
@@ -143,13 +146,13 @@ PathsRollout pathsRollout(idRobot, &occupancyMap, &ac, &projector, laserOffset);
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
 
-GoalPlanner goalPlanner(idRobot, &occupancyMap, &costMap, &ac ,&projector, &frontiersDetector, laserOffset, thresholdRegionSize, "base_link", frontierPointsTopic, markersTopic);
+GoalPlanner goalPlanner(idRobot, &occupancyMap, &ac ,&projector, &frontiersDetector, laserOffset, thresholdRegionSize);
 
 goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int num = 10;
+int num = 20;
  
 while (ros::ok() && (num > 0)){
 
@@ -195,12 +198,13 @@ while (ros::ok() && (num > 0)){
 		
 		}
 
-		pathsRollout.setFrontierPoints(unknownCells, occupiedCells);
 		pathsRollout.setAbortedGoals(abortedGoals);
 
 		geometry_msgs::Pose startPose;
-		startPose.position.x = poseY; //Inverted because plans will be computed in the costmap
-		startPose.position.y = poseX;
+		startPose.position.x = poseX; 
+		startPose.position.y = poseY;
+
+		std::cout<<"start: "<<poseX<<" "<<poseY<<" "<<poseTheta<<std::endl;
 
 		tf::Quaternion q;
   		q.setRPY(0, 0, poseTheta);
@@ -211,7 +215,7 @@ while (ros::ok() && (num > 0)){
 	
 
 
-		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(startPose, meterCentroids, "map_rotated");
+		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(startPose, meterCentroids, mapFrame);
 
 		if (vectorSampledPlans.empty()){
 			std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
@@ -220,9 +224,10 @@ while (ros::ok() && (num > 0)){
 
 		PoseWithVisiblePoints goal = pathsRollout.extractGoalFromSampledPlans(vectorSampledPlans);
 
-		std::string frame = "map";
+		std::string frame = mapFrame;
 		goalPoints = goal.mapPoints;
-	
+		std::cout<<"goal: "<<goal.pose[0]<<" "<<goal.pose[1]<<" "<<goal.pose[2]<<std::endl;
+
 		goalPlanner.publishGoal(goal.pose, frame, goalPoints);
 		goalPlanner.waitForGoal();
 

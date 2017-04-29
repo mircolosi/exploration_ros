@@ -34,9 +34,7 @@ class GoalPlanner {
 
 public:
 	
-	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-
-	GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string nameFrame = "base_link", std::string namePoints = "points", std::string nameMarkers = "visualization_marker");
+	GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10);
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
@@ -94,14 +92,10 @@ protected:
 	std::string _fixedFrameId;
 	std::string _topicGoalName;
 
-	nav_msgs::OccupancyGrid _costMapMsg;
-
 	cv::Mat* _occupancyMap;
-	cv::Mat* _costMap;
 
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
-	ros::Subscriber _subCostMap;
 	MoveBaseClient* _ac;
 
 

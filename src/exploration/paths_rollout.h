@@ -46,9 +46,8 @@ class PathsRollout {
 
 public: 
 
-	void laserPointsCallback(const sensor_msgs::PointCloud::ConstPtr& msg);
 
-	PathsRollout(int idRobot,cv::Mat* occupMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.0, 0.5},  float nearCentroidsThreshold = 0.5, float samplesThreshold = 1, int sampleOrientation = 8, std::string laserPointsName = "lasermap");
+	PathsRollout(int idRobot,cv::Mat* occupMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.0, 0.5},  float nearCentroidsThreshold = 0.5, float samplesThreshold = 1, int sampleOrientation = 8);
 
 
 	Vector2DPlans computeAllSampledPlans(geometry_msgs::Pose startPose, Vector2fVector meterCentroids, std::string frame);
@@ -62,9 +61,6 @@ public:
 	Vector2fVector sampleTrajectory(nav_msgs::Path path, std::vector<int> *indices);
 
 	void setAbortedGoals(Vector2fVector abortedGoals);
-
-	void setFrontierPoints(Vector2iVector unknownCells, Vector2iVector occupiedCells);
-	void setPointClouds(srrg_scan_matcher::Cloud2D unknownCellsCloud, srrg_scan_matcher::Cloud2D occupiedCellsCloud);
 
 	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
 	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
@@ -106,18 +102,13 @@ protected:
 	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
 	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
 
-	srrg_scan_matcher::Cloud2D _laserPointsCloud;
 	FloatVector _ranges;
 	IntVector _pointsIndices;
 
 	float _lambda = 0.3;
 
-	sensor_msgs::PointCloud _laserPointsMsg;
-
-	std::string _laserPointsTopicName;
 
 	ros::NodeHandle _nh;
-	ros::Subscriber _subLaserPoints;
 	ros::ServiceClient _planClient;
 	MoveBaseClient *_ac;
 

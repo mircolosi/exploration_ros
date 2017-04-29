@@ -5,25 +5,10 @@ using namespace srrg_core;
 using namespace srrg_scan_matcher;
 using namespace Eigen;
 
-void PathsRollout::laserPointsCallback(const sensor_msgs::PointCloud::ConstPtr& msg){
-
-	_laserPointsMsg = *msg;
-
-	_laserPointsCloud.resize(msg->points.size());
-
-	for (int i = 0; i < msg->points.size(); i ++){
-
-		float x = msg->points[i].x;
-		float y = msg->points[i].y;
-
-		_laserPointsCloud[i] = (RichPoint2D({x,y}));
-
-	}
-
-}
 
 
-	PathsRollout::PathsRollout(int idRobot, cv::Mat* occupMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, float nearCentroidsThreshold, float sampleThreshold, int sampleOrientation, std::string laserPointsName){
+
+	PathsRollout::PathsRollout(int idRobot, cv::Mat* occupMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, float nearCentroidsThreshold, float sampleThreshold, int sampleOrientation){
 
 	_idRobot = idRobot;
 	_nearCentroidsThreshold = nearCentroidsThreshold;
@@ -43,13 +28,6 @@ void PathsRollout::laserPointsCallback(const sensor_msgs::PointCloud::ConstPtr& 
 
 	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
 
-	std::stringstream fullLaserPointsTopicName;
-	//fullLaserPointsTopicName << "/robot_" << _idRobot << "/map";
-	fullLaserPointsTopicName << laserPointsName;
-	_laserPointsTopicName = fullLaserPointsTopicName.str();
-
-	_subLaserPoints = _nh.subscribe<sensor_msgs::PointCloud>(_laserPointsTopicName,1, &PathsRollout::laserPointsCallback, this);
-	//ros::topic::waitForMessage<sensor_msgs::PointCloud>(_laserPointsTopicName);
 
 
 }
@@ -70,7 +48,7 @@ Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose
 
 		geometry_msgs::Pose goalPose;
 
-		goalPose.position.x = meterCentroids[i][1];  //These are inverted to compute in costmap_rotated
+		goalPose.position.x = meterCentroids[i][1];  //Inverted because computed in map (row col -> y x)
 		goalPose.position.y = meterCentroids[i][0];
 
 		Vector2fVector sampledPlan = makeSampledPlan(frame, startPose, goalPose);
@@ -80,6 +58,7 @@ Vector2DPlans PathsRollout::computeAllSampledPlans(geometry_msgs::Pose startPose
 		}
 	}
 
+	std::cout<<"Sampled plans computed... "<<std::endl;
 
 	return vectorSampledPlans;
 
@@ -124,8 +103,6 @@ Vector2fVector PathsRollout::makeSampledPlan(std::string frame, geometry_msgs::P
 
 	req.goal.header.frame_id = frame;
 	req.goal.pose = goalPose;
-
-	std::cout<<goalPose.position.x<<" "<<goalPose.position.y<<std::endl;
 
 	Vector2fVector sampledPlan;
 	std::vector<int> sampledIndices;
@@ -231,49 +208,62 @@ PoseWithVisiblePoints PathsRollout::extractBestPoseInPlan(Vector2fVector sampled
 	Vector3f pose;
 	Vector3f laserPose;
 
-
 	for (int i = 0; i < sampledPlan.size(); i ++){
 
 
-		pose[0] = sampledPlan[i][1] ; //The plans have been computed in rotated_costmap.... (x and y inverted), so here I restore them
-		pose[1] = sampledPlan[i][0] ;
+		pose[0] = sampledPlan[i][0] ; 
+		pose[1] = sampledPlan[i][1] ;
 
 
 		for (int j = 0; j < _sampleOrientation; j++){
 
 			float yawAngle = _intervalOrientation*j;
 
-			Rotation2D<float> rot(-yawAngle);
 
-			
+			Rotation2D<float> rot(yawAngle);
 
 			Vector2f laserOffsetRotated = rot*_laserOffset;
 
-			laserPose[0] = sampledPlan[i][1] + laserOffsetRotated[1];
-			laserPose[1] = sampledPlan[i][0] + laserOffsetRotated[0];
+			laserPose[0] = sampledPlan[i][0] + laserOffsetRotated[0];
+			laserPose[1] = sampledPlan[i][1] + laserOffsetRotated[1];
 			
 			laserPose[2] = yawAngle;
-			pose[2] = yawAngle;	
+			pose[2] = yawAngle ;	
 
 			transform = v2t(laserPose);
 
+
 			_projector->project(_ranges, _pointsIndices, transform.inverse(), cloud);
+
+			//cv::Mat testImage = cv::Mat(25/_resolution, 25/_resolution, CV_8UC1);
+			//testImage.setTo(cv::Scalar(0));
+			//cv::circle(testImage, cv::Point(pose[1]/_resolution,pose[0]/_resolution), 5, 200);
+			//cv::circle(testImage, cv::Point(laserPose[1]/_resolution, laserPose[0]/_resolution), 1, 200);
+			//std::stringstream title;
+			//title << "virtualscan_test/test_"<<i<<"_"<<j<<".jpg"; 
+
 
 			int countFrontier = 0;
 			Vector2fVector seenFrontierPoints;
 			for (int k = 0; k < _pointsIndices.size(); k++){
 				if (_pointsIndices[k] != -1){
+					//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 127;
 					if (_pointsIndices[k] < _unknownCellsCloud->size()){
 						countFrontier ++;
-						seenFrontierPoints.push_back({cloud[_pointsIndices[k]].point()[0], cloud[_pointsIndices[k]].point()[1]});
+						//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;
+						seenFrontierPoints.push_back({cloud[_pointsIndices[k]].point()[0]/_resolution, cloud[_pointsIndices[k]].point()[1]/_resolution});
 									}
 								}
 							}
 
-
+			//cv::imwrite(title.str(),testImage);
 
 			float decay = indices[i]/40.0;
 			float score = countFrontier * exp(-_lambda*decay);
+
+			//std::cout<<i<<"-"<<j<<" "<<laserPose[0]<<" "<<laserPose[1]<<" "<<laserPose[2]<<"("<<pose[2]<<") points: "<<seenFrontierPoints.size()<<" score: "<<score <<std::endl;
+
+
 
 			if (score > goalPose.score){
 				goalPose.pose = pose;
@@ -310,17 +300,6 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 
 void PathsRollout::setAbortedGoals(Vector2fVector abortedGoals){
 	_abortedGoals = abortedGoals;
-}
-
-void PathsRollout::setFrontierPoints(Vector2iVector unknownCells, Vector2iVector occupiedCells){
-	_unknownCells = unknownCells;
-	_occupiedCells = occupiedCells;
-}
-
-void PathsRollout::setPointClouds(Cloud2D unknownCellsCloud, Cloud2D occupiedCellsCloud){
-	*_unknownCellsCloud = unknownCellsCloud;
-	*_occupiedCellsCloud = occupiedCellsCloud;
-
 }
 
 void PathsRollout::setUnknownCellsCloud(Cloud2D* cloud){

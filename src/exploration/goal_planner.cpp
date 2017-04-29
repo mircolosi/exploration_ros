@@ -6,35 +6,12 @@ using namespace srrg_scan_matcher;
 
 
 
-
-
-void GoalPlanner::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-	_costMapMsg = *msg;
-
-
-	int currentCell = 0;
-	*_costMap = cv::Mat(msg->info.height, msg->info.width, CV_8UC1);
-		for(int r = 0; r < msg->info.height; r++) {
-			for(int c = 0; c < msg->info.width; c++) {
-      		
-      		    _costMap->at<unsigned char>(r, c) = msg->data[currentCell];
-      		    currentCell++;
-      		}
-      	}
-
-
-}
-
-
-
-
-GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize, std::string nameFrame, std::string namePoints, std::string nameMarkers)
+GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize)
 {
 
 	_ac = ac;
 
 	_occupancyMap = occupancyImage;
-	_costMap = costImage;
 
 	_projector = projector;
 
@@ -52,10 +29,6 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, cv::Mat* costImag
 	_fixedFrameId = fullFixedFrameId.str();
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
-
-
-	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1000, &GoalPlanner::costMapCallback, this);
-	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 
 }
 

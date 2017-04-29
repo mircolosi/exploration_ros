@@ -2,11 +2,11 @@
 
 global_costmap:
   #Set the global and robot frames for the costmap
-  global_frame: map_rotated
+  global_frame: map
   robot_base_frame: base_link
 
   #Set the update and publish frequency of the costmap
-  update_frequency: 2
+  update_frequency: 10.0
   publish_frequency: 2.0
   always_send_full_costmap: true
 
@@ -14,5 +14,4 @@ global_costmap:
   static_map: true
   rolling_window: false
 
-  #track_unknown_space: true
 

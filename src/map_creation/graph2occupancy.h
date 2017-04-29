@@ -1,13 +1,10 @@
-
 #include <iostream> 
 #include <opencv2/highgui/highgui.hpp>
-#include <assert.h>
 
 #include "ros/ros.h"
 #include "nav_msgs/OccupancyGrid.h"
-#include <nav_msgs/GetMap.h>
+#include "nav_msgs/GetMap.h"
 
-#include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Pose2D.h"
 #include "tf/transform_broadcaster.h"
 
@@ -23,8 +20,6 @@
 #include "g2o/types/data/robot_laser.h"
 #include "g2o/types/slam2d/vertex_se2.h"
 #include "g2o/types/slam2d/parameter_se2_offset.h"
-
-#include "g2o/stuff/command_args.h"
 
 #include "srrg_types/defs.h"
 
@@ -93,11 +88,13 @@ public:
 protected:
 	OptimizableGraph *_graph;
 	FrequencyMap _map;
+	cv::Mat *_mapImage;
 
 	nav_msgs::OccupancyGrid _gridMsg;
 
-
 	Vector2f _offset;
+	Vector2f _initialOffset = {0,0};
+
 	SE2 _groundTruthPose;
 
 	float _resolution;
@@ -113,9 +110,15 @@ protected:
 
 	string _topicName;
 
+	//Used for the occupancy map (published in RViz and provided via getMap)
 	unsigned char _freeColor = 0;
 	unsigned char _unknownColor = -1;
 	unsigned char _occupiedColor = 100;
+
+	//Used for colouring the image saved on disk
+	unsigned char _freeImageColor = 255;
+	unsigned char _unknownImageColor = 127;
+	unsigned char _occupiedImageColor = 0;
 
 	ros::NodeHandle _nh;
 	ros::Publisher _pubOccupGrid;

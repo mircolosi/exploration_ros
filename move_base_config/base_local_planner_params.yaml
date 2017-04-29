@@ -32,6 +32,7 @@ TrajectoryPlannerROS:
   vtheta_samples: 60
 
   #Parameters for scoring trajectories
+  meter_scoring: true
   gdist_scale: 1
   pdist_scale: 2
   occdist_scale: 0.1

@@ -5,7 +5,7 @@ using namespace Eigen;
 using namespace g2o;
 
 
-#define MAP_IDX(totCols, row, col) ((totCols) * (row) + (col))
+#define MAP_IDX(sx, i, j) ((sx) * (j) + (i))
 
 bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res ){
 
@@ -65,10 +65,10 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, int idRobot, SE2 gtPos
     poseMsg.position.x = 0.0;
     poseMsg.position.y = 0.0;
     poseMsg.position.z = 0.0;
-    poseMsg.orientation.x = 0.707;
-    poseMsg.orientation.y = 0.707; 
+    poseMsg.orientation.x = 0;
+    poseMsg.orientation.y = 0; 
     poseMsg.orientation.z = 0.0; 
-    poseMsg.orientation.w = 0.0;
+    poseMsg.orientation.w = 1.0;
 
     _gridMsg.info.origin = poseMsg;
 
@@ -129,14 +129,14 @@ void Graph2occupancy::computeMap(){
     }
   }
 
-  //boundingBox(0,0)=xmin;
-  //boundingBox(0,1)=xmax;
-  //boundingBox(1,0)=ymin;
-  //boundingBox(1,1)=ymax;
-  boundingBox(0,0)=-30;
+  boundingBox(0,0)=xmin;
+  boundingBox(0,1)=xmax;
+  boundingBox(1,0)=ymin;
+  boundingBox(1,1)=ymax;
+ /* boundingBox(0,0)=-30;
   boundingBox(0,1)=xmax;
   boundingBox(1,0)=-30;
-  boundingBox(1,1)=ymax;
+  boundingBox(1,1)=ymax;*/
 
   //std::cout << "Found " << robotLasers.size() << " laser scans"<< std::endl;
   //std::cout << "Bounding box: " << std::endl << boundingBox << std::endl; 
@@ -165,6 +165,9 @@ void Graph2occupancy::computeMap(){
 
   //Vector2f offset(-size.x() * _resolution / 2.0f, -size.y() * _resolution / 2.0f);
   _offset<<boundingBox(0, 0),boundingBox(1, 0);
+  if (_initialOffset == Vector2f{0,0}){
+    _initialOffset = _offset;
+  }
   FrequencyMapCell unknownCell;
   
   _map = FrequencyMap(_resolution, _offset, size, unknownCell);
@@ -198,21 +201,18 @@ void Graph2occupancy::computeMap(){
   _gridMsg.info.width = _map.cols();
   _gridMsg.info.height = _map.rows();
 
-  unsigned char value;
-
-
     for(int r = 0; r < _map.rows(); r++) {
       for(int c = 0; c < _map.cols(); c++) {
           if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
-            _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _unknownColor;   }
+            _gridMsg.data[MAP_IDX(_map.cols(),c, _map.rows() - r - 1)] = _unknownColor;   }
           else {
             float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
             if (_freeThreshold && fraction < _freeThreshold){
-              _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _freeColor;   }
+              _gridMsg.data[MAP_IDX(_map.cols(),c, _map.rows() - r - 1)] = _freeColor;   }
             else if (_threshold && fraction > _threshold){
-              _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _occupiedColor;   }
+              _gridMsg.data[MAP_IDX(_map.cols(),c, _map.rows() - r - 1)] = _occupiedColor;   }
             else {
-              _gridMsg.data[MAP_IDX(_map.cols(),r,c)] = _unknownColor;      }
+              _gridMsg.data[MAP_IDX(_map.cols(),c, _map.rows() - r - 1)] = _unknownColor;      }
 
     
           }
@@ -228,9 +228,17 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
   geometry_msgs::Pose2D poseMsg;
 
   Vector2D translation = actualPose.translation();
+  Vector2D groundTruthStartPose = _groundTruthPose.translation();
 
-  float mapX = translation[0] - _offset[0];
-  float mapY = translation[1] - _offset[1];
+  float startX = groundTruthStartPose[0] - _initialOffset[0];
+  float startY = groundTruthStartPose[1] - _initialOffset[1];
+
+  float relativeX = translation[0] - groundTruthStartPose[0];
+  float relativeY = translation[1] - groundTruthStartPose[1];
+
+  float mapY = startX - relativeX;
+  float mapX = startY + relativeY;
+
 
   poseMsg.x = mapX;
   poseMsg.y = mapY;
@@ -241,22 +249,28 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
 }
 
 void Graph2occupancy::publishTF() {
+ 
+  float gtX = _groundTruthPose.translation().x();
+  float gtY = _groundTruthPose.translation().y();
+  float gtTheta = _groundTruthPose.rotation().angle();
+
+  Rotation2D<float> rot(gtTheta);
+  Vector2f origin = {gtY + gtX - _initialOffset[1], -gtX + gtY + _initialOffset[0]};
+  Vector2f rotatedOrigin = rot*origin;
 
   tf::Transform transform1;
-  transform1.setOrigin(tf::Vector3(-_offset[0],-_offset[1], 0.0));
-  transform1.setRotation(tf::Quaternion(0,0,0,1));
+  transform1.setOrigin(tf::Vector3(rotatedOrigin[0],rotatedOrigin[1], 0.0));
+  tf::Quaternion q1;
+  q1.setRPY(0, 0, -gtTheta);
+  transform1.setRotation(q1);
   _tfBroadcaster.sendTransform(tf::StampedTransform(transform1, ros::Time::now(), "map", "trajectory"));
 
 
-
-  float gtX = _groundTruthPose.translation().x();
-  float gtY = _groundTruthPose.translation().y();
-
   tf::Transform transform2;
-  transform2.setOrigin(tf::Vector3(gtX -_offset[0],gtY -_offset[1], 0.0));
-  tf::Quaternion q;
-  q.setRPY(0, 0, M_PI_2);
-  transform2.setRotation(q);
+  transform2.setOrigin(tf::Vector3(gtX - _initialOffset[0],gtY - _initialOffset[1], 0.0));
+  tf::Quaternion q2;
+  q2.setRPY(0, 0, 0);
+  transform2.setRotation(q2);
   _tfBroadcaster.sendTransform(tf::StampedTransform(transform2, ros::Time::now(), "map", "odom"));
 
 }
@@ -357,4 +371,44 @@ void Graph2occupancy::showMap() {}
 
 
 
+void Graph2occupancy::saveMap(string outputFileName) {
+
+  *_mapImage = cv::Mat(_map.rows(), _map.cols(), CV_8UC1);
+  _mapImage->setTo(cv::Scalar(0));
+
+    for(int c = 0; c < _map.cols(); c++) {
+      for(int r = 0; r < _map.rows(); r++) {
+          if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
+            _mapImage->at<unsigned char>(r, c) = _unknownImageColor; }
+          else {
+            float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
+            if (_freeThreshold && fraction < _freeThreshold){
+              _mapImage->at<unsigned char>(r, c) = _freeImageColor; }
+            else if (_threshold && fraction > _threshold){
+              _mapImage->at<unsigned char>(r, c) = _occupiedImageColor; }
+            else {
+            _mapImage->at<unsigned char>(r, c) = _unknownImageColor; }
+              }
+          
+          }
+      }
+
+
+
+  cv::imwrite(outputFileName + ".png", *_mapImage);
+
+
+  std::ofstream ofs(string(outputFileName + ".yaml").c_str());
+  Eigen::Vector3f origin(0.0f, 0.0f, 0.0f);
+  ofs << "image: " << outputFileName << ".png" << endl
+      << "resolution: " << _resolution << endl
+      << "origin: [" << origin.x() << ", " << origin.y() << ", " << origin.z() << "]" << endl
+      << "negate: 0" << endl
+      << "occupied_thresh: " << _threshold << endl
+      << "free_thresh: " << _freeThreshold << endl;
+
+
+
+
+}
 

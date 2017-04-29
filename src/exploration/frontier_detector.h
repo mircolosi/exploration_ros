@@ -50,7 +50,6 @@ class FrontierDetector {
 
 public:
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-	bool cloudsUpdateCallback(mr_exploration::DoSomething::Request &req, mr_exploration::DoSomething::Response &res);
 
 	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30, int minNeighborsThreshold = 4);
 
@@ -92,7 +91,6 @@ protected:
 
 	bool isNeighbor(Vector2i coordI, Vector2i coordJ);
 	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
-	bool isSurrounded(Vector2i coord, int color);
 	bool hasSomeNeighbors (Vector2i coord , int color, int num);
 
 
@@ -141,7 +139,6 @@ protected:
 	ros::Publisher _pubCentroidMarkers;
 	ros::Subscriber _subCostMap;
 	ros::ServiceClient _mapClient;
-	ros::ServiceServer _server;
 
 
 

@@ -1,9 +1,3 @@
-NavfnROS:
-  allow_unknown: false
-
-GlobalPlanner:
-  allow_unknown: false
-
 
 
   

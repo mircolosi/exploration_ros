@@ -23,21 +23,6 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
 
 }
 
-bool FrontierDetector::cloudsUpdateCallback(mr_exploration::DoSomething::Request &req, mr_exploration::DoSomething::Response &res){
-
-	std::cout<<"front1"<<std::endl;
-	computeFrontiers();
-	std::cout<<"front2"<<std::endl;
-
-	updateClouds();
-
-	std::cout<<"front3"<<std::endl;
-
-	res.return_value = "done";
-
-	return true;
-}
-
 
 FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, int thresholdSize, int minNeighborsThreshold){
 
@@ -68,9 +53,6 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
-	_server = _nh.advertiseService("updateClouds", &FrontierDetector::cloudsUpdateCallback, this);
-
-
 	std::stringstream fullFixedFrameId;
 	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
 	fullFixedFrameId << "map";
@@ -88,8 +70,26 @@ bool FrontierDetector::requestOccupancyMap(){
 
 
 
+
 	if (_mapClient.call(req,res)){
-		_mapResolution = res.map.info.resolution;
+
+uint8_t *data = (uint8_t*) res.map.data.data();
+
+            _mapResolution = res.map.info.resolution;
+
+            *_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
+
+for (size_t i=0; i<res.map.data.size(); i++){
+
+	_occupancyMap->data[i] = data[i];
+
+
+}
+return true;
+
+
+
+/*		_mapResolution = res.map.info.resolution;
 
 		int currentCell = 0;
 		*_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
@@ -102,7 +102,7 @@ bool FrontierDetector::requestOccupancyMap(){
       	}
 
 
-		return true;
+		return true;*/
 	}
 
 	else {
@@ -342,8 +342,8 @@ void FrontierDetector::publishFrontierPoints(){
 	sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(*pointsMsg, "b");
 
 	for (int i = 0; i < _frontiers.size(); i++, ++iter_x, ++iter_y, ++iter_z,  ++iter_r, ++iter_g, ++iter_b){
-		*iter_x = _frontiers[i][0]*_mapResolution;
-		*iter_y = _frontiers[i][1]*_mapResolution;
+		*iter_x = _frontiers[i][1]*_mapResolution;		//inverted because computed on the map (row, col -> y,x)
+		*iter_y = _frontiers[i][0]*_mapResolution;
 		*iter_z = 0;
 
 		*iter_r = 1;
@@ -382,8 +382,8 @@ void FrontierDetector::publishCentroidMarkers(){
 		marker.id = i;
 		marker.type = visualization_msgs::Marker::SPHERE;
 		marker.action = visualization_msgs::Marker::ADD;
-		marker.pose.position.x = _centroids[i][0] * _mapResolution;
-		marker.pose.position.y = _centroids[i][1] * _mapResolution;
+		marker.pose.position.x = _centroids[i][1] * _mapResolution;  //inverted because computed on the map (row, col -> y,x)
+		marker.pose.position.y = _centroids[i][0] * _mapResolution;
 		marker.pose.position.z = 0;
 		marker.pose.orientation.x = 0.0;
 		marker.pose.orientation.y = 0.0;
@@ -407,30 +407,31 @@ void FrontierDetector::publishCentroidMarkers(){
 
 void FrontierDetector::createDensePointsCloud(srrg_scan_matcher::Cloud2D* pointCloud, const Vector2iVector points, const float dist){
 
+	//inverted because computed on the map (row, col -> y,x)
 
 	int countCell = 0;
 	pointCloud->resize(points.size()*9);
 	for (int i = 0; i< pointCloud->size(); i = i + 9){
-		float x = points[countCell][0] * _mapResolution;
-		float y = points[countCell][1] * _mapResolution;
+		float x = points[countCell][1] * _mapResolution;
+		float y = points[countCell][0] * _mapResolution;
 		
-		float x1 = points[countCell][0] * _mapResolution + dist;
-		float y1 = points[countCell][1] * _mapResolution; 
-		float x2 = points[countCell][0] * _mapResolution - dist;
-		float y2 = points[countCell][1] * _mapResolution; 
-		float x3 = points[countCell][0] * _mapResolution;
-		float y3 = points[countCell][1] * _mapResolution + dist; 
-		float x4 = points[countCell][0] * _mapResolution;
-		float y4 = points[countCell][1] * _mapResolution - dist; 
+		float x1 = points[countCell][1] * _mapResolution + dist;
+		float y1 = points[countCell][0] * _mapResolution; 
+		float x2 = points[countCell][1] * _mapResolution - dist;
+		float y2 = points[countCell][0] * _mapResolution; 
+		float x3 = points[countCell][1] * _mapResolution;
+		float y3 = points[countCell][0] * _mapResolution + dist; 
+		float x4 = points[countCell][1] * _mapResolution;
+		float y4 = points[countCell][0] * _mapResolution - dist; 
 
-		float x5 = points[countCell][0] * _mapResolution + dist;
-		float y5 = points[countCell][1] * _mapResolution + dist;
-		float x6 = points[countCell][0] * _mapResolution - dist;
-		float y6 = points[countCell][1] * _mapResolution - dist;
-		float x7 = points[countCell][0] * _mapResolution - dist;
-		float y7 = points[countCell][1] * _mapResolution + dist; 
-		float x8 = points[countCell][0] * _mapResolution + dist;
-		float y8 = points[countCell][1] * _mapResolution - dist;  
+		float x5 = points[countCell][1] * _mapResolution + dist;
+		float y5 = points[countCell][0] * _mapResolution + dist;
+		float x6 = points[countCell][1] * _mapResolution - dist;
+		float y6 = points[countCell][0] * _mapResolution - dist;
+		float x7 = points[countCell][1] * _mapResolution - dist;
+		float y7 = points[countCell][0] * _mapResolution + dist; 
+		float x8 = points[countCell][1] * _mapResolution + dist;
+		float y8 = points[countCell][0] * _mapResolution - dist;  
 
 		(*pointCloud)[i] = (srrg_scan_matcher::RichPoint2D({x,y}));
 		(*pointCloud)[i + 1] = (srrg_scan_matcher::RichPoint2D({x1,y1}));
@@ -556,44 +557,6 @@ Vector2iVector FrontierDetector::getColoredNeighbors (Vector2i coord, int color)
 
 
 
-
-bool FrontierDetector::isSurrounded (Vector2i coord , int color){
-
-
-	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) != color ){
-    	return false;
-    }
-
-	if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) != color ){
-    	return false;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) != color ){
-    	return false;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) != color ){
-    	return false;
-    }    
- /*   if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]+1) != color ){
-    	return false;
-    }
-
-	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]-1) != color ){
-    	return false;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] + 1) != color ){
-    	return false;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] - 1) != color ){
-    	return false;
-    }  */
-
-    return true;
-
-}
 
 bool FrontierDetector::hasSomeNeighbors (Vector2i coord , int color, int num){
 

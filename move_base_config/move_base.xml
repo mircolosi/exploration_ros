@@ -10,9 +10,7 @@
     <param name="oscillation_distance" value="0.3" />
 <!--
     <param name="base_global_planner" value="global_planner/GlobalPlanner"/>
-       --> 
-
-    
+    -->
 <!--
     <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
     -->
