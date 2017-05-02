@@ -113,20 +113,6 @@ void GoalPlanner::waitForGoal(){
 	ros::Rate loop_rate1(10);
 	ros::Rate loop_rate2(1);
 
-	Vector3f laserPose;
-	Isometry2f transform;
-
-	Rotation2D<float> rot(-_goal[2]);
-
-	Vector2f laserOffsetRotated = rot*_laserOffset;
-
-	laserPose[0] = _goal[0] + laserOffsetRotated[0];
-	laserPose[1] = _goal[1] + laserOffsetRotated[1];
-	
-	laserPose[2] = _goal[2];
-
-	transform = v2t(laserPose);
-
 	Cloud2D augmentedCloud = *_unknownCellsCloud;
 
 	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
@@ -136,9 +122,8 @@ void GoalPlanner::waitForGoal(){
 		loop_rate1.sleep();
 	}
 
-	while (!isGoalReached(transform, augmentedCloud)){
+	while (!isGoalReached(augmentedCloud)){
 
-		ros::spinOnce();
 		requestOccupancyMap();
 		
 		_frontierDetector->computeFrontiers();
@@ -155,13 +140,17 @@ void GoalPlanner::waitForGoal(){
 }
 
 
-bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D cloud){
+bool GoalPlanner::isGoalReached(Cloud2D cloud){
+
+	ros::spinOnce();
 
 	actionlib::SimpleClientGoalState goalState = _ac->getState();
+	//float distance = sqrt(pow(_robotPose[0] - _goal[0],2) + pow(_robotPose[1] - _goal[1],2));
+	float distanceX = fabs(_robotPose[0] - _goal[0]);
+	float distanceY = fabs(_robotPose[1] - _goal[1]);
 
-	float distance = sqrt(pow(_robotPose[0] - _goal[0],2) + pow(_robotPose[1] - _goal[1],2));
 
-	if (distance > 0.25){ // If distance greater than local planner xy threshold
+	if ((distanceX > _xyThreshold*1.5)||(distanceY > _xyThreshold*1.5)){ // If distance greater than local planner xy threshold
 	//if (goalState == actionlib::SimpleClientGoalState::ACTIVE){
 		
 		Vector2f points_angle = {0,0};
@@ -173,7 +162,7 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 			Isometry2f transform;
 
 			float yawAngle = M_PI/4*j;
-			Rotation2D<float> rot(-yawAngle);
+			Rotation2D<float> rot(yawAngle);
 			Vector2f laserOffsetRotated = rot*_laserOffset;
 
 			laserPose[0] = _goal[0] + laserOffsetRotated[0];
@@ -204,7 +193,6 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 
 		if (points_angle[0] < _minUnknownRegionSize){
 			_ac->cancelAllGoals();
-
 			std::stringstream infoGoal;
 			time_t _now = time(0);
 			tm *ltm = localtime(&_now);
@@ -214,12 +202,12 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 			return true;
 		}
 
-		else if (points_angle[1] != _goal[2]){
-
+		else if (fabs(points_angle[1] - _goal[2]) > 0.1){ //Inequality check.... I don't need boxminus because they are normalized 
+			std::cout<<"POSE BEFORE CHANGING "<<_robotPose[0]<<" "<<_robotPose[1]<<std::endl;
 			std::cout<<"Changed angle from "<< _goal[2]<<" to "<<points_angle[1]<<std::endl;
 			//_ac->cancelAllGoals();
 
-			publishGoal({_goal[0],_goal[1], points_angle[1]}, "map" );
+			publishGoal({_goal[0],_goal[1], points_angle[1]}, "map" ); //Publishing a new goal cancel the previous one
 
 			return false;
 		}
@@ -242,7 +230,7 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 	}
 
 	if (goalState == actionlib::SimpleClientGoalState::ABORTED){
-		_abortedGoals.push_back({_goal[1], _goal[0]}); //Inverted because they will be used in the costmap
+		_abortedGoals.push_back({_goal[0], _goal[1]}); 
 		_ac->cancelAllGoals();
 
 		std::stringstream infoGoal;
@@ -255,7 +243,7 @@ bool GoalPlanner::isGoalReached(Isometry2f originToLaserGoalTransform, Cloud2D c
 
 	//Used if aborting from terminal or some other node
 	/*if ((goalState == actionlib::SimpleClientGoalState::RECALLED) || (_ac->getState() == actionlib::SimpleClientGoalState::PREEMPTED)){
-		_abortedGoals.push_back({_goal[1], _goal[0]});//Inverted because they will be used in the costmap
+		_abortedGoals.push_back({_goal[0], _goal[1]});
 		
 		std::stringstream infoGoal;
 		time_t _now = time(0);

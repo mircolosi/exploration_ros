@@ -32,8 +32,9 @@ std::string markersTopic;
 std::string actualPoseTopic;
 int thresholdRegionSize;
 int idRobot;
-std::string status;
 float resolution;
+
+float lambdaDecay;
 
 int maxCentroidsNumber;
 float farCentroidsThreshold;
@@ -42,14 +43,9 @@ float nearCentroidsThreshold;
 Vector2iVector centroids;
 Vector2iVector frontierPoints;
 Vector2fVector abortedGoals;
-Vector2iVector goalPoints;
-Vector2iVector unknownCells;
-Vector2iVector occupiedCells;
 regionVector regions;
 srrg_scan_matcher::Cloud2D* unknownCellsCloud;
 srrg_scan_matcher::Cloud2D* occupiedCellsCloud;
-
-srrg_scan_matcher::Projector2D projector;
 
 std::string mapFrame;
 
@@ -63,14 +59,13 @@ float fov;
 
 Vector2f laserOffset;
 
-
-
 arg.param("idRobot", idRobot, 0, "robot identifier" );
 arg.param("mapFrame", mapFrame, "map", "mapFrame for this robot");
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
 arg.param("actualPoseTopic", actualPoseTopic, "map_pose", "robot actual pose ROS topic");
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
+arg.param("lambda", lambdaDecay, 0.2, "distance decay factor for choosing next goal");
 arg.param("mr", minRange, 0.0, "Laser scanner range minimum limit");
 arg.param("Mr", maxRange, 8.0, "Laser scanner range maximum limit");
 arg.param("nr", numRanges, 361, "Laser scanner number of ranges" );
@@ -89,13 +84,14 @@ ros::NodeHandle nh;
 
 Vector2f rangesLimits = {minRange, maxRange};
 
+
+srrg_scan_matcher::Projector2D projector;
 projector.setMaxRange(rangesLimits[0]);
 projector.setMinRange(rangesLimits[1]);
 projector.setFov(fov);
 projector.setNumRanges(numRanges);
 
 MoveBaseClient ac("move_base",true);
-
 ac.waitForServer(); //will wait for infinite time
 
 tf::TransformListener tfListener;
@@ -106,7 +102,6 @@ try{
 
 	laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
 }
- 
 catch (...) {
 	laserOffset = {0.05, 0.0};
 	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
@@ -117,7 +112,7 @@ FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPo
 unknownCellsCloud = frontiersDetector.getUnknownCloud();
 occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
 
-PathsRollout pathsRollout(idRobot, &occupancyMap, &ac, &projector, laserOffset, maxCentroidsNumber, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, actualPoseTopic);
+PathsRollout pathsRollout(idRobot, &occupancyMap, &ac, &projector, laserOffset, maxCentroidsNumber, thresholdRegionSize, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, lambdaDecay, actualPoseTopic);
 
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
@@ -128,12 +123,10 @@ goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int num = 20;
+int num = 15;
  
 while (ros::ok() && (num > 0)){
-
-	ros::spinOnce();
-
+	
 	frontiersDetector.requestOccupancyMap();
 	frontiersDetector.computeFrontiers();
 	frontiersDetector.rankRegions();
@@ -143,8 +136,6 @@ while (ros::ok() && (num > 0)){
 	resolution = frontiersDetector.getResolution();
 	frontierPoints = frontiersDetector.getFrontierPoints();
 	regions = frontiersDetector.getFrontierRegions();
-	unknownCells = frontiersDetector.getUnknownCells();
-	occupiedCells = frontiersDetector.getOccupiedCells();
 	centroids = frontiersDetector.getFrontierCentroids();
 
 	frontiersDetector.updateClouds();
@@ -162,19 +153,18 @@ while (ros::ok() && (num > 0)){
 		pathsRollout.setResolution(resolution);
 		pathsRollout.setAbortedGoals(abortedGoals);
 
-		Vector2DPlans vectorSampledPlans = pathsRollout.computeAllSampledPlans(centroids, mapFrame);
+		Vector2fVector vectorSampledPoses = pathsRollout.computeAllSampledPlans(centroids, mapFrame);
 
-		if (vectorSampledPlans.empty()){
+		if (vectorSampledPoses.empty()){
 			std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
 			return 0;
-			}
+		}
 
-		PoseWithVisiblePoints goal = pathsRollout.extractGoalFromSampledPlans(vectorSampledPlans);
+		Vector3f goal = pathsRollout.extractGoalFromSampledPoses(vectorSampledPoses);
 
 		std::string frame = mapFrame;
-		goalPoints = goal.mapPoints;
 
-		goalPlanner.publishGoal(goal.pose, frame);
+		goalPlanner.publishGoal(goal, frame);
 		goalPlanner.waitForGoal();
 
 

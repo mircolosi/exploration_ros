@@ -21,17 +21,12 @@
 
 
 
-
 using namespace srrg_core;
 using namespace Eigen;
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
-typedef std::vector<Vector2iVector> regionVector;
-
-typedef std::vector<Vector2fVector> Vector2DPlans;
-
-struct PoseWithVisiblePoints {
+struct PoseWithInfo {
 	Vector3f pose;
 	Vector2fVector points;
 	Vector2iVector mapPoints;
@@ -50,17 +45,17 @@ public:
 
 	void actualPoseCallback(const geometry_msgs::Pose2D msg);
 
-	PathsRollout(int idRobot,cv::Mat* _costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10,  float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, std::string robotPoseTopic = "map_pose");
+	PathsRollout(int idRobot,cv::Mat* _costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10, int thresholdRegionSize = 10, float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, float lambdaDecay = 0.2, std::string robotPoseTopic = "map_pose");
 
 
-	Vector2DPlans computeAllSampledPlans(Vector2iVector centroids, std::string frame);
+	Vector2fVector computeAllSampledPlans(Vector2iVector centroids, std::string frame);
 
-	PoseWithVisiblePoints extractGoalFromSampledPlans(Vector2DPlans vectorSampledPlans);
+	Vector3f extractGoalFromSampledPoses(Vector2fVector vectorSampledPoses);
 
-	PoseWithVisiblePoints extractBestPoseInPlan(Vector2fVector sampledPlan, std::vector<int> indices, srrg_scan_matcher::Cloud2D cloud);
+	PoseWithInfo extractBestPose(Vector2fVector sampledPlan, std::vector<int> indices, srrg_scan_matcher::Cloud2D cloud);
 
 
-	Vector2fVector makeSampledPlan(std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
+	Vector2fVector makeSampledPlan(std::vector<int> *indices, std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
 	Vector2fVector sampleTrajectory(nav_msgs::Path path, std::vector<int> *indices);
 
 	void setAbortedGoals(Vector2fVector abortedGoals);
@@ -78,7 +73,9 @@ protected:
 	srrg_scan_matcher::Projector2D * _projector;
 
 	int _idRobot;
-	float _resolution; //It's only used for image debug
+	float _resolution; 
+
+	float _xyThreshold = 0.25;
 
 	Vector3f _robotPose;
 
@@ -93,32 +90,25 @@ protected:
 	float _lastSampleThreshold;
 
 	int _maxCentroidsNumber;
+	int _minUnknownRegionSize;
 
-	std::vector<std::vector<int>> _vectorPlanIndices;
+	std::vector<int> _vectorPlanIndices;
 
 	std::string _topicRobotPoseName;
 
-	Vector2f _rangesLimits;
-	float _fov;
-	int _numRanges;
 	Vector2f _laserOffset;
-
-	regionVector _regions;
-	Vector2iVector _frontierPoints;
 
 	Vector2fVector _abortedGoals;
 	float _nearCentroidsThreshold;
 	float _farCentroidsThreshold;
 
-	Vector2iVector _unknownCells;
-	Vector2iVector _occupiedCells;
 	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
 	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
 
 	FloatVector _ranges;
 	IntVector _pointsIndices;
 
-	float _lambda = 0.3;
+	float _lambda;
 
 
 	ros::NodeHandle _nh;

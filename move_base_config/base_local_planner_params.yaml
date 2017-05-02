@@ -28,14 +28,14 @@ TrajectoryPlannerROS:
   #To configure how long and with what granularity trajectories are forward simulated
   sim_time: 2
   sim_granularity: 0.025
-  vx_samples: 30
+  vx_samples: 20
   vtheta_samples: 60
 
   #Parameters for scoring trajectories
   meter_scoring: true
   gdist_scale: 1
   pdist_scale: 2
-  occdist_scale: 0.1
+  occdist_scale: 0.2
   heading_lookahead: 0.325
 
   #To use the Dynamic Window Approach to control instead of Trajectory Rollout 

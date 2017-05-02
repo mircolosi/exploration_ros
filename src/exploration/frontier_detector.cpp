@@ -109,6 +109,8 @@ bool FrontierDetector::requestOccupancyMap(){
 
 void FrontierDetector::computeFrontiers(){
 	
+	ros::spinOnce();  //look for costmap update
+
 	_frontiers.clear();
 	_unknownFrontierCells.clear();
 	_occupiedCells.clear();
@@ -120,11 +122,13 @@ void FrontierDetector::computeFrontiers(){
 
     		if (_occupancyMap->at<unsigned char>(r, c) == _freeColor ){ //If the current cell is free
     			Vector2i coord = {r,c};
-    			if (_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold) //If the current free cell is too close to an obstacle
+    			if (_costMap->at<unsigned char>(r, c) >= _circumscribedThreshold){ //If the current free cell is too close to an obstacle
     				continue;	
+    			}
     			Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
-    			if (neighbors.empty())	//If the current free cell has no unknown cells around
+    			if (neighbors.empty()){	//If the current free cell has no unknown cells around
     				continue;
+    			}
     			for (int i = 0; i < neighbors.size(); i++){
     				if (hasSomeNeighbors(neighbors[i], _unknownColor, _minNeighborsThreshold)){ //If the neighbor unknown cell is sourrounded by free cells 
     					_frontiers.push_back(coord);	
@@ -138,7 +142,7 @@ void FrontierDetector::computeFrontiers(){
     				}
     			}
     			
-    Vector2iVector examined;	
+    Vector2iVector examined;
 
     for (int i = 0; i < _frontiers.size(); i++){
 
@@ -186,9 +190,6 @@ void FrontierDetector::computeFrontiers(){
 						}
 
     			}
-
-
-
 
 
 	for (int i = 0; i < _regions.size(); i++){
@@ -436,16 +437,13 @@ void FrontierDetector::createDensePointsCloud(srrg_scan_matcher::Cloud2D* pointC
 	}
 
 
-
-
-
 }
 
 void FrontierDetector::updateClouds(){
 
-	createDensePointsCloud(&_unknownCellsCloud, _unknownFrontierCells, 0.0125);
+	createDensePointsCloud(&_unknownCellsCloud, _unknownFrontierCells, 0.025);
 
-	createDensePointsCloud(&_occupiedCellsCloud, _occupiedCells, 0.0125);
+	createDensePointsCloud(&_occupiedCellsCloud, _occupiedCells, 0.01);
 
 }
 

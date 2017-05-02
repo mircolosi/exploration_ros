@@ -20,8 +20,6 @@ bool Graph2occupancy::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::Get
 
 
   //data (int8[] data)
-  //res.map.data.resize(res.map.info.width * res.map.info.height);
-
   res.map.data = _gridMsg.data;
 
   return true;
@@ -42,7 +40,7 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, int idRobot, SE2 gtPos
     _angle = angle;
     _freeThreshold = freeThrehsold;
 
-    _groundTruthPose = gtPose;
+    _groundTruthInitialPose = gtPose;
 
 
 
@@ -133,10 +131,7 @@ void Graph2occupancy::computeMap(){
   boundingBox(0,1)=xmax;
   boundingBox(1,0)=ymin;
   boundingBox(1,1)=ymax;
- /* boundingBox(0,0)=-30;
-  boundingBox(0,1)=xmax;
-  boundingBox(1,0)=-30;
-  boundingBox(1,1)=ymax;*/
+
 
   //std::cout << "Found " << robotLasers.size() << " laser scans"<< std::endl;
   //std::cout << "Bounding box: " << std::endl << boundingBox << std::endl; 
@@ -228,7 +223,7 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
   geometry_msgs::Pose2D poseMsg;
 
   Vector2D translation = actualPose.translation();
-  Vector2D groundTruthStartPose = _groundTruthPose.translation();
+  Vector2D groundTruthStartPose = _groundTruthInitialPose.translation();
 
   float startX = groundTruthStartPose[0] - _initialOffset[0];
   float startY = groundTruthStartPose[1] - _initialOffset[1];
@@ -242,7 +237,7 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
 
   poseMsg.x = mapX;
   poseMsg.y = mapY;
-  poseMsg.theta = actualPose.rotation().angle();
+  poseMsg.theta = actualPose.rotation().angle() - _groundTruthInitialPose.rotation().angle();
 
   _pubActualCoord.publish(poseMsg);
 
@@ -250,9 +245,9 @@ void Graph2occupancy::publishMapPose(SE2 actualPose){
 
 void Graph2occupancy::publishTF() {
  
-  float gtX = _groundTruthPose.translation().x();
-  float gtY = _groundTruthPose.translation().y();
-  float gtTheta = _groundTruthPose.rotation().angle();
+  float gtX = _groundTruthInitialPose.translation().x();
+  float gtY = _groundTruthInitialPose.translation().y();
+  float gtTheta = _groundTruthInitialPose.rotation().angle();
 
   Rotation2D<float> rot(gtTheta);
   Vector2f origin = {gtY + gtX - _initialOffset[1], -gtX + gtY + _initialOffset[0]};
@@ -279,14 +274,11 @@ void Graph2occupancy::publishTF() {
 void Graph2occupancy::publishMap() {
 
   //header (uint32 seq, time stamp, string frame_id)
-  //gridMsg.header.seq = id;
-  //gridMsg.header.frame_id = _topicName;
   
   //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
   _gridMsg.info.map_load_time = ros::Time::now();
 
   _pubOccupGrid.publish(_gridMsg);
-
 
 
 }

@@ -59,7 +59,7 @@ public:
 
 protected:
 
-	bool isGoalReached(Isometry2f transform, srrg_scan_matcher::Cloud2D cloud);
+	bool isGoalReached(srrg_scan_matcher::Cloud2D cloud);
 
 	int _idRobot;
 
@@ -68,6 +68,8 @@ protected:
 	FrontierDetector *_frontierDetector;
 
 	float _mapResolution;
+
+	float _xyThreshold = 0.25;
 
 	Vector3f _robotPose;
 	Vector3f _goal;

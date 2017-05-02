@@ -95,7 +95,7 @@ protected:
 	Vector2f _offset;
 	Vector2f _initialOffset = {0,0};
 
-	SE2 _groundTruthPose;
+	SE2 _groundTruthInitialPose;
 
 	float _resolution;
 	float _threshold;
