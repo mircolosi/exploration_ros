@@ -109,7 +109,9 @@ int main(int argc, char **argv)
   gc.init_network(&rh);
 
   ros::Rate loop_rate(10);
+  int count  = 0;
   while (ros::ok()){
+  	count++;
     ros::spinOnce();
 
     SE2 odomPosk = rh.getOdom(); //current odometry
@@ -146,14 +148,14 @@ int main(int argc, char **argv)
     graphPublisher.publishGraph();
 
     SE2 lastPose = gslam.lastVertex()->estimate();
-    mapCreator.publishMapPose(lastPose);
+    mapCreator.publishMapPose(currEst);
 
     mapCreator.computeMap();
     Eigen::Vector2f offset = mapCreator.getOffset();
     mapCreator.publishMap();
 
-    mapCreator.publishTF();
-    
+    mapCreator.publishTF(currEst);
+
     loop_rate.sleep();
   }
   

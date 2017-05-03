@@ -7,6 +7,7 @@
 
 #include "geometry_msgs/Pose2D.h"
 #include "tf/transform_broadcaster.h"
+#include "tf/transform_listener.h"
 
 #include "g2o/core/hyper_graph.h"
 
@@ -45,7 +46,7 @@ public:
 
 	void publishMap ();
 	void publishMapPose (SE2 actualPose);
-	void publishTF ();
+	void publishTF (SE2 actualPose);
 
 	bool mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res);
 
@@ -125,9 +126,14 @@ protected:
 	ros::Publisher _pubActualCoord;
 	ros::ServiceServer _server;
 
+tf::StampedTransform _tfOdom2Footprint;
+
 	tf::TransformBroadcaster _tfBroadcaster;
-	
+	tf::TransformListener _tfListener;
+
+	tf::Transform _lastMap2Odom;
 	nav_msgs::GetMap::Response _resp;
+	bool _first = true;
 
 
 	

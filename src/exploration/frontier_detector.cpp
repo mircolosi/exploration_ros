@@ -23,6 +23,21 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
 
 }
 
+void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
+
+    int index = 0;
+    for(int y=msg->y; y< msg->y+msg->height; y++){
+        for(int x=msg->x; x< msg->x+msg->width; x++){
+             _costMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
+        }
+    }
+
+
+}
+
+
+
+
 void FrontierDetector::actualPoseCallback(const geometry_msgs::Pose2D msg){
 
 
@@ -59,8 +74,10 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
 	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
 
-	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap",1, &FrontierDetector::costMapCallback, this);
+	std::string costMapTopic = "/move_base_node/global_costmap/costmap";
 
+	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>(costMapTopic,1, &FrontierDetector::costMapCallback, this);
+	_subCostMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( costMapTopic + "_updates", 10, &FrontierDetector::costMapUpdateCallback, this );
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
 	std::stringstream fullFixedFrameId;
@@ -72,7 +89,7 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 
 	ros::topic::waitForMessage<geometry_msgs::Pose2D>(_topicRobotPoseName);
 
-	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
+	//ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 
 
 }

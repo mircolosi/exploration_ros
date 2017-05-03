@@ -50,11 +50,13 @@ PathsRollout::PathsRollout(int idRobot, cv::Mat* costMap, MoveBaseClient *ac, sr
 
 
 
-Vector2fVector PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string frame){
+
+
+int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string frame){
 
 	ros::Rate checkReadyRate(100);
-	Vector2fVector vectorSampledPoses;
-	_vectorPlanIndices.clear();
+	_vectorSampledPoses.clear();
+	_vectorPosesCosts.clear();
 
 	Vector2fVector meterCentroids;
 
@@ -85,7 +87,7 @@ Vector2fVector PathsRollout::computeAllSampledPlans(Vector2iVector centroids, st
 
 	for (int i = 0; i < meterCentroids.size(); i++){
 
-		std::vector<int> tempIndices;
+		std::vector<float> tempCosts;
 
 		geometry_msgs::Pose goalPose;
 
@@ -98,7 +100,7 @@ Vector2fVector PathsRollout::computeAllSampledPlans(Vector2iVector centroids, st
 				break;
 			}
 
-		Vector2fVector sampledPlan = makeSampledPlan(&tempIndices, frame, startPose, goalPose);
+		Vector2fVector sampledPlan = makeSampledPlan(&tempCosts, frame, startPose, goalPose);
 
 		if (sampledPlan.size()>0){
 			countPlans++;
@@ -106,22 +108,22 @@ Vector2fVector PathsRollout::computeAllSampledPlans(Vector2iVector centroids, st
 
 		for (int j = 0; j < sampledPlan.size(); j++){
 
-			bool far = true;
+			bool farAlreadySampledPoses = true;
 
-			for (int k = 0; k < vectorSampledPoses.size(); k++){
-				float distanceX = fabs(vectorSampledPoses[k][0] - sampledPlan[j][0]);
-				float distanceY = fabs(vectorSampledPoses[k][1] - sampledPlan[j][1]);
+			for (int k = 0; k < _vectorSampledPoses.size(); k++){
+				float distanceX = fabs(_vectorSampledPoses[k][0] - sampledPlan[j][0]);
+				float distanceY = fabs(_vectorSampledPoses[k][1] - sampledPlan[j][1]);
 
 				if ((distanceX <= _xyThreshold) &&(distanceY <= _xyThreshold)){
-					far = false;
+					farAlreadySampledPoses = false;
 					break;
 				}
 
 			}
 
-			if (far){
-				vectorSampledPoses.push_back(sampledPlan[j]);
-				_vectorPlanIndices.push_back(tempIndices[j]);
+			if (farAlreadySampledPoses){
+				_vectorSampledPoses.push_back(sampledPlan[j]);
+				_vectorPosesCosts.push_back(tempCosts[j]);
 			}
 
 		}
@@ -133,11 +135,11 @@ Vector2fVector PathsRollout::computeAllSampledPlans(Vector2iVector centroids, st
 
 	}
 
-	return vectorSampledPoses;
+	return _vectorSampledPoses.size();
 
 }
 
-Vector3f PathsRollout::extractGoalFromSampledPoses(Vector2fVector vectorSampledPoses){
+Vector3f PathsRollout::extractGoalFromSampledPoses(){
 
 	std::cout<<"ACTUAL MAP POSE: "<<_robotPose.transpose()<<std::endl;
 
@@ -150,7 +152,7 @@ Vector3f PathsRollout::extractGoalFromSampledPoses(Vector2fVector vectorSampledP
 	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
 
 	
-	goal = extractBestPose(vectorSampledPoses, _vectorPlanIndices, augmentedCloud);
+	goal = extractBestPose(_vectorSampledPoses, _vectorPosesCosts, augmentedCloud);
 
 
 	return goal.pose;
@@ -160,7 +162,7 @@ Vector3f PathsRollout::extractGoalFromSampledPoses(Vector2fVector vectorSampledP
 
 
 
-Vector2fVector PathsRollout::makeSampledPlan(std::vector<int> *tempIndices, std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
+Vector2fVector PathsRollout::makeSampledPlan(std::vector<float> *tempCosts, std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
 
 	nav_msgs::GetPlan::Request req;
 	nav_msgs::GetPlan::Response res;
@@ -176,7 +178,7 @@ Vector2fVector PathsRollout::makeSampledPlan(std::vector<int> *tempIndices, std:
 	if (_planClient.call(req,res)){
         if (!res.plan.poses.empty()) {
 
-        	 sampledPlan = sampleTrajectory(res.plan, tempIndices);
+        	 sampledPlan = sampleTrajectory(res.plan, tempCosts);
             }
     }
     else {
@@ -188,7 +190,7 @@ Vector2fVector PathsRollout::makeSampledPlan(std::vector<int> *tempIndices, std:
 }
 
 
-Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<int> *indices){
+Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<float> *costs){
 
 	Vector2fVector sampledPath;
 
@@ -199,7 +201,7 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 		lastPose = {path.poses[0].pose.position.x, path.poses[0].pose.position.y};
 
 		sampledPath.push_back(lastPose);
-		indices->push_back(0);
+		costs->push_back(0);
 
 		for (int i = 1; i < path.poses.size(); i++){
 
@@ -221,7 +223,8 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 				if (!nearToAborted){
 					lastPose = newPose;
 					sampledPath.push_back(lastPose);
-					indices->push_back(i);
+					float val = i/40.0 - float(i)/(path.poses.size() - 1);
+					costs->push_back(val);
 									}
 
 							}
@@ -242,7 +245,8 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 			if (!nearToAborted){
 				lastPose = {path.poses.back().pose.position.x, path.poses.back().pose.position.y};
 				sampledPath.push_back(lastPose);
-				indices->push_back(path.poses.size() - 1);
+				float val = (path.poses.size() - 1)/40 - (path.poses.size() - 1)/(path.poses.size() - 1);
+				costs->push_back(val);
 								}
 					
 					}
@@ -256,7 +260,7 @@ Vector2fVector PathsRollout::sampleTrajectory(nav_msgs::Path path, std::vector<i
 }
 
 
-PoseWithInfo PathsRollout::extractBestPose(Vector2fVector sampledPlan, std::vector<int> indices, srrg_scan_matcher::Cloud2D cloud){
+PoseWithInfo PathsRollout::extractBestPose(Vector2fVector sampledPlan, std::vector<float> costs, srrg_scan_matcher::Cloud2D cloud){
 	
 	PoseWithInfo goalPose;
 	Isometry2f transform;
@@ -276,6 +280,8 @@ PoseWithInfo PathsRollout::extractBestPose(Vector2fVector sampledPlan, std::vect
 			isSamePosition = true;
 		}
 
+
+		//std::cout<<"Pose "<<i<<" "<<costs[i]<<std::endl;
 
 		for (int j = 0; j < _sampleOrientation; j++){
 
@@ -306,41 +312,41 @@ PoseWithInfo PathsRollout::extractBestPose(Vector2fVector sampledPlan, std::vect
 			transform = v2t(laserPose);
 			_projector->project(_ranges, _pointsIndices, transform.inverse(), cloud);
 
-			cv::Mat testImage = cv::Mat(35/_resolution, 35/_resolution, CV_8UC1);
+	/*		cv::Mat testImage = cv::Mat(35/_resolution, 35/_resolution, CV_8UC1);
 			testImage.setTo(cv::Scalar(0));
 			cv::circle(testImage, cv::Point(pose[1]/_resolution,pose[0]/_resolution), 5, 200);
 			cv::circle(testImage, cv::Point(laserPose[1]/_resolution, laserPose[0]/_resolution), 1, 200);
 			std::stringstream title;
 			title << "virtualscan_test/test_"<<i<<"_"<<j<<".jpg"; 
-
+*/
 
 			int countFrontier = 0;
 			Vector2fVector seenFrontierPoints;
 			for (int k = 0; k < _pointsIndices.size(); k++){
 				if (_pointsIndices[k] != -1){
-					testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 127;
+					//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 127;
 					if (_pointsIndices[k] < _unknownCellsCloud->size()){
 						countFrontier ++;
-						testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;
+						//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;
 						seenFrontierPoints.push_back({cloud[_pointsIndices[k]].point()[0]/_resolution, cloud[_pointsIndices[k]].point()[1]/_resolution});
 									}
 								}
 							}
 
-			cv::imwrite(title.str(),testImage);
+			//cv::imwrite(title.str(),testImage);
 
-			float decay = indices[i]/40.0;
+			float decay = costs[i];
 			float score = countFrontier * exp(-_lambda*decay);
 
 			//std::cout<<i<<"-"<<j<<" "<<laserPose[0]<<" "<<laserPose[1]<<" "<<laserPose[2]<<" points: "<<seenFrontierPoints.size()<<" score: "<<score <<std::endl;
 
 
 			if ((score > goalPose.score) && (seenFrontierPoints.size() > _minUnknownRegionSize)){
-				std::cout<<"GOAL: "<< pose[0]<<" "<<pose[1]<<" "<<pose[2]<<" SCORE: "<<score<<" INDEX: "<<indices[i]<<std::endl;
+				//std::cout<<"GOAL: "<< pose[0]<<" "<<pose[1]<<" "<<pose[2]<<" SCORE: "<<score<<" INDEX: "<<costs[i]<<std::endl;
 				goalPose.pose = pose;
 				goalPose.points = seenFrontierPoints;
 				goalPose.score = score;
-				goalPose.planIndex = indices[i];
+				goalPose.cost = costs[i];
 				goalPose.numPoints = countFrontier;
 			}
 

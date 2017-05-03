@@ -7,8 +7,8 @@ global_costmap:
 
   #Set the update and publish frequency of the costmap
   update_frequency: 5.0
-  publish_frequency: 2.0
-  always_send_full_costmap: true
+  publish_frequency: 1.0
+  always_send_full_costmap: false
 
   #We'll use a map served by the map_server to initialize this costmap
   static_map: true

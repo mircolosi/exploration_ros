@@ -5,7 +5,7 @@
 
 #include "ros/ros.h"
 #include "geometry_msgs/Pose2D.h"
-
+#include "tf/transform_listener.h"
 #include "exploration/goal_planner.h"
 #include "exploration/paths_rollout.h"
 
@@ -123,7 +123,7 @@ goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int num = 15;
+int num = 10;
  
 while (ros::ok() && (num > 0)){
 	
@@ -147,20 +147,19 @@ while (ros::ok() && (num > 0)){
 		return 0;
 	}
 
-
 	else {
 
 		pathsRollout.setResolution(resolution);
 		pathsRollout.setAbortedGoals(abortedGoals);
 
-		Vector2fVector vectorSampledPoses = pathsRollout.computeAllSampledPlans(centroids, mapFrame);
-
-		if (vectorSampledPoses.empty()){
+		int numSampledPoses = pathsRollout.computeAllSampledPlans(centroids, mapFrame);
+		std::cout<<"Sampled "<<numSampledPoses<<" poses"<<std::endl;
+		if (numSampledPoses == 0){
 			std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
 			return 0;
 		}
 
-		Vector3f goal = pathsRollout.extractGoalFromSampledPoses(vectorSampledPoses);
+		Vector3f goal = pathsRollout.extractGoalFromSampledPoses();
 
 		std::string frame = mapFrame;
 

@@ -151,7 +151,6 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 
 
 	if ((distanceX > _xyThreshold*1.5)||(distanceY > _xyThreshold*1.5)){ // If distance greater than local planner xy threshold
-	//if (goalState == actionlib::SimpleClientGoalState::ACTIVE){
 		
 		Vector2f points_angle = {0,0};
 
@@ -185,7 +184,7 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 					}
 			}
 
-			if (countDiscoverable > points_angle[0]){
+			if (countDiscoverable >= points_angle[0] + 10 ){
 				points_angle[0] = countDiscoverable;
 				points_angle[1] = yawAngle;
 			}

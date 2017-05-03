@@ -13,7 +13,7 @@
 #include "geometry_msgs/Pose2D.h"
 #include <nav_msgs/GetMap.h>
 #include "visualization_msgs/MarkerArray.h"
-
+#include <map_msgs/OccupancyGridUpdate.h>
 #include "cloud2d.h"
 
 #include <Eigen/Dense>
@@ -51,6 +51,7 @@ class FrontierDetector {
 
 public:
 	void actualPoseCallback(const geometry_msgs::Pose2D msg);
+	void costMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
 	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker",  std::string robotPoseTopic = "map_pose",int thresholdSize = 30, int minNeighborsThreshold = 4);
@@ -143,6 +144,7 @@ protected:
 	ros::Publisher _pubFrontierPoints;
 	ros::Publisher _pubCentroidMarkers;
 	ros::Subscriber _subCostMap;
+	ros::Subscriber _subCostMapUpdate;
 	ros::Subscriber _subActualPose;
 	ros::ServiceClient _mapClient;
 

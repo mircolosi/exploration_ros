@@ -11,7 +11,6 @@
 #include "sensor_msgs/PointCloud.h"
 #include "nav_msgs/GetPlan.h"
 
-#include "tf/transform_listener.h"
 #include "tf_conversions/tf_eigen.h"
 
 #include "ros/ros.h"
@@ -32,7 +31,7 @@ struct PoseWithInfo {
 	Vector2iVector mapPoints;
 	float score = -1;
 	int numPoints;
-	int planIndex;
+	float cost;
 };
 
 
@@ -48,15 +47,15 @@ public:
 	PathsRollout(int idRobot,cv::Mat* _costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10, int thresholdRegionSize = 10, float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, float lambdaDecay = 0.2, std::string robotPoseTopic = "map_pose");
 
 
-	Vector2fVector computeAllSampledPlans(Vector2iVector centroids, std::string frame);
+	int computeAllSampledPlans(Vector2iVector centroids, std::string frame);
 
-	Vector3f extractGoalFromSampledPoses(Vector2fVector vectorSampledPoses);
+	Vector3f extractGoalFromSampledPoses();
 
-	PoseWithInfo extractBestPose(Vector2fVector sampledPlan, std::vector<int> indices, srrg_scan_matcher::Cloud2D cloud);
+	PoseWithInfo extractBestPose(Vector2fVector sampledPlan, std::vector<float> costs, srrg_scan_matcher::Cloud2D cloud);
 
 
-	Vector2fVector makeSampledPlan(std::vector<int> *indices, std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
-	Vector2fVector sampleTrajectory(nav_msgs::Path path, std::vector<int> *indices);
+	Vector2fVector makeSampledPlan(std::vector<float> *tempCosts, std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
+	Vector2fVector sampleTrajectory(nav_msgs::Path path, std::vector<float> *costs);
 
 	void setAbortedGoals(Vector2fVector abortedGoals);
 
@@ -92,7 +91,8 @@ protected:
 	int _maxCentroidsNumber;
 	int _minUnknownRegionSize;
 
-	std::vector<int> _vectorPlanIndices;
+	Vector2fVector _vectorSampledPoses;
+	std::vector<float> _vectorPosesCosts;
 
 	std::string _topicRobotPoseName;
 
