@@ -168,9 +168,9 @@ target_link_libraries(frontier_planner
 )
 add_dependencies(frontier_planner mr_exploration_generate_messages_cpp)
 
-
 add_executable(slam_node
   src/slam_node.cpp
+  src/sr_ros_utils/ros_handler.cpp
   src/map_creation/grid_line_traversal.cpp
   src/map_creation/frequency_map.cpp
   src/map_creation/graph2occupancy.cpp

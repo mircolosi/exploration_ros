@@ -28,8 +28,9 @@
 
 #include "ros_handler.h"
 
-RosHandler::RosHandler (int idRobot, int nRobots, int typeExperiment){
 
+RosHandler::RosHandler (int idRobot, int nRobots, int typeExperiment){
+ std::cout<<"QUIIIIIIIII"<<std::endl;
   _idRobot = idRobot;
   _nRobots = nRobots;
   _typeExperiment = typeExperiment;
@@ -233,3 +234,5 @@ void RosHandler::publishReceivedMsg(RobotMessage* msg){
   createDSlamMsg(msg, dslamMsg);
   _pubRecv.publish(dslamMsg);
 }
+
+

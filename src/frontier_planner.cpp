@@ -11,9 +11,9 @@
 
 #include <sys/time.h>
 
-
 using namespace srrg_core;
 using namespace Eigen;
+
 
 double timeval_diff(struct timeval *a, struct timeval *b)
 {

@@ -29,7 +29,7 @@ TrajectoryPlannerROS:
   sim_time: 2
   sim_granularity: 0.025
   vx_samples: 20
-  vtheta_samples: 60
+  vtheta_samples: 80
 
   #Parameters for scoring trajectories
   meter_scoring: true

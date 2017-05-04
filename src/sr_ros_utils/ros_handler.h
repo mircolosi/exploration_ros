@@ -46,7 +46,9 @@
 #define REAL_EXPERIMENT 1
 #define BAG_EXPERIMENT 2
 
+
 using namespace g2o;
+
 
 class RosHandler
 {
