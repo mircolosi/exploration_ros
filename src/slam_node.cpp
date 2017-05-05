@@ -9,6 +9,7 @@
 #include "ros_utils/graph_ros_publisher.h"
 
 #include "map_creation/graph2occupancy.h"
+#include "map_creation/occupancy_map_server.h"
 #include "sr_ros_utils/ros_handler.h"
 
 using namespace g2o;
@@ -40,7 +41,7 @@ int main(int argc, char **argv)
   arg.param("resolution",  resolution, 0.025, "resolution of the matching grid");
   arg.param("maxScore",    maxScore, 0.15,     "score of the matcher, the higher the less matches");
   arg.param("kernelRadius", kernelRadius, 0.2,  "radius of the convolution kernel");
-  arg.param("minInliers",    minInliers, 7,     "min inliers");
+  arg.param("minInliers",    minInliers, 5,     "min inliers");
   arg.param("windowLoopClosure",  windowLoopClosure, 10,   "sliding window for loop closures");
   arg.param("inlierThreshold",  inlierThreshold, 2.,   "inlier threshold");
   arg.param("idRobot", idRobot, 0, "robot identifier" );
@@ -57,25 +58,20 @@ int main(int argc, char **argv)
 
   ros::init(argc, argv, "slam_node");
 
-  RosHandler rh(idRobot, nRobots, SIM_EXPERIMENT);
+  RosHandler rh(idRobot, nRobots, REAL_EXPERIMENT);
   rh.useOdom(true);
   rh.useLaser(true);
   rh.init();   //Wait for initial ground-truth position, odometry and laserScan
   rh.run();
   
-  for (int r = 0; r<nRobots; r++){
-    std::cerr << "Ground Truth robot " << r << ": " << rh.getGroundTruth(r).translation().x() << " " << rh.getGroundTruth(r).translation().y() << " " << rh.getGroundTruth(r).rotation().angle() << std::endl;
-  }
-
   //For estimation
-  SE2 currEst = rh.getGroundTruth(idRobot);
+  SE2 currEst = rh.getOdom();
   std::cerr << "My initial position is: " << currEst.translation().x() << " " << currEst.translation().y() << " " << currEst.rotation().angle() << std::endl;
-  SE2 odomPosk_1 = rh.getOdom();
-  std::cerr << "My initial odometry is: " << odomPosk_1.translation().x() << " " << odomPosk_1.translation().y() << " " << odomPosk_1.rotation().angle() << std::endl;
+  SE2 odomPosk_1 = currEst;
 
 
   //Graph building
-  MRGraphSLAM gslam, gtgraph;
+  MRGraphSLAM gslam;
   gslam.setIdRobot(idRobot);
   int baseId = 10000;
   gslam.setBaseId(baseId);
@@ -98,10 +94,12 @@ int main(int argc, char **argv)
 	float angle = 0.0;
 	float freeThrehsold = 0.3;
 
+  cv::Mat occupancyMap;
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-  Graph2occupancy mapCreator(gslam.graph(), idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  
+  Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, idRobot,rh.getGroundTruth(idRobot), occupancyTopic, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
+  OccupancyMapServer mapServer(&occupancyMap, "map", "map_pose", ros::Duration(0.15), threhsold, freeThrehsold);
+
   ////////////////////
   //Setting up network
   std::string base_addr = "127.0.0.";
@@ -109,9 +107,8 @@ int main(int argc, char **argv)
   gc.init_network(&rh);
 
   ros::Rate loop_rate(10);
-  int count  = 0;
+
   while (ros::ok()){
-  	count++;
     ros::spinOnce();
 
     SE2 odomPosk = rh.getOdom(); //current odometry
@@ -148,13 +145,17 @@ int main(int argc, char **argv)
     graphPublisher.publishGraph();
 
     SE2 lastPose = gslam.lastVertex()->estimate();
-    mapCreator.publishMapPose(currEst);
 
     mapCreator.computeMap();
-    Eigen::Vector2f offset = mapCreator.getOffset();
-    mapCreator.publishMap();
 
-    mapCreator.publishTF(currEst);
+    Eigen::Vector2f offset = mapCreator.getInitialOffset();
+    mapServer.setOffset(offset);
+    mapServer.setResolution(mapResolution);
+
+    mapServer.publishMap();
+    mapServer.publishTF(currEst);
+    mapServer.publishMapPose(currEst);
+
 
     loop_rate.sleep();
   }

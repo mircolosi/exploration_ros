@@ -30,7 +30,6 @@
 
 
 RosHandler::RosHandler (int idRobot, int nRobots, int typeExperiment){
- std::cout<<"QUIIIIIIIII"<<std::endl;
   _idRobot = idRobot;
   _nRobots = nRobots;
   _typeExperiment = typeExperiment;
@@ -71,8 +70,8 @@ void RosHandler::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
 SE2 RosHandler::getOdom(){
   SE2 odomSE2;
-  odomSE2.setTranslation(Eigen::Vector2d(_odom.pose.pose.position.x, _odom.pose.pose.position.y));
-  odomSE2.setRotation(tf::getYaw(_odom.pose.pose.orientation));
+  odomSE2.setTranslation(Eigen::Vector2d(-_odom.pose.pose.position.y, _odom.pose.pose.position.x));
+  odomSE2.setRotation(tf::getYaw(_odom.pose.pose.orientation) + M_PI_2);
   return odomSE2;
 }
 

@@ -40,16 +40,9 @@ class Graph2occupancy {
 	
 public:
 
-	Graph2occupancy(OptimizableGraph *graph, int idRobot, SE2 gtPose, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
+	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, SE2 gtPose, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
 
 	void computeMap ();
-
-	void publishMap ();
-	void publishMapPose (SE2 actualPose);
-	void publishTF (SE2 actualPose);
-
-	bool mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res);
-
 
 	void setResolution (const float resolution);
 	void setThreshold (const float threshold);
@@ -61,7 +54,6 @@ public:
 	void setSquareSize (const float squareSize);
 	void setAngle (const float angle);
 	void setFreeThreshold (const float freeThrehsold);
-	void setTopicName (const string topicName);
 
 
 
@@ -75,15 +67,11 @@ public:
 	float getSquareSize ();
 	float getAngle ();
 	float getFreeThreshold ();
-	string getTopicName ();
 
-	Vector2f getOffset();
-
+	Vector2f getInitialOffset();
 
 
-	void showMap();
 
-	void saveMap(string outputFileName);
 
 
 protected:
@@ -91,10 +79,7 @@ protected:
 	FrequencyMap _map;
 	cv::Mat *_mapImage;
 
-	nav_msgs::OccupancyGrid _gridMsg;
-
-	Vector2f _offset;
-	Vector2f _initialOffset = {0,0};
+	Vector2f _initialOffset;
 
 	SE2 _groundTruthInitialPose;
 
@@ -109,36 +94,13 @@ protected:
 	float _angle;
 	float _freeThreshold;
 
-	string _topicName;
-
-	//Used for the occupancy map (published in RViz and provided via getMap)
-	unsigned char _freeColor = 0;
-	unsigned char _unknownColor = -1;
-	unsigned char _occupiedColor = 100;
-
 	//Used for colouring the image saved on disk
 	unsigned char _freeImageColor = 255;
 	unsigned char _unknownImageColor = 127;
 	unsigned char _occupiedImageColor = 0;
 
-	ros::NodeHandle _nh;
-	ros::Publisher _pubOccupGrid;
-	ros::Publisher _pubActualCoord;
-	ros::ServiceServer _server;
 
-tf::StampedTransform _tfOdom2Footprint;
-
-	tf::TransformBroadcaster _tfBroadcaster;
-	tf::TransformListener _tfListener;
-
-	tf::Transform _lastMap2Odom;
-	nav_msgs::GetMap::Response _resp;
 	bool _first = true;
-
-
-	
-
-
 
 };
 

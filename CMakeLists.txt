@@ -174,6 +174,7 @@ add_executable(slam_node
   src/map_creation/grid_line_traversal.cpp
   src/map_creation/frequency_map.cpp
   src/map_creation/graph2occupancy.cpp
+  src/map_creation/occupancy_map_server.cpp
 
 )
 target_link_libraries(slam_node  
