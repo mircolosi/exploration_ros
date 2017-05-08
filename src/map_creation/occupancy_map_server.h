@@ -24,12 +24,13 @@ class OccupancyMapServer{
 
 public:
 
-	OccupancyMapServer(cv::Mat* occupancyMap, string mapTopicName = "map",string poseTopicName = "map_pose", ros::Duration tolerance = ros::Duration(0.15), float threshold = 0.0, float freeThreshold = 0.0);
+	OccupancyMapServer(cv::Mat* occupancyMap, string mapTopicName = "map",string poseTopicName = "map_pose", string odomFrameName = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
 
 	void publishMap ();
 	void publishMapPose (SE2 actualPose);
-	void publishTF (SE2 actualPose);
+	void adjustMapToOdom ();
 
+	void publishMapToOdom();
 	bool mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::GetMap::Response &res);
 
 	void saveMap(string outputFileName);
@@ -43,10 +44,15 @@ public:
 
 protected:
 
+
+	bool _first;
 	cv::Mat * _occupancyMap;
+	cv::Mat _occupancyMapImage;
 
 	string _mapTopicName;
 	string _poseTopicName;
+
+	string _odomFrameName;
 
 	Vector2f _mapOffset;
 	float _mapResolution;
@@ -75,7 +81,10 @@ protected:
 	tf::TransformBroadcaster _tfBroadcaster;
 	tf::TransformListener _tfListener;
 
-	tf::Transform _lastMap2Odom;
+
+	tf::Transform _tfMap2Odom;
+	tf::Stamped<tf::Pose> _robotMapPose;
+
 	ros::Duration _transformTolerance;
 	ros::Time _lastTime;
 

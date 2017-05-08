@@ -5,13 +5,6 @@ using namespace Eigen;
 using namespace srrg_scan_matcher;
 
 
-void GoalPlanner::actualPoseCallback(const geometry_msgs::Pose2D msg){
-
-
-_robotPose = {msg.x, msg.y, msg.theta};
-
-}
-
 
 
 GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize, std::string robotPoseTopic)
@@ -38,11 +31,7 @@ GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient* a
 
 	_robotPoseTopicName = robotPoseTopic; 
 
-	_subActualPose = _nh.subscribe<geometry_msgs::Pose2D>(_robotPoseTopicName,1,&GoalPlanner::actualPoseCallback,this);
-
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
-
-	ros::topic::waitForMessage<geometry_msgs::Pose2D>(_robotPoseTopicName);
 
 
 }
@@ -145,75 +134,6 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 	ros::spinOnce();
 
 	actionlib::SimpleClientGoalState goalState = _ac->getState();
-	//float distance = sqrt(pow(_robotPose[0] - _goal[0],2) + pow(_robotPose[1] - _goal[1],2));
-	float distanceX = fabs(_robotPose[0] - _goal[0]);
-	float distanceY = fabs(_robotPose[1] - _goal[1]);
-
-
-	if ((distanceX > _xyThreshold*1.5)||(distanceY > _xyThreshold*1.5)){ // If distance greater than local planner xy threshold
-		
-		Vector2f points_angle = {0,0};
-
-		for (int j = 0; j < 8; j++){
-
-			int countDiscoverable = 0;
-			Vector3f laserPose;
-			Isometry2f transform;
-
-			float yawAngle = M_PI/4*j;
-			Rotation2D<float> rot(yawAngle);
-			Vector2f laserOffsetRotated = rot*_laserOffset;
-
-			laserPose[0] = _goal[0] + laserOffsetRotated[0];
-			laserPose[1] = _goal[1] + laserOffsetRotated[1];
-			laserPose[2] = yawAngle;
-
-			transform = v2t(laserPose);
-
-			Isometry2f pointsToLaserTransform = transform.inverse();
-
-			FloatVector _ranges;
-			IntVector _pointsIndices;
-
-			_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
-
-
-			for (int i = 0; i < _pointsIndices.size(); i ++){
-				if ((_pointsIndices[i] != -1) &&(_pointsIndices[i] < _unknownCellsCloud->size())){
-					countDiscoverable ++;
-					}
-			}
-
-			if (countDiscoverable >= points_angle[0] + 10 ){
-				points_angle[0] = countDiscoverable;
-				points_angle[1] = yawAngle;
-			}
-		}
-
-		if (points_angle[0] < _minUnknownRegionSize){
-			_ac->cancelAllGoals();
-			std::stringstream infoGoal;
-			time_t _now = time(0);
-			tm *ltm = localtime(&_now);
-			infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The area has been EXPLORED.";
-			std::cout<<infoGoal.str()<<std::endl;
-
-			return true;
-		}
-
-		else if (fabs(points_angle[1] - _goal[2]) > 0.1){ //Inequality check.... I don't need boxminus because they are normalized 
-			std::cout<<"POSE BEFORE CHANGING "<<_robotPose[0]<<" "<<_robotPose[1]<<std::endl;
-			std::cout<<"Changed angle from "<< _goal[2]<<" to "<<points_angle[1]<<std::endl;
-			//_ac->cancelAllGoals();
-
-			publishGoal({_goal[0],_goal[1], points_angle[1]}, "map" ); //Publishing a new goal cancel the previous one
-
-			return false;
-		}
-
-	}
-
-
 
 
 	if (goalState == actionlib::SimpleClientGoalState::SUCCEEDED){
@@ -239,6 +159,52 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 		std::cout<<infoGoal.str()<<std::endl;
 		return true;
 	}
+
+
+
+	int countDiscoverable = 0;
+	Vector3f laserPose;
+	Isometry2f transform;
+
+	float yawAngle = _goal[2];
+	Rotation2D<float> rot(yawAngle);
+	Vector2f laserOffsetRotated = rot*_laserOffset;
+
+	laserPose[0] = _goal[0] + laserOffsetRotated[0];
+	laserPose[1] = _goal[1] + laserOffsetRotated[1];
+	laserPose[2] = yawAngle;
+
+	transform = v2t(laserPose);
+
+	Isometry2f pointsToLaserTransform = transform.inverse();
+
+	FloatVector _ranges;
+	IntVector _pointsIndices;
+
+	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+
+
+	for (int i = 0; i < _pointsIndices.size(); i ++){
+		if ((_pointsIndices[i] != -1) &&(_pointsIndices[i] < _unknownCellsCloud->size())){
+			countDiscoverable ++;
+			}
+	}
+
+	if (countDiscoverable < _minUnknownRegionSize){
+		_ac->cancelAllGoals();
+		std::stringstream infoGoal;
+		time_t _now = time(0);
+		tm *ltm = localtime(&_now);
+		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The area has been EXPLORED.";
+		std::cout<<infoGoal.str()<<std::endl;
+
+		return true;
+	}
+
+
+
+
+
 
 	//Used if aborting from terminal or some other node
 	/*if ((goalState == actionlib::SimpleClientGoalState::RECALLED) || (_ac->getState() == actionlib::SimpleClientGoalState::PREEMPTED)){

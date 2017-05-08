@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "mr_exploration/DoSomething.h"
+#include "tf/transform_listener.h"
 
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
@@ -50,7 +51,6 @@ struct regionWithScore {
 class FrontierDetector {
 
 public:
-	void actualPoseCallback(const geometry_msgs::Pose2D msg);
 	void costMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 
@@ -150,7 +150,8 @@ protected:
 
 
 
-
+	tf::TransformListener _tfListener;
+	tf::StampedTransform _tfMapToBase;
 
 
 };

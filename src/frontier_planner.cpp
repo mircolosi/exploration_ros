@@ -14,14 +14,12 @@
 using namespace srrg_core;
 using namespace Eigen;
 
-
 double timeval_diff(struct timeval *a, struct timeval *b)
 {
   return
     (double)(a->tv_sec + (double)a->tv_usec/1000000) -
     (double)(b->tv_sec + (double)b->tv_usec/1000000);
 }
-
 
 int main (int argc, char **argv){
 
@@ -65,10 +63,10 @@ arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS top
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
 arg.param("actualPoseTopic", actualPoseTopic, "map_pose", "robot actual pose ROS topic");
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
-arg.param("lambda", lambdaDecay, 0.2, "distance decay factor for choosing next goal");
+arg.param("lambda", lambdaDecay, 0.35, "distance decay factor for choosing next goal");
 arg.param("mr", minRange, 0.0, "Laser scanner range minimum limit");
 arg.param("Mr", maxRange, 8.0, "Laser scanner range maximum limit");
-arg.param("nr", numRanges, 361, "Laser scanner number of ranges" );
+arg.param("nr", numRanges, 181, "Laser scanner number of ranges" );
 arg.param("fov", fov, M_PI, "Laser scanner field of view angle (in radians)");
 arg.param("mc", nearCentroidsThreshold, 0.5, "Laser scanner range minimum limit");
 arg.param("Mc", farCentroidsThreshold, maxRange, "Laser scanner range minimum limit");
@@ -96,8 +94,8 @@ ac.waitForServer(); //will wait for infinite time
 
 tf::TransformListener tfListener;
 tf::StampedTransform tfBase2Laser;
-try{
-	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time::now(), ros::Duration(5.0));
+/*try{
+	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time(0), ros::Duration(10.0));
 	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tfBase2Laser);
 
 	laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
@@ -105,7 +103,9 @@ try{
 catch (...) {
 	laserOffset = {0.05, 0.0};
 	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
- }
+ }*/
+
+	laserOffset = {0.05, 0.0};
 
 FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPointsTopic, markersTopic, actualPoseTopic, thresholdRegionSize);
 
@@ -123,7 +123,7 @@ goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int num = 10;
+int num = 1;
  
 while (ros::ok() && (num > 0)){
 	
@@ -139,7 +139,6 @@ while (ros::ok() && (num > 0)){
 	centroids = frontiersDetector.getFrontierCentroids();
 
 	frontiersDetector.updateClouds();
-
 	abortedGoals = goalPlanner.getAbortedGoals();
 
 	if (centroids.size() == 0){

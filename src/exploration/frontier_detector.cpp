@@ -38,12 +38,6 @@ void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdate
 
 
 
-void FrontierDetector::actualPoseCallback(const geometry_msgs::Pose2D msg){
-
-
-_robotPose = {msg.x, msg.y, msg.theta};
-
-}
 
 
 
@@ -78,6 +72,8 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 
 	_subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>(costMapTopic,1, &FrontierDetector::costMapCallback, this);
 	_subCostMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( costMapTopic + "_updates", 10, &FrontierDetector::costMapUpdateCallback, this );
+	
+
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
 
 	std::stringstream fullFixedFrameId;
@@ -85,11 +81,9 @@ FrontierDetector::FrontierDetector(int idRobot, cv::Mat *occupancyImage, cv::Mat
 	fullFixedFrameId << "map";
 	_fixedFrameId = fullFixedFrameId.str();
 
-	_subActualPose = _nh.subscribe<geometry_msgs::Pose2D>(_topicRobotPoseName,1,&FrontierDetector::actualPoseCallback,this);
+	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic);
+	_tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
 
-	ros::topic::waitForMessage<geometry_msgs::Pose2D>(_topicRobotPoseName);
-
-	//ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/move_base_node/global_costmap/costmap");
 
 
 }
@@ -158,7 +152,8 @@ void FrontierDetector::computeFrontiers(){
 
     				}
     			}
-    			
+
+
     Vector2iVector examined;
 
     for (int i = 0; i < _frontiers.size(); i++){
@@ -195,8 +190,7 @@ void FrontierDetector::computeFrontiers(){
 		   for (int l = 0; l < tempRegion.size(); l ++){
 		   		Vector2iVector neighbors = getColoredNeighbors(tempRegion[l], _unknownColor);
 		   		for (int m = 0; m < neighbors.size(); m++){
-
-		   			if ((hasSomeNeighbors(neighbors[m], _unknownColor, _minNeighborsThreshold))&&(!contains(_unknownFrontierCells, neighbors[m]))){
+		   			if (!contains(_unknownFrontierCells, neighbors[m])){
 		   				_unknownFrontierCells.push_back(neighbors[m]);	}
 		   									
 		   									}
@@ -268,11 +262,21 @@ void FrontierDetector::rankRegions(){
 
 	FloatVector scores(_centroids.size());
 
-	float mapX = _robotPose[0]/_mapResolution;
-	float mapY = _robotPose[1]/_mapResolution;
+try{
+	_tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(1.0));
+	_tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
+
+}
+catch (...) {
+	std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
+ }
+
+	float mapX = _tfMapToBase.getOrigin().y()/_mapResolution;
+	float mapY = _tfMapToBase.getOrigin().x()/_mapResolution;
+
+	std::cout<<"MAP POSE " <<mapX<<" "<<mapY<<std::endl;
 
 	Vector2f mapCoord(mapX, mapY);
-
 
 	std::vector<coordWithScore> vecCentroidScore;
 	std::vector<regionWithScore> vecRegionScore;
@@ -349,8 +353,8 @@ void FrontierDetector::publishFrontierPoints(){
 	sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(*pointsMsg, "b");
 
 	for (int i = 0; i < _frontiers.size(); i++, ++iter_x, ++iter_y, ++iter_z,  ++iter_r, ++iter_g, ++iter_b){
-		*iter_x = _frontiers[i][1]*_mapResolution;		//inverted because computed on the map (row, col -> y,x)
-		*iter_y = _frontiers[i][0]*_mapResolution;
+		*iter_x = (_frontiers[i][1])*_mapResolution;		//inverted because computed on the map (row, col -> y,x)
+		*iter_y = (_frontiers[i][0])*_mapResolution;
 		*iter_z = 0;
 
 		*iter_r = 1;
@@ -471,8 +475,6 @@ srrg_scan_matcher::Cloud2D* FrontierDetector::getUnknownCloud(){
 srrg_scan_matcher::Cloud2D* FrontierDetector::getOccupiedCloud(){
 	return &_occupiedCellsCloud;
 }
-
-
 
 
 Vector2iVector FrontierDetector::getFrontierPoints(){

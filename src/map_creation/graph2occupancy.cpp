@@ -5,7 +5,7 @@ using namespace Eigen;
 using namespace g2o;
 
 
-Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, SE2 gtPose, string topicName, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
+Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
   
     _graph = graph;
     _mapImage = image;
@@ -21,9 +21,6 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int id
     _squareSize = squareSize;
     _angle = angle;
     _freeThreshold = freeThrehsold;
-
-    _groundTruthInitialPose = gtPose;
-
 
 }
 
@@ -154,15 +151,15 @@ void Graph2occupancy::computeMap(){
     for(int c = 0; c < _map.cols(); c++) {
       for(int r = 0; r < _map.rows(); r++) {
           if(_map(r, c).misses() == 0 && _map(r, c).hits() == 0) {
-            _mapImage->at<unsigned char>(r, c) = _unknownImageColor; }
+            _mapImage->at<unsigned char>(r, c) = _unknownColor; }
           else {
             float fraction = (float)_map(r, c).hits()/(float)(_map(r, c).hits()+_map(r, c).misses());
             if (_freeThreshold && fraction < _freeThreshold){
-              _mapImage->at<unsigned char>(r, c) = _freeImageColor; }
+              _mapImage->at<unsigned char>(r, c) = _freeColor; }
             else if (_threshold && fraction > _threshold){
-              _mapImage->at<unsigned char>(r, c) = _occupiedImageColor; }
+              _mapImage->at<unsigned char>(r, c) = _occupiedColor; }
             else {
-            _mapImage->at<unsigned char>(r, c) = _unknownImageColor; }
+            _mapImage->at<unsigned char>(r, c) = _unknownColor; }
               }
           
           }

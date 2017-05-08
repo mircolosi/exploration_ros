@@ -5,7 +5,6 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
-#include "tf/transform_broadcaster.h"
 #include "tf/transform_listener.h"
 
 #include <move_base_msgs/MoveBaseAction.h>
@@ -35,7 +34,6 @@ class GoalPlanner {
 
 public:
 
-	void actualPoseCallback(const geometry_msgs::Pose2D msg);
 	
 	GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string robotPoseTopic = "map_pose");
 
@@ -93,6 +91,9 @@ protected:
 	ros::Subscriber _subActualPose;
 	ros::ServiceClient _mapClient;
 	MoveBaseClient* _ac;
+
+	tf::TransformListener _tfListener;
+	tf::StampedTransform _tfMapToBase;
 
 
 

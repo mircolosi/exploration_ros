@@ -33,14 +33,11 @@ using namespace Eigen;
 using namespace g2o;
 
 
-
-
-
 class Graph2occupancy {
 	
 public:
 
-	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, SE2 gtPose, string topicName, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
+	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
 
 	void computeMap ();
 
@@ -94,10 +91,10 @@ protected:
 	float _angle;
 	float _freeThreshold;
 
-	//Used for colouring the image saved on disk
-	unsigned char _freeImageColor = 255;
-	unsigned char _unknownImageColor = 127;
-	unsigned char _occupiedImageColor = 0;
+	//Used for the occupancy map (published in RViz and provided via getMap)
+	unsigned char _freeColor = 0;
+	unsigned char _unknownColor = -1;
+	unsigned char _occupiedColor = 100;
 
 
 	bool _first = true;
