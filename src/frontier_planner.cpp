@@ -94,7 +94,7 @@ ac.waitForServer(); //will wait for infinite time
 
 tf::TransformListener tfListener;
 tf::StampedTransform tfBase2Laser;
-/*try{
+try{
 	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time(0), ros::Duration(10.0));
 	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tfBase2Laser);
 
@@ -103,9 +103,7 @@ tf::StampedTransform tfBase2Laser;
 catch (...) {
 	laserOffset = {0.05, 0.0};
 	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
- }*/
-
-	laserOffset = {0.05, 0.0};
+ }
 
 FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPointsTopic, markersTopic, actualPoseTopic, thresholdRegionSize);
 
@@ -123,9 +121,9 @@ goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int num = 1;
+int numExplorationIterations = 10;
  
-while (ros::ok() && (num > 0)){
+while (ros::ok() && (numExplorationIterations > 0)){
 	
 	frontiersDetector.requestOccupancyMap();
 	frontiersDetector.computeFrontiers();
@@ -166,7 +164,7 @@ while (ros::ok() && (num > 0)){
 		goalPlanner.waitForGoal();
 
 
-		num = num - 1;
+		numExplorationIterations--;
 	}
 
 

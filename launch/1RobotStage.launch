@@ -1,11 +1,11 @@
 <launch>
   <master auto="start"/>
   <param name="/use_sim_time" value="true"/>
-<!--
-	<node pkg="mr_exploration" name="sim" type="slam_node" output="screen" args="-idRobot 0 -nRobots 1 -scanTopic base_scan -fixedFrame trajectory -o testmrslam.g2o" />
--->
- <include file="$(find navigation_stage)/move_base_config/slam_gmapping.xml"/>  
 
+	<node pkg="mr_exploration" name="sim" type="slam_node" output="screen" args="-idRobot 0 -nRobots 1 -scanTopic base_scan -fixedFrame trajectory -o testmrslam.g2o" />
+<!--
+ <include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>  
+-->
 
 <node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" />
 
