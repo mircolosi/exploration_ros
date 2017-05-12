@@ -7,9 +7,8 @@ using namespace Eigen;
 
 
 
-PathsRollout::PathsRollout(int idRobot, cv::Mat* costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, int maxCentroidsNumber, int regionSize, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, float lambdaDecay, std::string robotPoseTopicName){
+PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, int maxCentroidsNumber, int regionSize, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, float lambdaDecay, std::string robotPoseTopicName){
 
-	_idRobot = idRobot;
 	_nearCentroidsThreshold = nearCentroidsThreshold;
 	_farCentroidsThreshold = farCentroidsThreshold;
 
@@ -50,8 +49,7 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 
 
 	for (int i = 0; i < centroids.size(); i ++){
-		Vector2f meterCentroid = {centroids[i][1]* _resolution, centroids[i][0]* _resolution};//Inverted because computed in map (row col -> y x)
-		
+		Vector2f meterCentroid = {centroids[i][1]* _resolution + _mapOriginY, centroids[i][0]* _resolution + _mapOriginX};//Inverted because computed in map (row col -> y x)
 		meterCentroids.push_back(meterCentroid); 	
 	}
 
@@ -192,19 +190,27 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 		lastPose.pose = {_tfMapToBase.getOrigin().x(), _tfMapToBase.getOrigin().y(), initialAngle};
 		lastPose.index = 0;
 		lastPose.planLenght = path.poses.size() - 1;
-		
-		vecSampledPoses.push_back(lastPose);
 
+		//bool nearToAborted = false;
+		//for (int j = 0; j < _abortedGoals.size(); j ++){
+		//		float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - lastPose.pose[0]),2) + pow((_abortedGoals[j][1] - lastPose.pose[1]),2));
+		//	if (distanceAbortedGoal < _nearCentroidsThreshold){
+		//		nearToAborted = true;
+		//		break;
+		//	}
+		//}
+		//if (!nearToAborted){
+			vecSampledPoses.push_back(lastPose);
+		//}
 		//Given a non empty path, I sample it (first pose already sampled, last pose will be treated differently later)
 		for (int i = 1; i < path.poses.size() - 1; i++){
 
 			PoseWithInfo newPose;
+
 			//NOTE: The orientation of this pose will be eventually computed if the pose will be sampled
 			newPose.pose = {path.poses[i].pose.position.x, path.poses[i].pose.position.y, 0.0};
-			Vector2i newPoseMap = {round(newPose.pose[0]/_resolution), round(newPose.pose[1]/_resolution)};
-
+			Vector2i newPoseMap = {round((newPose.pose[0] - _mapOriginX)/_resolution), round((newPose.pose[1] - _mapOriginY)/_resolution)};
 			float distancePreviousPose = sqrt(pow((lastPose.pose[0] - newPose.pose[0]),2) + pow((lastPose.pose[1] - newPose.pose[1]),2));
-			
 			//If the pose I'm considering is quite far from the lastPose sampled and it's not too close to an obstacle I proceed
 			if ((distancePreviousPose >= _sampledPathThreshold)&&(_costMap->at<unsigned char>(newPoseMap[1], newPoseMap[0]) < _circumscribedThreshold)){
 				bool nearToAborted = false;
@@ -220,12 +226,10 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 				if (!nearToAborted){
 					Vector2f previousVersor = {cos(lastPose.pose[2]), sin(lastPose.pose[2])};
 					float predictedAngle = atan2(previousVersor[1] - newPose.pose[1],previousVersor[0]- newPose.pose[0]);
-					//float predictedAngle = atan2(NewPose.pose[1], NewPose.pose[0]);
 					//Fill some fields of PoseWithInfo
 					newPose.pose[2] = predictedAngle;
 					newPose.index = i;
 					newPose.planLenght = path.poses.size() - 1;
-
 					//Sample the NewPose
 					vecSampledPoses.push_back(newPose);
 					//Update the lastPose sampled
@@ -244,7 +248,7 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 		if (distancePreviousPose >= _lastSampleThreshold){ //This should be the xy_threshold set in the local planner
 			bool nearToAborted = false;
 			for (int j = 0; j < _abortedGoals.size(); j ++){
-				float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - newPose.pose[0]),2) + pow((_abortedGoals[j][1] - newPose.pose[0]),2));
+				float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - newPose.pose[0]),2) + pow((_abortedGoals[j][1] - newPose.pose[1]),2));
 				if (distanceAbortedGoal < _nearCentroidsThreshold){
 					nearToAborted = true;
 					break;
@@ -287,7 +291,6 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 
 	for (int i = 0; i < _vectorSampledPoses.size(); i ++){
 
-
 		pose[0] = _vectorSampledPoses[i].pose[0]; 
 		pose[1] = _vectorSampledPoses[i].pose[1];
 
@@ -328,29 +331,27 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 			transform = v2t(laserPose);
 			_projector->project(_ranges, _pointsIndices, transform.inverse(), cloud);
 			
-			//
 			/*
 			cv::Mat testImage = cv::Mat(35/_resolution, 35/_resolution, CV_8UC1);
 			testImage.setTo(cv::Scalar(0));
 			cv::circle(testImage, cv::Point(pose[1]/_resolution,pose[0]/_resolution), 5, 200);
 			cv::circle(testImage, cv::Point(laserPose[1]/_resolution, laserPose[0]/_resolution), 1, 200);
 			std::stringstream title;
-			title << "virtualscan_test/test_"<<i<<"_"<<j<<".jpg"; 
-			*/
+			title << "virtualscan_test/test_"<<i<<"_"<<j<<".jpg"; */
+			
 
 			int countFrontier = 0;
-			Vector2fVector seenFrontierPoints;
 			for (int k = 0; k < _pointsIndices.size(); k++){
 				if (_pointsIndices[k] != -1){
-					//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 127;
+				//	testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 127;
 					if (_pointsIndices[k] < _unknownCellsCloud->size()){
 						countFrontier ++;
-						//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;
+				//		testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;
 									}
 								}
 							}
 
-			//cv::imwrite(title.str(),testImage);
+		//	cv::imwrite(title.str(),testImage);
 
 			float score = computePoseScore(_vectorSampledPoses[i], yawAngle, countFrontier);
 
@@ -388,10 +389,12 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 
 float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints){
 
-	float distanceCost = pose.index/40.0 - pose.index/pose.planLenght;
-	//std::cout<<distanceCost<<std::endl;
+	float distanceFromGoalWeight = 0.65;
+	float distanceFromStartWeight = 1.0;
 
-	float decay = - distanceCost * _lambda;
+	float cost = distanceFromStartWeight * (pose.index/40.0) - distanceFromGoalWeight * (pose.index/pose.planLenght);
+
+	float decay = - cost * _lambda;
 	
 	float score = numVisiblePoints * exp(decay);
 
@@ -415,6 +418,8 @@ void PathsRollout::setOccupiedCellsCloud(Cloud2D* cloud){
 	_occupiedCellsCloud = cloud;
 }
 
-void PathsRollout::setResolution(float res){
-	_resolution = res;
+void PathsRollout::setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg){
+	_resolution = mapMetaDataMsg.resolution;
+	_mapOriginX = mapMetaDataMsg.origin.position.x;
+	_mapOriginY = mapMetaDataMsg.origin.position.y;
 }

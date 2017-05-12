@@ -45,6 +45,8 @@ OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap, string mapTopicNam
 
 	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_mapTopicName,1);
 
+	_pubMapMetaData = _nh.advertise<nav_msgs::MapMetaData>("map_metadata", 1);
+
 	_pubActualCoord = _nh.advertise<geometry_msgs::Pose2D>(_poseTopicName,1);
 
 	_server = _nh.advertiseService("map", &OccupancyMapServer::mapCallback, this);
@@ -162,6 +164,28 @@ void OccupancyMapServer::publishMap() {
 
 
 }
+
+
+void OccupancyMapServer::publishMapMetaData() {
+
+
+	nav_msgs::MapMetaData msg;
+
+	msg.resolution = _mapResolution;
+	
+	msg.origin.position.x = 0.0;
+	msg.origin.position.y = 0.0;
+	msg.origin.position.z = 0.0;
+	msg.origin.orientation.x = 0;
+	msg.origin.orientation.y = 0; 
+	msg.origin.orientation.z = 0.0; 
+	msg.origin.orientation.w = 1.0;
+
+	_pubMapMetaData.publish(msg);
+
+
+}
+
 
 
 

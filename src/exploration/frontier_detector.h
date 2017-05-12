@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <opencv2/highgui/highgui.hpp>
 #include <stdlib.h> 
@@ -53,8 +52,11 @@ class FrontierDetector {
 public:
 	void costMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
 	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+	void occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
+	void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+	void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-	FrontierDetector(int idRobot, cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker",  std::string robotPoseTopic = "map_pose",int thresholdSize = 30, int minNeighborsThreshold = 4);
+	FrontierDetector(cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker",  std::string robotPoseTopic = "map_pose",int thresholdSize = 30, int minNeighborsThreshold = 4);
 
 	bool requestOccupancyMap();
 
@@ -80,7 +82,7 @@ void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector
 
 
 
-	float getResolution();
+	nav_msgs::MapMetaData getMapMetaData();
 
 
 
@@ -108,11 +110,16 @@ protected:
 	cv::Mat  *_occupancyMap;
 	cv::Mat *_costMap;
 
-	int _idRobot;
-	float _mapResolution;
+
 	int _minNeighborsThreshold;
 	int _sizeThreshold;
 	float _mixtureParam = 1;
+
+	nav_msgs::MapMetaData _mapMetaData;
+	float _mapResolution;
+	float _mapOriginX;
+	float _mapOriginY;
+
 
 	unsigned char _freeColor = 0;
 	unsigned char _unknownColor = -1;
@@ -145,7 +152,10 @@ protected:
 	ros::Publisher _pubCentroidMarkers;
 	ros::Subscriber _subCostMap;
 	ros::Subscriber _subCostMapUpdate;
+	ros::Subscriber _subOccupancyMap;
+	ros::Subscriber _subOccupancyMapUpdate;
 	ros::Subscriber _subActualPose;
+	ros::Subscriber _subMapMetaData;
 	ros::ServiceClient _mapClient;
 
 

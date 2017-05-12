@@ -3,13 +3,13 @@
 #include <string>
 #include <sstream> 
 
-#include "mrslam/mr_graph_slam.h"
-#include "mrslam/graph_comm.h"
+#include "slam/graph_slam.h"
 #include "ros_utils/graph_ros_publisher.h"
 
 #include "map_creation/graph2occupancy.h"
 #include "map_creation/occupancy_map_server.h"
-#include "sr_ros_utils/ros_handler.h"
+
+#include "sr_ros_utils/ros_handler_sr.h"
 
 
 using namespace g2o;
@@ -28,33 +28,14 @@ int main(int argc, char **argv)
 
   CommandArgs arg;
   double resolution;
-  double maxScore, maxScoreMR;
+  double maxScore;
   double kernelRadius;
-  int  minInliers, minInliersMR;
-  int windowLoopClosure, windowMRLoopClosure;
+  int  minInliers;
+  int windowLoopClosure;
   double inlierThreshold;
-  int idRobot;
-  int nRobots;
+  float localizationUpdateTime;
   std::string outputFilename;
   std::string odometryTopic, scanTopic, occupancyTopic, mapPoseTopic, fixedFrame;
-  arg.param("resolution",  resolution, 0.025, "resolution of the matching grid");
-  arg.param("maxScore",    maxScore, 0.15,     "score of the matcher, the higher the less matches");
-  arg.param("kernelRadius", kernelRadius, 0.2,  "radius of the convolution kernel");
-  arg.param("minInliers",    minInliers, 5,     "min inliers");
-  arg.param("windowLoopClosure",  windowLoopClosure, 10,   "sliding window for loop closures");
-  arg.param("inlierThreshold",  inlierThreshold, 2.,   "inlier threshold");
-  arg.param("idRobot", idRobot, 0, "robot identifier" );
-  arg.param("nRobots", nRobots, 1, "number of robots" );
-  arg.param("maxScoreMR",    maxScoreMR, 0.15,  "score of the intra-robot matcher, the higher the less matches");
-  arg.param("minInliersMR",    minInliersMR, 5,     "min inliers for the intra-robot loop closure");
-  arg.param("windowMRLoopClosure",  windowMRLoopClosure, 10,   "sliding window for the intra-robot loop closures");
-  arg.param("odometryTopic", odometryTopic, "odom", "odometry ROS topic");
-  arg.param("scanTopic", scanTopic, "scan", "scan ROS topic");
-  arg.param("occupancyTopic", occupancyTopic, "map", "occupancy grid ROS topic");
-  arg.param("mapPoseTopic", mapPoseTopic, "map_pose", "robot pose in the map ROS topic");
-  arg.param("fixedFrame", fixedFrame, "odom", "fixed frame to visualize the graph with ROS Rviz");
-  arg.param("o", outputFilename, "", "file where to save output");
-  arg.parseArgs(argc, argv);
 
   //map parameters
   float mapResolution = 0.05;
@@ -68,9 +49,25 @@ int main(int argc, char **argv)
   float angle = 0.0;
   float freeThrehsold = 0.3;
 
+
+  arg.param("resolution",  resolution, 0.025, "resolution of the matching grid");
+  arg.param("maxScore",    maxScore, 0.15,     "score of the matcher, the higher the less matches");
+  arg.param("kernelRadius", kernelRadius, 0.2,  "radius of the convolution kernel");
+  arg.param("minInliers",    minInliers, 5,     "min inliers");
+  arg.param("windowLoopClosure",  windowLoopClosure, 10,   "sliding window for loop closures");
+  arg.param("inlierThreshold",  inlierThreshold, 2.,   "inlier threshold");
+  arg.param("locUpdate", localizationUpdateTime, 4, "interval for updating the robot pose in the map, in seconds");
+  arg.param("odometryTopic", odometryTopic, "odom", "odometry ROS topic");
+  arg.param("scanTopic", scanTopic, "base_scan", "scan ROS topic");
+  arg.param("occupancyTopic", occupancyTopic, "map", "occupancy grid ROS topic");
+  arg.param("mapPoseTopic", mapPoseTopic, "map_pose", "robot pose in the map ROS topic");
+  arg.param("fixedFrame", fixedFrame, "odom", "fixed frame to visualize the graph with ROS Rviz");
+  arg.param("o", outputFilename, "", "file where to save output");
+  arg.parseArgs(argc, argv);
+
   ros::init(argc, argv, "slam_node");
 
-  RosHandler rh(idRobot, nRobots, REAL_EXPERIMENT);
+  RosHandlerSR rh(odometryTopic, scanTopic);
   rh.useOdom(true);
   rh.useLaser(true);
   rh.init();   //Wait for initial ground-truth position, odometry and laserScan
@@ -79,20 +76,17 @@ int main(int argc, char **argv)
 
 
   //Graph building
-  MRGraphSLAM gslam;
-  gslam.setIdRobot(idRobot);
-  int baseId = 10000;
-  gslam.setBaseId(baseId);
+  GraphSLAM gslam;
   gslam.init(resolution, kernelRadius, windowLoopClosure, maxScore, inlierThreshold, minInliers);
-  gslam.setInterRobotClosureParams(maxScoreMR, minInliersMR, windowMRLoopClosure);
 
   //Map building
   cv::Mat occupancyMap;
   Eigen::Vector2f offset;
+  ros::Duration updateInterval = ros::Duration(localizationUpdateTime);
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-  Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, idRobot, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  OccupancyMapServer mapServer(&occupancyMap, occupancyTopic, mapPoseTopic,odometryTopic, ros::Duration(2), threhsold, freeThrehsold);
+  Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
+  OccupancyMapServer mapServer(&occupancyMap, occupancyTopic, mapPoseTopic,odometryTopic, updateInterval, threhsold, freeThrehsold);
 
   //Set initial information
   SE2 currEst = rh.getOdom();
@@ -107,6 +101,7 @@ int main(int argc, char **argv)
   offset = mapCreator.getInitialOffset();
   mapServer.setOffset(offset);
   mapServer.setResolution(mapResolution);
+  mapServer.publishMapMetaData();
 
 
 	
@@ -116,7 +111,6 @@ int main(int argc, char **argv)
   mapServer.adjustMapToOdom();
 
   ros::Rate loop_rate(10);
-  bool correct = true;
   while (ros::ok()){
     ros::spinOnce();
 
@@ -133,7 +127,6 @@ int main(int argc, char **argv)
 
       gslam.addDataSM(odomPosk, laseri);
       gslam.findConstraints();
-      gslam.findInterRobotConstraints();
       
       struct timeval t_ini, t_fin;
       double secs;
@@ -146,23 +139,22 @@ int main(int argc, char **argv)
 
       currEst = gslam.lastVertex()->estimate();
       char buf[100];
-      sprintf(buf, "robot-%i-%s", idRobot, outputFilename.c_str());
+      sprintf(buf, "robot-%i-%s", 0, outputFilename.c_str());
       gslam.saveGraph(buf);
-
 
       graphPublisher.publishGraph();
 
-    mapCreator.computeMap();
-    mapServer.publishMapPose(currEst);
-    mapServer.adjustMapToOdom();
+      mapCreator.computeMap();
+      mapServer.publishMapPose(currEst);
+      mapServer.adjustMapToOdom();
 
     }
     
     mapServer.publishMapPose(currEst);
+    mapServer.publishMapMetaData();
     mapServer.publishMap();
     mapServer.publishMapToOdom();
 
-    correct = false;
     loop_rate.sleep();
   }
   

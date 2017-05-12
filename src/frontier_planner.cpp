@@ -29,8 +29,7 @@ std::string frontierPointsTopic;
 std::string markersTopic;
 std::string actualPoseTopic;
 int thresholdRegionSize;
-int idRobot;
-float resolution;
+nav_msgs::MapMetaData occupancyMapInfo;
 
 float lambdaDecay;
 
@@ -57,7 +56,6 @@ float fov;
 
 Vector2f laserOffset;
 
-arg.param("idRobot", idRobot, 0, "robot identifier" );
 arg.param("mapFrame", mapFrame, "map", "mapFrame for this robot");
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
@@ -65,13 +63,12 @@ arg.param("actualPoseTopic", actualPoseTopic, "map_pose", "robot actual pose ROS
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
 arg.param("lambda", lambdaDecay, 0.35, "distance decay factor for choosing next goal");
 arg.param("mr", minRange, 0.0, "Laser scanner range minimum limit");
-arg.param("Mr", maxRange, 8.0, "Laser scanner range maximum limit");
-arg.param("nr", numRanges, 181, "Laser scanner number of ranges" );
+arg.param("Mr", maxRange, 5.0, "Laser scanner range maximum limit");
+arg.param("nr", numRanges, 60, "Laser scanner number of ranges" );
 arg.param("fov", fov, M_PI, "Laser scanner field of view angle (in radians)");
 arg.param("mc", nearCentroidsThreshold, 0.5, "Laser scanner range minimum limit");
 arg.param("Mc", farCentroidsThreshold, maxRange, "Laser scanner range minimum limit");
 arg.param("nc", maxCentroidsNumber, 8, "Laser scanner range minimum limit");
-
 
 
 arg.parseArgs(argc, argv);
@@ -105,39 +102,42 @@ catch (...) {
 	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
  }
 
-FrontierDetector frontiersDetector(idRobot, &occupancyMap, &costMap,  frontierPointsTopic, markersTopic, actualPoseTopic, thresholdRegionSize);
+FrontierDetector frontiersDetector(&occupancyMap, &costMap,  frontierPointsTopic, markersTopic, actualPoseTopic, thresholdRegionSize);
 
 unknownCellsCloud = frontiersDetector.getUnknownCloud();
 occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
 
-PathsRollout pathsRollout(idRobot, &occupancyMap, &ac, &projector, laserOffset, maxCentroidsNumber, thresholdRegionSize, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, lambdaDecay, actualPoseTopic);
+PathsRollout pathsRollout(&costMap, &ac, &projector, laserOffset, maxCentroidsNumber, thresholdRegionSize, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, lambdaDecay, actualPoseTopic);
 
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
 
-GoalPlanner goalPlanner(idRobot, &occupancyMap, &ac ,&projector, &frontiersDetector, laserOffset, thresholdRegionSize, actualPoseTopic);
+GoalPlanner goalPlanner(&ac ,&projector, &frontiersDetector, laserOffset, thresholdRegionSize, actualPoseTopic);
 
 goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int numExplorationIterations = 10;
+int numExplorationIterations = 5;
  
 while (ros::ok() && (numExplorationIterations > 0)){
 	
-	frontiersDetector.requestOccupancyMap();
 	frontiersDetector.computeFrontiers();
 	frontiersDetector.rankRegions();
 	frontiersDetector.publishFrontierPoints();
    	frontiersDetector.publishCentroidMarkers();
 
-	resolution = frontiersDetector.getResolution();
+	occupancyMapInfo = frontiersDetector.getMapMetaData();
 	frontierPoints = frontiersDetector.getFrontierPoints();
 	regions = frontiersDetector.getFrontierRegions();
 	centroids = frontiersDetector.getFrontierCentroids();
 
 	frontiersDetector.updateClouds();
 	abortedGoals = goalPlanner.getAbortedGoals();
+
+	for (int j = 0; j < abortedGoals.size(); j ++){
+		std::cout<<"ABORTED "<< j << " "<< abortedGoals[j][0]<< " "<<abortedGoals[j][1]<<std::endl;
+	}
 
 	if (centroids.size() == 0){
 		std::cout<<"NO CENTROIDS EXTRACTED... EXIT"<<std::endl;
@@ -146,7 +146,7 @@ while (ros::ok() && (numExplorationIterations > 0)){
 
 	else {
 
-		pathsRollout.setResolution(resolution);
+		pathsRollout.setMapMetaData(occupancyMapInfo);
 		pathsRollout.setAbortedGoals(abortedGoals);
 
 		int numSampledPoses = pathsRollout.computeAllSampledPlans(centroids, mapFrame);

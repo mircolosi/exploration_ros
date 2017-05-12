@@ -5,7 +5,7 @@ using namespace Eigen;
 using namespace g2o;
 
 
-Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
+Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, float resolution, float threhsold, float rows, float cols, float maxRange, float usableRange, float gain, float squareSize, float angle, float freeThrehsold){
   
     _graph = graph;
     _mapImage = image;

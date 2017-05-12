@@ -7,18 +7,15 @@ using namespace srrg_scan_matcher;
 
 
 
-GoalPlanner::GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize, std::string robotPoseTopic)
+GoalPlanner::GoalPlanner(MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize, std::string robotPoseTopic)
 {
 
 	_ac = ac;
 
-	_occupancyMap = occupancyImage;
 
 	_projector = projector;
 
 	_frontierDetector = frontierDetector;
-
-	_idRobot = idRobot;
 
 	_laserOffset = laserOffset;
 
@@ -99,28 +96,30 @@ void GoalPlanner::publishGoal(Vector3f goalPose, std::string frame){
 
 void GoalPlanner::waitForGoal(){
 
-	ros::Rate loop_rate1(10);
-	ros::Rate loop_rate2(1);
+	ros::Rate loop_rate1(15);
+	ros::Rate loop_rate2(2);
 
-	Cloud2D augmentedCloud = *_unknownCellsCloud;
-
-	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
+	Cloud2D augmentedCloud; 
 
 	//This loop is needed to wait for the message status to be updated
 	while(_ac->getState() != actionlib::SimpleClientGoalState::ACTIVE){
 		loop_rate1.sleep();
 	}
 
-	while (!isGoalReached(augmentedCloud)){
+	bool reached = false;
+	while (!reached){
 
-		requestOccupancyMap();
-		
 		_frontierDetector->computeFrontiers();
 		_frontierDetector->updateClouds();
 
+		_frontierDetector->publishFrontierPoints();
+   		_frontierDetector->publishCentroidMarkers();
+
 		augmentedCloud = *_unknownCellsCloud;
+
 		augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
 
+		reached = isGoalReached(augmentedCloud);
 
   		loop_rate2.sleep();
   	}  	
@@ -130,6 +129,7 @@ void GoalPlanner::waitForGoal(){
 
 
 bool GoalPlanner::isGoalReached(Cloud2D cloud){
+
 
 	ros::spinOnce();
 
@@ -162,7 +162,7 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 
 
 
-	int countDiscoverable = 0;
+	int countFrontier = 0;
 	Vector3f laserPose;
 	Isometry2f transform;
 
@@ -184,13 +184,16 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
 
 
-	for (int i = 0; i < _pointsIndices.size(); i ++){
-		if ((_pointsIndices[i] != -1) &&(_pointsIndices[i] < _unknownCellsCloud->size())){
-			countDiscoverable ++;
-			}
-	}
 
-	if (countDiscoverable < _minUnknownRegionSize){
+	for (int k = 0; k < _pointsIndices.size(); k++){
+		if (_pointsIndices[k] != -1){
+			if (_pointsIndices[k] < _unknownCellsCloud->size()){
+				countFrontier ++;
+							}
+						}
+					}
+
+	if (countFrontier < _minUnknownRegionSize){
 		_ac->cancelAllGoals();
 		std::stringstream infoGoal;
 		time_t _now = time(0);
@@ -200,8 +203,6 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 
 		return true;
 	}
-
-
 
 
 

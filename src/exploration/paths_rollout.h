@@ -18,7 +18,7 @@
 
 #include "actionlib/client/simple_action_client.h"
 #include "move_base_msgs/MoveBaseAction.h"
-
+#include "nav_msgs/MapMetaData.h"
 
 
 using namespace srrg_core;
@@ -43,7 +43,7 @@ class PathsRollout {
 public: 
 
 
-	PathsRollout(int idRobot,cv::Mat* _costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10, int thresholdRegionSize = 10, float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, float lambdaDecay = 0.2, std::string robotPoseTopic = "map_pose");
+	PathsRollout(cv::Mat* _costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10, int thresholdRegionSize = 10, float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, float lambdaDecay = 0.2, std::string robotPoseTopic = "map_pose");
 
 
 	int computeAllSampledPlans(Vector2iVector centroids, std::string frame);
@@ -60,7 +60,7 @@ public:
 
 	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
 	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
-	void setResolution(float res);
+	void setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg);
 
 
 protected: 
@@ -71,8 +71,9 @@ protected:
 
 	srrg_scan_matcher::Projector2D * _projector;
 
-	int _idRobot;
 	float _resolution; 
+	float _mapOriginX;
+	float _mapOriginY;
 
 	float _xyThreshold = 0.25;
 

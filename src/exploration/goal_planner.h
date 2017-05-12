@@ -11,7 +11,6 @@
 #include <actionlib/client/simple_action_client.h>
 #include <sys/time.h>
 
-
 #include <nav_msgs/GetMap.h>
 #include "geometry_msgs/Pose2D.h"
 
@@ -35,7 +34,7 @@ class GoalPlanner {
 public:
 
 	
-	GoalPlanner(int idRobot, cv::Mat* occupancyImage, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string robotPoseTopic = "map_pose");
+	GoalPlanner(MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string robotPoseTopic = "map_pose");
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
@@ -58,8 +57,6 @@ public:
 protected:
 
 	bool isGoalReached(srrg_scan_matcher::Cloud2D cloud);
-
-	int _idRobot;
 
 	srrg_scan_matcher::Projector2D *_projector;
 	Vector2f _laserOffset;

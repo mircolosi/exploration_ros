@@ -14,7 +14,6 @@
 
 #include "srrg_types/defs.h"
 
-
 using namespace std;
 using namespace Eigen;
 using namespace g2o;
@@ -27,6 +26,7 @@ public:
 	OccupancyMapServer(cv::Mat* occupancyMap, string mapTopicName = "map",string poseTopicName = "map_pose", string odomFrameName = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
 
 	void publishMap ();
+	void publishMapMetaData();
 	void publishMapPose (SE2 actualPose);
 	void adjustMapToOdom ();
 
@@ -72,6 +72,7 @@ protected:
 
 	ros::NodeHandle _nh;
 	ros::Publisher _pubOccupGrid;
+	ros::Publisher _pubMapMetaData;
 	ros::Publisher _pubActualCoord;
 	ros::ServiceServer _server;
 

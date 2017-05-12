@@ -54,10 +54,10 @@ find_package(catkin REQUIRED COMPONENTS
 #  Edge.msg
 #)
 # Generate services in the 'srv' folder
- add_service_files(
-   FILES
-   DoSomething.srv
- )
+# add_service_files(
+#   FILES
+#  DoSomething.srv
+# )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -91,6 +91,7 @@ catkin_package(
 ###########
 ## Build ##
 ###########
+
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -170,7 +171,7 @@ add_dependencies(frontier_planner mr_exploration_generate_messages_cpp)
 
 add_executable(slam_node
   src/slam_node.cpp
-  src/sr_ros_utils/ros_handler.cpp
+  src/sr_ros_utils/ros_handler_sr.cpp
   src/map_creation/grid_line_traversal.cpp
   src/map_creation/frequency_map.cpp
   src/map_creation/graph2occupancy.cpp

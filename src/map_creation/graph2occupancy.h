@@ -37,7 +37,7 @@ class Graph2occupancy {
 	
 public:
 
-	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, int idRobot, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
+	Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, float resolution = 0.05, float threhsold = 0.0, float rows = 0, float cols = 0, float maxRange = -1.0, float usableRange = -1.0, float gain = -1.0, float squareSize = 1.0, float angle = 0.0, float freeThrehsold = 0.0);
 
 	void computeMap ();
 
