@@ -91,7 +91,6 @@ int main(int argc, char **argv)
   //Set initial information
   SE2 currEst = rh.getOdom();
   SE2 odomPosk_1 = currEst;
-  
   RobotLaser* rlaser = rh.getLaser();
 
   gslam.setInitialData(currEst, odomPosk_1, rlaser);

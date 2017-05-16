@@ -34,7 +34,7 @@ class GoalPlanner {
 public:
 
 	
-	GoalPlanner(MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string robotPoseTopic = "map_pose");
+	GoalPlanner(MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10);
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
@@ -57,6 +57,8 @@ public:
 protected:
 
 	bool isGoalReached(srrg_scan_matcher::Cloud2D cloud);
+	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints);
+
 
 	srrg_scan_matcher::Projector2D *_projector;
 	Vector2f _laserOffset;
@@ -66,7 +68,6 @@ protected:
 
 	float _xyThreshold = 0.25;
 
-	Vector3f _robotPose;
 	Vector3f _goal;
 	int _minUnknownRegionSize;
 
@@ -74,18 +75,13 @@ protected:
 	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
 	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
 
-
-	Vector2iVector _goalPoints;
 	Vector2fVector _abortedGoals;
 
 	std::string _fixedFrameId;
-	std::string _topicGoalName;
-	std::string _robotPoseTopicName;
 
 	cv::Mat* _occupancyMap;
-
+	
 	ros::NodeHandle _nh;
-	ros::Subscriber _subActualPose;
 	ros::ServiceClient _mapClient;
 	MoveBaseClient* _ac;
 

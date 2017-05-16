@@ -122,6 +122,7 @@ FrontierDetector::FrontierDetector(cv::Mat *occupancyImage, cv::Mat *costImage, 
 	_fixedFrameId = fullFixedFrameId.str();
 
 	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic);
+	ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("map");
 	ros::topic::waitForMessage<nav_msgs::MapMetaData>("map_metadata");
 	_tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
 
@@ -176,18 +177,19 @@ void FrontierDetector::computeFrontiers(){
 	for(int c = 0; c < _occupancyMap->cols; c++) {
     	for(int r = 0; r < _occupancyMap->rows; r++) {
 
-    		if ((_occupancyMap->at<unsigned char>(r,c) == _freeColor)){ //If the current cell is free
+    		if ((_occupancyMap->at<unsigned char>(r,c) == _freeColor)){ //If the current cell is free consider it
     			Vector2i coord = {r,c};
-    			if (_costMap->at<unsigned char>(r, c) == _circumscribedThreshold){
+    			if (_costMap->at<unsigned char>(r, c) == _circumscribedThreshold){//If the current free cell is too close to an obstacle skip
     				continue;
     			}
 
     			Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
-    			if (neighbors.empty()){	//If the current free cell has no unknown cells around
+    			if (neighbors.empty()){	//If the current free cell has no unknown cells around skip
     				continue;
     			}
     			for (int i = 0; i < neighbors.size(); i++){
-    				if (hasSomeNeighbors(neighbors[i], _unknownColor, _minNeighborsThreshold)){ //If the neighbor unknown cell is sourrounded by free cells 
+    				Vector2iVector neighborsOfNeighbor = getColoredNeighbors(neighbors[i], _unknownColor);
+    				if (neighborsOfNeighbor.size() >= _minNeighborsThreshold){ //If the neighbor unknown cell is not sourrounded by free cells -> I have a frontier
     					_frontiers.push_back(coord);	
     					break;					}
     									}
@@ -304,7 +306,6 @@ void FrontierDetector::computeFrontiers(){
 
 void FrontierDetector::rankRegions(){
 
-	FloatVector scores(_centroids.size());
 
 try{
 	_tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
@@ -315,15 +316,12 @@ catch (...) {
 	std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
  }
 
-	float mapX = _tfMapToBase.getOrigin().y()/_mapResolution;
-	float mapY = _tfMapToBase.getOrigin().x()/_mapResolution;
-
-	std::cout<<"MAP POSE " <<mapX<<" "<<mapY<<" with resolution "<<_mapResolution <<std::endl;
+	float mapX = (_tfMapToBase.getOrigin().y() - _mapOriginY)/_mapResolution;
+	float mapY = (_tfMapToBase.getOrigin().x() - _mapOriginX)/_mapResolution;
 
 	Vector2f mapCoord(mapX, mapY);
 
 	std::vector<coordWithScore> vecCentroidScore;
-	std::vector<regionWithScore> vecRegionScore;
 
 	float maxSize = 0;
 
@@ -342,29 +340,20 @@ catch (...) {
 		if (distance < 1)
 			distance = 1;
 
-
-		scores[i] = (_mixtureParam)*1/distance + (1 - _mixtureParam)*_regions[i].size()/maxSize ;
-
 		coordWithScore centroidScore;
-		regionWithScore regionScore;
 
 		centroidScore.coord = _centroids[i];
-		centroidScore.score = scores[i];
+		centroidScore.score = (_mixtureParam)*1/distance + (1 - _mixtureParam)*_regions[i].size()/maxSize ;
 
-		regionScore.region = _regions[i];
-		regionScore.score = scores[i];
 
 		vecCentroidScore.push_back(centroidScore);
-		vecRegionScore.push_back(regionScore);
 	}
 
 
 	sort(vecCentroidScore.begin(),vecCentroidScore.end());
-	sort(vecRegionScore.begin(),vecRegionScore.end());
 
 	for (int i = 0; i < _centroids.size(); i ++){
 		_centroids[i] = vecCentroidScore[i].coord;
-		_regions[i] = vecRegionScore[i].region;	
 	}
 
 
@@ -420,16 +409,14 @@ void FrontierDetector::publishCentroidMarkers(){
 	visualization_msgs::Marker marker;
 
 
-	marker.action = 3;
+	marker.action = 3;	//used to clean old markers
 	markersMsg.markers.push_back(marker);
 	_pubCentroidMarkers.publish(markersMsg);
 
 	markersMsg.markers.clear();
-
-	for (int i = 0; i < _centroids.size(); i++){
-
-		//float scaleFactor = (_centroids.size() - i + 1)/_centroids.size();
-		float scaleFactor = 1;
+	int size = _centroids.size();
+	int limit = min(8, size);
+	for (int i = 0; i < limit; i++){
 		
 		marker.header.frame_id = _fixedFrameId;
 		marker.header.stamp = ros::Time();
@@ -444,9 +431,9 @@ void FrontierDetector::publishCentroidMarkers(){
 		marker.pose.orientation.y = 0.0;
 		marker.pose.orientation.z = 0.0;
 		marker.pose.orientation.w = 1.0;
-		marker.scale.x = 0.25 * scaleFactor;
-		marker.scale.y = 0.25 * scaleFactor;
-		marker.scale.z = 0.25 * scaleFactor;
+		marker.scale.x = 0.25;
+		marker.scale.y = 0.25;
+		marker.scale.z = 0.25;
 		marker.color.a = 1.0; 
 		marker.color.r = 0.0;
 		marker.color.g = 1.0;
@@ -458,45 +445,60 @@ void FrontierDetector::publishCentroidMarkers(){
 
 }
 
-void FrontierDetector::createDensePointsCloud(srrg_scan_matcher::Cloud2D* pointCloud, const Vector2iVector points, const float dist){
+void FrontierDetector::createDensePointsCloud(srrg_scan_matcher::Cloud2D* pointCloud, const Vector2iVector points, const bool expansion){
 
-	//inverted because computed on the map (row, col -> y,x)
+	float dist = 0.01;
 
-	int countCell = 0;
-	pointCloud->resize(points.size()*1);
-	for (int i = 0; i< pointCloud->size(); i = i + 1){
-		float x = points[countCell][1]*_mapResolution + _mapOriginY;
-		float y = points[countCell][0]*_mapResolution + _mapOriginX;
-		
-		float x1 = points[countCell][1]*_mapResolution + _mapOriginY + dist;
-		float y1 = points[countCell][0]*_mapResolution + _mapOriginX; 
-		float x2 = points[countCell][1]*_mapResolution + _mapOriginY - dist;
-		float y2 = points[countCell][0]*_mapResolution + _mapOriginX; 
-		float x3 = points[countCell][1]*_mapResolution + _mapOriginY;
-		float y3 = points[countCell][0]*_mapResolution + _mapOriginX + dist; 
-		float x4 = points[countCell][1]*_mapResolution + _mapOriginY;
-		float y4 = points[countCell][0]*_mapResolution + _mapOriginX - dist; 
+	if (expansion){
+		int countCell = 0;
+		pointCloud->resize(points.size()*5);
+		for (int i = 0; i< pointCloud->size(); i = i + 5){
+			float x = points[countCell][1]*_mapResolution + _mapOriginY;
+			float y = points[countCell][0]*_mapResolution + _mapOriginX;
+			
+			float x1 = x + dist;
+			float y1 = y; 
+			float x2 = x - dist;
+			float y2 = y; 
+			float x3 = x;
+			float y3 = y + dist; 
+			float x4 = x;
+			float y4 = y - dist; 
 
-		float x5 = points[countCell][1]*_mapResolution + _mapOriginY + dist;
-		float y5 = points[countCell][0]*_mapResolution + _mapOriginX + dist;
-		float x6 = points[countCell][1]*_mapResolution + _mapOriginY - dist;
-		float y6 = points[countCell][0]*_mapResolution + _mapOriginX - dist;
-		float x7 = points[countCell][1]*_mapResolution + _mapOriginY - dist;
-		float y7 = points[countCell][0]*_mapResolution + _mapOriginX + dist; 
-		float x8 = points[countCell][1]*_mapResolution + _mapOriginY + dist;
-		float y8 = points[countCell][0]*_mapResolution + _mapOriginX - dist;  
+	/*		float x5 = x + dist;
+			float y5 = y + dist;
+			float x6 = x - dist;
+			float y6 = y - dist;
+			float x7 = x - dist;
+			float y7 = y + dist; 
+			float x8 = x + dist;
+			float y8 = y - dist;  */
 
-		(*pointCloud)[i] = (srrg_scan_matcher::RichPoint2D({x,y}));
-		/*(*pointCloud)[i + 1] = (srrg_scan_matcher::RichPoint2D({x1,y1}));
-		(*pointCloud)[i + 2] = (srrg_scan_matcher::RichPoint2D({x2,y2}));
-		(*pointCloud)[i + 3] = (srrg_scan_matcher::RichPoint2D({x3,y3}));
-		(*pointCloud)[i + 4] = (srrg_scan_matcher::RichPoint2D({x4,y4}));
-		(*pointCloud)[i + 5] = (srrg_scan_matcher::RichPoint2D({x5,y5}));
-		(*pointCloud)[i + 6] = (srrg_scan_matcher::RichPoint2D({x6,y6}));
-		(*pointCloud)[i + 7] = (srrg_scan_matcher::RichPoint2D({x7,y7}));
-		(*pointCloud)[i + 8] = (srrg_scan_matcher::RichPoint2D({x8,y8}));
-*/
-		countCell++;
+			(*pointCloud)[i] = (srrg_scan_matcher::RichPoint2D({x,y}));
+			(*pointCloud)[i + 1] = (srrg_scan_matcher::RichPoint2D({x1,y1}));
+			(*pointCloud)[i + 2] = (srrg_scan_matcher::RichPoint2D({x2,y2}));
+			(*pointCloud)[i + 3] = (srrg_scan_matcher::RichPoint2D({x3,y3}));
+			(*pointCloud)[i + 4] = (srrg_scan_matcher::RichPoint2D({x4,y4}));
+			/*(*pointCloud)[i + 5] = (srrg_scan_matcher::RichPoint2D({x5,y5}));
+			(*pointCloud)[i + 6] = (srrg_scan_matcher::RichPoint2D({x6,y6}));
+			(*pointCloud)[i + 7] = (srrg_scan_matcher::RichPoint2D({x7,y7}));
+			(*pointCloud)[i + 8] = (srrg_scan_matcher::RichPoint2D({x8,y8}));
+	*/
+			countCell++;
+		}
+	}
+	else{
+		int countCell = 0;
+		pointCloud->resize(points.size());
+		for (int i = 0; i< pointCloud->size(); i = i + 1){
+			float x = points[countCell][1]*_mapResolution + _mapOriginY;
+			float y = points[countCell][0]*_mapResolution + _mapOriginX;
+
+			(*pointCloud)[i] = (srrg_scan_matcher::RichPoint2D({x,y}));
+
+			countCell++;
+		}
+
 	}
 
 
@@ -504,9 +506,9 @@ void FrontierDetector::createDensePointsCloud(srrg_scan_matcher::Cloud2D* pointC
 
 void FrontierDetector::updateClouds(){
 
-	createDensePointsCloud(&_unknownCellsCloud, _unknownFrontierCells, 0.01);
+	createDensePointsCloud(&_unknownCellsCloud, _unknownFrontierCells, false);
 
-	createDensePointsCloud(&_occupiedCellsCloud, _occupiedCells, 0.01);
+	createDensePointsCloud(&_occupiedCellsCloud, _occupiedCells, true);
 
 }
 
@@ -606,45 +608,4 @@ Vector2iVector FrontierDetector::getColoredNeighbors (Vector2i coord, int color)
 
 
 
-bool FrontierDetector::hasSomeNeighbors (Vector2i coord , int color, int num){
-
-	int count = 0;
-
-	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
-		count++;
-    }
-
-	if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) == color ){
-		count++;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) == color ){
-		count++;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) == color ){
-		count++;
-    }    
-    if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]+1) == color ){
-		count++;
-    }
-
-	if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]-1) == color ){
-		count++;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] + 1) == color ){
-		count++;
-    }
-
-    if (_occupancyMap->at<unsigned char>(coord[0] -1, coord[1] - 1) == color ){
-		count++;
-    }  
-
-
-    if (count >= num)
-    	return true;
-    else return false;
-
-}
 

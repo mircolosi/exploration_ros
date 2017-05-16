@@ -67,6 +67,7 @@ protected:
 
 	bool isActionDone(MoveBaseClient* ac);
 	float computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints);
+	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints);
 
 
 	srrg_scan_matcher::Projector2D * _projector;

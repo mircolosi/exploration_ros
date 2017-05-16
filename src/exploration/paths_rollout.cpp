@@ -307,6 +307,8 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 			float yawAngle = _intervalOrientation*j;
 			Rotation2D<float> rot(yawAngle);
 
+			pose[2] = yawAngle;
+
 			//If I'm considering a pose too close to the current one, discard rotations too similar to the current one.
 			//Errors in the prediction function could make the robot to always remain in the same place.
 			if (isSamePosition){
@@ -320,38 +322,8 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 				}
 			}
 
-			Vector2f laserOffsetRotated = rot*_laserOffset;
+			int countFrontier = computeVisiblePoints(pose, _laserOffset, cloud, _unknownCellsCloud->size());	
 
-			laserPose[0] = pose[0] + laserOffsetRotated[0];
-			laserPose[1] = pose[1] + laserOffsetRotated[1];
-			
-			laserPose[2] = yawAngle;
-			pose[2] = yawAngle;	
-
-			transform = v2t(laserPose);
-			_projector->project(_ranges, _pointsIndices, transform.inverse(), cloud);
-			
-			/*
-			cv::Mat testImage = cv::Mat(35/_resolution, 35/_resolution, CV_8UC1);
-			testImage.setTo(cv::Scalar(0));
-			cv::circle(testImage, cv::Point(pose[1]/_resolution,pose[0]/_resolution), 5, 200);
-			cv::circle(testImage, cv::Point(laserPose[1]/_resolution, laserPose[0]/_resolution), 1, 200);
-			std::stringstream title;
-			title << "virtualscan_test/test_"<<i<<"_"<<j<<".jpg"; */
-			
-
-			int countFrontier = 0;
-			for (int k = 0; k < _pointsIndices.size(); k++){
-				if (_pointsIndices[k] != -1){
-				//	testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 127;
-					if (_pointsIndices[k] < _unknownCellsCloud->size()){
-						countFrontier ++;
-				//		testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/_resolution,cloud[_pointsIndices[k]].point()[1]/_resolution) = 255;
-									}
-								}
-							}
-
-		//	cv::imwrite(title.str(),testImage);
 
 			float score = computePoseScore(_vectorSampledPoses[i], yawAngle, countFrontier);
 
@@ -374,6 +346,57 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 }
 
 
+int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints){
+
+	int visiblePoints = 0;
+
+	Vector3f laserPose;
+
+	float yawAngle = robotPose[2];
+	Rotation2D<float> rot(yawAngle);
+	Vector2f laserOffsetRotated = rot*laserOffset;
+
+	laserPose[0] = robotPose[0] + laserOffsetRotated[0];
+	laserPose[1] = robotPose[1] + laserOffsetRotated[1];
+	laserPose[2] = yawAngle;
+
+	Isometry2f transform = v2t(laserPose);
+
+	Isometry2f pointsToLaserTransform = transform.inverse();
+
+	FloatVector _ranges;
+	IntVector _pointsIndices;
+
+	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+
+
+/*	cv::Mat testImage = cv::Mat(100/0.05, 100/0.05, CV_8UC1);
+	testImage.setTo(cv::Scalar(0));
+	cv::circle(testImage, cv::Point(robotPose[1]/0.05,robotPose[0]/0.05), 5, 200);
+	cv::circle(testImage, cv::Point(laserPose[1]/0.05, laserPose[0]/0.05), 1, 200);
+	std::stringstream title;
+	title << "virtualscan_test/test_"<<yawAngle<<".jpg"; 
+*/
+
+	for (int k = 0; k < _pointsIndices.size(); k++){
+		if (_pointsIndices[k] != -1){
+			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
+			if (_pointsIndices[k] < numInterestingPoints){
+				visiblePoints ++;
+				//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 255;
+
+							}
+						}
+					}
+
+	//cv::imwrite(title.str(),testImage);
+
+	return visiblePoints;
+
+}
+
+
+
 bool PathsRollout::isActionDone(MoveBaseClient *ac){
 
 	actionlib::SimpleClientGoalState state = ac->getState();
@@ -390,7 +413,7 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints){
 
 	float distanceFromGoalWeight = 0.65;
-	float distanceFromStartWeight = 1.0;
+	float distanceFromStartWeight = 1.25;
 
 	float cost = distanceFromStartWeight * (pose.index/40.0) - distanceFromGoalWeight * (pose.index/pose.planLenght);
 

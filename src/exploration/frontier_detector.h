@@ -36,15 +36,6 @@ struct coordWithScore {
       }
 };
 
-struct regionWithScore {
-	Vector2iVector region;
-	float score;
-
-	bool operator <(const regionWithScore& rws)const
-      {
-         return score > rws.score;
-      }
-};
 
 
 class FrontierDetector {
@@ -68,7 +59,6 @@ public:
 
 	void updateClouds();
 
-void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector2iVector points, const float dist);
 
 
 	Vector2iVector getFrontierPoints();
@@ -96,7 +86,8 @@ protected:
 
 	bool isNeighbor(Vector2i coordI, Vector2i coordJ);
 	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
-	bool hasSomeNeighbors (Vector2i coord , int color, int num);
+	void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector2iVector points, const bool expansion);
+
 
 
 	inline bool contains(Vector2iVector vector, Vector2i element){

@@ -8,9 +8,9 @@
 <include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>
 -->
 
-<!--
+
 <node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" />
--->
+
 
   <node pkg="stage_ros" type="stageros" name="stageros" args="$(find mr_exploration)/stagefiles/hospital.world" respawn="false" >
     <param name="base_watchdog_timeout" value="0.2"/>
