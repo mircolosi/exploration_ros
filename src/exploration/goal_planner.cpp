@@ -255,26 +255,26 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,s
 	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
 
 
-	cv::Mat testImage = cv::Mat(100/0.05, 100/0.05, CV_8UC1);
+	/*cv::Mat testImage = cv::Mat(100/0.05, 100/0.05, CV_8UC1);
 	testImage.setTo(cv::Scalar(0));
 	cv::circle(testImage, cv::Point(robotPose[1]/0.05,robotPose[0]/0.05), 5, 200);
 	cv::circle(testImage, cv::Point(laserPose[1]/0.05, laserPose[0]/0.05), 1, 200);
 	std::stringstream title;
 	title << "virtualscan_test/test_"<<yawAngle<<".jpg"; 
-
+*/
 
 	for (int k = 0; k < _pointsIndices.size(); k++){
 		if (_pointsIndices[k] != -1){
-			testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
+			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
 			if (_pointsIndices[k] < numInterestingPoints){
 				visiblePoints ++;
-				testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 255;
+				//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 255;
 
 							}
 						}
 					}
 
-	cv::imwrite(title.str(),testImage);
+	//cv::imwrite(title.str(),testImage);
 
 	return visiblePoints;
 

@@ -31,7 +31,7 @@ struct PoseWithInfo {
 	int index;
 	int planLenght;
 	float score = -1;
-	float previousAngle;
+	float predictedAngle;
 };
 
 
@@ -65,6 +65,7 @@ public:
 
 protected: 
 
+	float predictAngle(Vector3f currentPose, Vector3f nextPosition);
 	bool isActionDone(MoveBaseClient* ac);
 	float computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints);
 	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints);
@@ -110,6 +111,8 @@ protected:
 	IntVector _pointsIndices;
 
 	float _lambda;
+
+	int _longestPlan;
 
 
 	ros::NodeHandle _nh;

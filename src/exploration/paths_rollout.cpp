@@ -78,6 +78,8 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 		checkReadyRate.sleep();
 	}
 
+	_longestPlan = 0;
+	
 	for (int i = 0; i < meterCentroids.size(); i++){
 
 
@@ -95,6 +97,13 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 
 		if (sampledPlan.size()>0){
 			countPlans++;
+		}
+		else {
+			continue;
+		}
+
+		if (sampledPlan[0].planLenght > _longestPlan){
+			_longestPlan = sampledPlan[0].planLenght;
 		}
 
 		//Loop through sampled poses to check if I am already considering them from previous sampled plans
@@ -125,6 +134,7 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 
 
 	}
+
 
 	return _vectorSampledPoses.size();
 
@@ -178,6 +188,11 @@ std::vector<PoseWithInfo> PathsRollout::makeSampledPlan( std::string frame, geom
 }
 
 
+
+
+
+
+
 std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 
 	std::vector<PoseWithInfo> vecSampledPoses;
@@ -188,6 +203,7 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 		//This is the starting pose
 		double initialAngle = tf::getYaw(_tfMapToBase.getRotation());
 		lastPose.pose = {_tfMapToBase.getOrigin().x(), _tfMapToBase.getOrigin().y(), initialAngle};
+		lastPose.predictedAngle = initialAngle;
 		lastPose.index = 0;
 		lastPose.planLenght = path.poses.size() - 1;
 
@@ -224,10 +240,12 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 				}
 
 				if (!nearToAborted){
-					Vector2f previousVersor = {cos(lastPose.pose[2]), sin(lastPose.pose[2])};
-					float predictedAngle = atan2(previousVersor[1] - newPose.pose[1],previousVersor[0]- newPose.pose[0]);
+
+					float predictedAngle = predictAngle(lastPose.pose, newPose.pose);
+
 					//Fill some fields of PoseWithInfo
 					newPose.pose[2] = predictedAngle;
+					newPose.predictedAngle = predictedAngle;
 					newPose.index = i;
 					newPose.planLenght = path.poses.size() - 1;
 					//Sample the NewPose
@@ -256,11 +274,12 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 				}
 				
 			if (!nearToAborted){
+					
+				float predictedAngle = predictAngle(lastPose.pose, newPose.pose);
 
-				Vector2f previousVersor = {cos(lastPose.pose[2]), sin(lastPose.pose[2])};
-				float predictedAngle = atan2(previousVersor[1] - newPose.pose[1],previousVersor[0]- newPose.pose[0]);
 				//Fill some fields of PoseWithInfo
 				newPose.pose[2] = predictedAngle;
+				newPose.predictedAngle = predictedAngle;
 				newPose.index = path.poses.size() - 1;
 				newPose.planLenght = path.poses.size() - 1;
 
@@ -280,6 +299,11 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 	return vecSampledPoses;
 
 }
+
+
+
+
+
 
 
 Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
@@ -332,16 +356,17 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 
 			if ((score > goalPose.score) && (countFrontier > _minUnknownRegionSize)){
 				//std::cout<<"GOAL: "<< pose[0]<<" "<<pose[1]<<" "<<pose[2]<<" SCORE: "<<score<<std::endl;
-
 				goalPose.pose = pose;
 				goalPose.score = score;
+				goalPose.predictedAngle = _vectorSampledPoses[i].pose[2]; 
 			}
 
 		}
 
 		
 	}
-			
+	
+	std::cout<<"predictedAngle = "<< goalPose.predictedAngle<<std::endl;
 	return goalPose.pose;
 }
 
@@ -412,18 +437,52 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 
 float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints){
 
-	float distanceFromGoalWeight = 0.65;
-	float distanceFromStartWeight = 1.25;
 
-	float cost = distanceFromStartWeight * (pose.index/40.0) - distanceFromGoalWeight * (pose.index/pose.planLenght);
+	float distanceFromStartWeight = 1;
+	float distanceFromGoalWeight = - 0.1;
+	float angleDistanceWeight = 0.15;
+
+	float distanceFromStart = float(pose.index)/_longestPlan;
+	float distanceFromGoal = 1.0 - float(pose.index)/pose.planLenght;
+
+	Rotation2D<float> predictedRot(pose.predictedAngle);
+	Rotation2D<float> desiredRot(orientation);
+
+	float angleDifference = (desiredRot.inverse()*predictedRot).smallestAngle();
+
+	float angularCost = 0.0;
+
+	if (fabs(angleDifference) > _intervalOrientation){
+		angularCost = fabs(angleDifference)/M_PI;	}
+		
+	float cost = distanceFromStartWeight * distanceFromStart + distanceFromGoalWeight * distanceFromGoal + angleDistanceWeight*angularCost;
 
 	float decay = - cost * _lambda;
 	
 	float score = numVisiblePoints * exp(decay);
 
+	//std::cout<<pose.index<<"/"<<pose.planLenght <<" "<<pose.predictedAngle<< " .. "<<orientation<<" ---> "<< distanceFromStart<<" "<<distanceFromGoal<<" "<<angularCost<<" = "<<cost<<" -> "<<score<<std::endl;
+
 	return score;
 }
 
+
+float PathsRollout::predictAngle(Vector3f currentPose, Vector3f nextPosition){
+
+	Vector2f previousVersor = {cos(currentPose[2]), sin(currentPose[2])};
+	Vector2f newVersor = {nextPosition[0] - currentPose[0], nextPosition[1] - currentPose[1]};
+	float predictedAngleDifference = acos(newVersor.normalized().dot(previousVersor.normalized()));
+
+
+
+	Rotation2D<float> oldRot(currentPose[2]);
+	Rotation2D<float> newRot(predictedAngleDifference);
+
+	float predictedAngle = (oldRot*newRot).smallestPositiveAngle();
+
+	return predictedAngle;
+
+}
 
 
 

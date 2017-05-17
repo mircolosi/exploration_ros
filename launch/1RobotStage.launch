@@ -1,16 +1,16 @@
 <launch>
   <master auto="start"/>
   <param name="/use_sim_time" value="true"/>
-
-	<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-scanTopic base_scan -fixedFrame trajectory -o testmrslam.g2o" />
-
 <!--
-<include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>
+	<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-scanTopic base_scan -fixedFrame trajectory -o testmrslam.g2o" />
 -->
 
+<include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>
 
+
+<!--
 <node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" />
-
+-->
 
   <node pkg="stage_ros" type="stageros" name="stageros" args="$(find mr_exploration)/stagefiles/hospital.world" respawn="false" >
     <param name="base_watchdog_timeout" value="0.2"/>

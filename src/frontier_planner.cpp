@@ -56,7 +56,7 @@ arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS top
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
 arg.param("actualPoseTopic", actualPoseTopic, "markersp_pose", "robot actual pose ROS topic");
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
-arg.param("lambda", lambdaDecay, 0.35, "distance decay factor for choosing next goal");
+arg.param("lambda", lambdaDecay, 1, "distance decay factor for choosing next goal");
 arg.param("mc", nearCentroidsThreshold, 0.5, "Laser scanner range minimum limit");
 arg.param("Mc", farCentroidsThreshold, 8.0, "Laser scanner range minimum limit");
 arg.param("nc", maxCentroidsNumber, 8, "Laser scanner range minimum limit");
@@ -115,7 +115,7 @@ goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int numExplorationIterations = 15;
+int numExplorationIterations = 20;
  
 while (ros::ok() && (numExplorationIterations > 0)){
 	
