@@ -1,7 +1,7 @@
 #This file contains common configuration options for the two costmaps used in the navigation stack for more details on the parameters in this file, and a full list of the parameters used by the costmaps, please see http://www.ros.org/wiki/costmap_2d
 
 #if 3D: voxel, if 2D: costmap
-map_type: costmap
+map_type: voxel
 
 #Voxel grid specific parameters
 origin_z: 0.0
@@ -30,8 +30,8 @@ cost_scaling_factor: 3.5
 #The cost at which a cell is considered an obstacle when a map is read from the map_server
 lethal_cost_threshold: 100
 
-#track_unknown_space: false
-#unknown_cost_value: 255
+track_unknown_space: true
+unknown_cost_value: 255
 
 #Configuration for the sensors that the costmap will use to update a map
 observation_sources: scan

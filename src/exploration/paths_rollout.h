@@ -43,7 +43,7 @@ class PathsRollout {
 public: 
 
 
-	PathsRollout(cv::Mat* _costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10, int thresholdRegionSize = 10, float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, float lambdaDecay = 0.2, std::string robotPoseTopic = "map_pose");
+	PathsRollout(cv::Mat* _costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10, int thresholdRegionSize = 10, float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, float lambdaDecay = 0.2);
 
 
 	int computeAllSampledPlans(Vector2iVector centroids, std::string frame);
@@ -96,9 +96,8 @@ protected:
 
 	std::vector<PoseWithInfo> _vectorSampledPoses;
 
-	std::string _topicRobotPoseName;
-
 	Vector2f _laserOffset;
+	int _imageCount = 0;
 
 	Vector2fVector _abortedGoals;
 	float _nearCentroidsThreshold;
@@ -106,9 +105,6 @@ protected:
 
 	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
 	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
-
-	FloatVector _ranges;
-	IntVector _pointsIndices;
 
 	float _lambda;
 

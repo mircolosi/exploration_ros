@@ -7,7 +7,7 @@ using namespace Eigen;
 
 
 
-PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, int maxCentroidsNumber, int regionSize, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, float lambdaDecay, std::string robotPoseTopicName){
+PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, int maxCentroidsNumber, int regionSize, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, float lambdaDecay){
 
 	_nearCentroidsThreshold = nearCentroidsThreshold;
 	_farCentroidsThreshold = farCentroidsThreshold;
@@ -29,8 +29,6 @@ PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, srrg_scan_match
 	_ac = ac;
 
 	_lambda = lambdaDecay;
-
-	_topicRobotPoseName = robotPoseTopicName;
 
 	_planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
 
@@ -395,14 +393,14 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,
 	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
 
 
-/*	cv::Mat testImage = cv::Mat(100/0.05, 100/0.05, CV_8UC1);
+/*	cv::Mat testImage = cv::Mat(20/0.05, 20/0.05, CV_8UC1);
 	testImage.setTo(cv::Scalar(0));
 	cv::circle(testImage, cv::Point(robotPose[1]/0.05,robotPose[0]/0.05), 5, 200);
 	cv::circle(testImage, cv::Point(laserPose[1]/0.05, laserPose[0]/0.05), 1, 200);
 	std::stringstream title;
-	title << "virtualscan_test/test_"<<yawAngle<<".jpg"; 
+	title << "virtualscan_test/test_"<<_imageCount<<".jpg"; 
 */
-
+//_imageCount++;
 	for (int k = 0; k < _pointsIndices.size(); k++){
 		if (_pointsIndices[k] != -1){
 			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
@@ -461,7 +459,7 @@ float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int n
 	
 	float score = numVisiblePoints * exp(decay);
 
-	//std::cout<<pose.index<<"/"<<pose.planLenght <<" "<<pose.predictedAngle<< " .. "<<orientation<<" ---> "<< distanceFromStart<<" "<<distanceFromGoal<<" "<<angularCost<<" = "<<cost<<" -> "<<score<<std::endl;
+	std::cout<<pose.index<<"/"<<pose.planLenght <<" "<<pose.predictedAngle<< " .. "<<orientation<<" ---> "<< distanceFromStart<<" "<<distanceFromGoal<<" "<<angularCost<<" = "<<cost<<" -> "<<score<<std::endl;
 
 	return score;
 }

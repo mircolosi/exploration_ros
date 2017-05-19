@@ -80,7 +80,7 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
 
 
 
-FrontierDetector::FrontierDetector(cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, std::string robotPoseTopic, int thresholdSize, int minNeighborsThreshold){
+FrontierDetector::FrontierDetector(cv::Mat *occupancyImage, cv::Mat *costImage, std::string namePoints, std::string nameMarkers, int thresholdSize, int minNeighborsThreshold){
 
 
 	_occupancyMap = occupancyImage;
@@ -98,8 +98,6 @@ FrontierDetector::FrontierDetector(cv::Mat *occupancyImage, cv::Mat *costImage, 
 
    	_topicPointsName = fullPointsTopicName.str();
 	_topicMarkersName = fullMarkersTopicName.str();
-
-	_topicRobotPoseName = robotPoseTopic;
 
 	_pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
 	_pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);

@@ -11,6 +11,8 @@
 
 #include "mrslam/msg_factory.h"
 
+#define SIM_EXPERIMENT 0
+#define REAL_EXPERIMENT 1
 
 using namespace g2o;
 
@@ -18,7 +20,7 @@ using namespace g2o;
 class RosHandlerSR
 {
  public:
-  RosHandlerSR(std::string odomTopic = "odom", std::string scanTopic = "base_scan");
+  RosHandlerSR(int typeExperiment, std::string odomTopic = "odom", std::string scanTopic = "base_scan");
   
   inline void useOdom(bool useOdom){_useOdom = useOdom;}
   inline void useLaser(bool useLaser){_useLaser = useLaser;}
@@ -38,6 +40,7 @@ class RosHandlerSR
 
   ////////////////////
   ros::NodeHandle _nh;
+  int _typeExperiment;
 
   //Subscribers
   ros::Subscriber _subOdom;

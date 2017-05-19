@@ -24,14 +24,13 @@ bool OccupancyMapServer::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::
 }
 
 
-OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap, string mapTopicName, string poseTopicName, string odomFrameName, ros::Duration tolerance, float threshold, float freeThreshold){
+OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment, string mapTopicName, string odomFrameName, ros::Duration tolerance, float threshold, float freeThreshold){
 
 	_occupancyMap = occupancyMap;
 
+	_typeExperiment = typeExperiment;
 
 	_transformTolerance = tolerance;
-
-	_poseTopicName = poseTopicName;
 
 	_threshold = threshold;
 	_freeThreshold = freeThreshold;
@@ -46,8 +45,6 @@ OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap, string mapTopicNam
 	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_mapTopicName,1);
 
 	_pubMapMetaData = _nh.advertise<nav_msgs::MapMetaData>("map_metadata", 1);
-
-	_pubActualCoord = _nh.advertise<geometry_msgs::Pose2D>(_poseTopicName,1);
 
 	_server = _nh.advertiseService("map", &OccupancyMapServer::mapCallback, this);
 
@@ -82,7 +79,11 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 	tf::Transform map2Trajectory;
 	map2Trajectory.setOrigin(tf::Vector3(-_mapOffset[0],-_mapOffset[1], 0.0));
 	tf::Quaternion map2TrajectoryQuaternions;
-	map2TrajectoryQuaternions.setRPY(0, 0, -M_PI_2);
+	if (_typeExperiment == SIM_EXPERIMENT){
+		map2TrajectoryQuaternions.setRPY(0, 0, -M_PI_2);	}
+	else {
+		map2TrajectoryQuaternions.setRPY(0, 0, 0);	
+	}	
 	map2Trajectory.setRotation(map2TrajectoryQuaternions);
 
 	//Broadcast the map->trajectory transformation
@@ -104,7 +105,8 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 
 void OccupancyMapServer::adjustMapToOdom() {
 
-	tf::Stamped<tf::Pose> tmp_tf_stamped (_robotMapPose.inverse(),ros::Time::now(), "base_link");
+	//tf::Stamped<tf::Pose> tmp_tf_stamped (_robotMapPose.inverse(),ros::Time::now(), "base_link");
+	tf::Stamped<tf::Pose> tmp_tf_stamped (_robotMapPose.inverse(),ros::Time(0), "base_link");
 	tf::Pose map_to_odom;
 
 	try{
@@ -115,7 +117,7 @@ void OccupancyMapServer::adjustMapToOdom() {
 		map_to_odom = tf::Pose(odom_to_map.inverse());
 
 		if ((ros::Time::now() >= _lastTime + _transformTolerance)||(_first == true)){
-
+			std::cout<<"ADJUSTED MAP !!!!!!!!"<<std::endl;
 			_tfMap2Odom = map_to_odom;
 			_lastTime =ros::Time::now();
 			_first = false;

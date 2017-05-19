@@ -25,7 +25,7 @@ int main (int argc, char **argv){
 
 g2o::CommandArgs arg;
 
-std::string frontierPointsTopic, markersTopic, actualPoseTopic;
+std::string frontierPointsTopic, markersTopic;
 
 int thresholdRegionSize;
 int thresholdExploredArea = 7;
@@ -36,6 +36,7 @@ float lambdaDecay;
 int maxCentroidsNumber;
 float farCentroidsThreshold;
 float nearCentroidsThreshold;
+int numExplorationIterations;
 
 Vector2iVector centroids;
 Vector2iVector frontierPoints;
@@ -54,13 +55,12 @@ Vector2f laserOffset;
 arg.param("mapFrame", mapFrame, "map", "mapFrame for this robot");
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
-arg.param("actualPoseTopic", actualPoseTopic, "markersp_pose", "robot actual pose ROS topic");
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
 arg.param("lambda", lambdaDecay, 1, "distance decay factor for choosing next goal");
 arg.param("mc", nearCentroidsThreshold, 0.5, "Laser scanner range minimum limit");
 arg.param("Mc", farCentroidsThreshold, 8.0, "Laser scanner range minimum limit");
 arg.param("nc", maxCentroidsNumber, 8, "Laser scanner range minimum limit");
-
+arg.param("iter", numExplorationIterations, 10, "Number of plans to be computed. -1 means infinite");
 
 arg.parseArgs(argc, argv);
 
@@ -89,7 +89,7 @@ ac.waitForServer(); //will wait for infinite time
 tf::TransformListener tfListener;
 tf::StampedTransform tfBase2Laser;
 try{
-	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time(0), ros::Duration(10.0));
+	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time(0), ros::Duration(1.0));
 	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tfBase2Laser);
 
 	laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
@@ -99,12 +99,12 @@ catch (...) {
 	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
  }
 
-FrontierDetector frontiersDetector(&occupancyMap, &costMap,  frontierPointsTopic, markersTopic, actualPoseTopic, thresholdRegionSize);
+FrontierDetector frontiersDetector(&occupancyMap, &costMap,  frontierPointsTopic, markersTopic, thresholdRegionSize);
 
 unknownCellsCloud = frontiersDetector.getUnknownCloud();
 occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
 
-PathsRollout pathsRollout(&costMap, &ac, &projector, laserOffset, maxCentroidsNumber, thresholdRegionSize, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, lambdaDecay, actualPoseTopic);
+PathsRollout pathsRollout(&costMap, &ac, &projector, laserOffset, maxCentroidsNumber, thresholdRegionSize, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, lambdaDecay);
 
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
@@ -115,9 +115,8 @@ goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
 
-int numExplorationIterations = 20;
  
-while (ros::ok() && (numExplorationIterations > 0)){
+while (ros::ok() && (numExplorationIterations != 0)){
 	
 	frontiersDetector.computeFrontiers();
 	frontiersDetector.rankRegions();

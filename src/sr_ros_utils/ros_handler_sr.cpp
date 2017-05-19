@@ -1,10 +1,13 @@
 #include "ros_handler_sr.h"
 
 
-RosHandlerSR::RosHandlerSR (std::string odomTopic, std::string scanTopic){
+RosHandlerSR::RosHandlerSR (int typeExperiment, std::string odomTopic, std::string scanTopic){
   
   _odomTopic = odomTopic;
   _scanTopic = scanTopic;
+
+  _typeExperiment = typeExperiment;
+
 
   _useOdom = false;
   _useLaser = false;
@@ -29,8 +32,15 @@ void RosHandlerSR::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
 SE2 RosHandlerSR::getOdom(){
   SE2 odomSE2;
+  if (_typeExperiment  == SIM_EXPERIMENT){
   odomSE2.setTranslation(Eigen::Vector2d(-_odom.pose.pose.position.y, _odom.pose.pose.position.x));
-  odomSE2.setRotation(Eigen::Rotation2Dd(tf::getYaw(_odom.pose.pose.orientation) + M_PI_2));
+  odomSE2.setRotation(Eigen::Rotation2Dd(tf::getYaw(_odom.pose.pose.orientation) + M_PI_2));  
+    }
+  else if (_typeExperiment  == REAL_EXPERIMENT){
+  odomSE2.setTranslation(Eigen::Vector2d(_odom.pose.pose.position.x, _odom.pose.pose.position.y));
+  odomSE2.setRotation(Eigen::Rotation2Dd(tf::getYaw(_odom.pose.pose.orientation)));  
+
+  }  
   return odomSE2;
 }
 

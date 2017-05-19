@@ -3,7 +3,6 @@
 #include <stdlib.h> 
 #include <algorithm>
 
-#include "mr_exploration/DoSomething.h"
 #include "tf/transform_listener.h"
 
 #include "ros/ros.h"
@@ -47,7 +46,7 @@ public:
 	void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 	void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-	FrontierDetector(cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker",  std::string robotPoseTopic = "map_pose",int thresholdSize = 30, int minNeighborsThreshold = 4);
+	FrontierDetector(cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30, int minNeighborsThreshold = 4);
 
 	bool requestOccupancyMap();
 

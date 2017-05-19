@@ -37,6 +37,8 @@ int main(int argc, char **argv)
   std::string outputFilename;
   std::string odometryTopic, scanTopic, occupancyTopic, mapPoseTopic, fixedFrame;
 
+  int typeExperiment;
+
   //map parameters
   float mapResolution = 0.05;
   float threhsold = 0.55; 
@@ -56,7 +58,8 @@ int main(int argc, char **argv)
   arg.param("minInliers",    minInliers, 5,     "min inliers");
   arg.param("windowLoopClosure",  windowLoopClosure, 10,   "sliding window for loop closures");
   arg.param("inlierThreshold",  inlierThreshold, 2.,   "inlier threshold");
-  arg.param("locUpdate", localizationUpdateTime, 4, "interval for updating the robot pose in the map, in seconds");
+  arg.param("locUpdate", localizationUpdateTime, 0.75, "interval for updating the robot pose in the map, in seconds");
+  arg.param("type",  typeExperiment, 0, "0 if stage simulation or 1 if real robot experiment");
   arg.param("odometryTopic", odometryTopic, "odom", "odometry ROS topic");
   arg.param("scanTopic", scanTopic, "base_scan", "scan ROS topic");
   arg.param("occupancyTopic", occupancyTopic, "map", "occupancy grid ROS topic");
@@ -67,14 +70,12 @@ int main(int argc, char **argv)
 
   ros::init(argc, argv, "slam_node");
 
-  RosHandlerSR rh(odometryTopic, scanTopic);
+  RosHandlerSR rh(typeExperiment, odometryTopic, scanTopic);
   rh.useOdom(true);
   rh.useLaser(true);
   rh.init();   //Wait for initial ground-truth position, odometry and laserScan
   rh.run();
   
-
-
   //Graph building
   GraphSLAM gslam;
   gslam.init(resolution, kernelRadius, windowLoopClosure, maxScore, inlierThreshold, minInliers);
@@ -86,7 +87,7 @@ int main(int argc, char **argv)
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
   Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  OccupancyMapServer mapServer(&occupancyMap, occupancyTopic, mapPoseTopic,odometryTopic, updateInterval, threhsold, freeThrehsold);
+  OccupancyMapServer mapServer(&occupancyMap,typeExperiment, occupancyTopic, odometryTopic, updateInterval, threhsold, freeThrehsold);
 
   //Set initial information
   SE2 currEst = rh.getOdom();
@@ -103,7 +104,6 @@ int main(int argc, char **argv)
   mapServer.publishMapMetaData();
 
 
-	
 	ros::Duration(0.5).sleep();
 
   mapServer.publishMapPose(currEst);
@@ -149,6 +149,7 @@ int main(int argc, char **argv)
 
     }
     
+    mapCreator.computeMap();
     mapServer.publishMapPose(currEst);
     mapServer.publishMapMetaData();
     mapServer.publishMap();

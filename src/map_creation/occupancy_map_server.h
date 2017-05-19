@@ -14,6 +14,9 @@
 
 #include "srrg_types/defs.h"
 
+#define SIM_EXPERIMENT 0
+#define REAL_EXPERIMENT 1
+
 using namespace std;
 using namespace Eigen;
 using namespace g2o;
@@ -23,7 +26,7 @@ class OccupancyMapServer{
 
 public:
 
-	OccupancyMapServer(cv::Mat* occupancyMap, string mapTopicName = "map",string poseTopicName = "map_pose", string odomFrameName = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
+	OccupancyMapServer(cv::Mat* occupancyMap, int typeExperiment, string mapTopicName = "map", string odomFrameName = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
 
 	void publishMap ();
 	void publishMapMetaData();
@@ -50,12 +53,13 @@ protected:
 	cv::Mat _occupancyMapImage;
 
 	string _mapTopicName;
-	string _poseTopicName;
 
 	string _odomFrameName;
 
 	Vector2f _mapOffset;
 	float _mapResolution;
+
+	int _typeExperiment;
 
 	//Used for the occupancy map (published in RViz and provided via getMap)
 	unsigned char _freeColor = 0;
