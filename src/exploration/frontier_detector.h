@@ -50,7 +50,9 @@ public:
 
 	bool requestOccupancyMap();
 
-	void computeFrontiers();
+	void computeFrontiers(int distance = -1);
+		void computeFrontiers2();
+
 
 	void rankRegions();
 	
@@ -82,6 +84,12 @@ public:
 
 
 protected:
+Vector2iVector get4Neighbors(Vector2i cell);
+void computeFrontierPoints(int startR, int startC, int endR, int endC);
+void computeFrontierRegions();
+void computeFrontierCentroids();
+void rankFrontierRegions(float mapX, float mapY);
+
 
 	bool isNeighbor(Vector2i coordI, Vector2i coordJ);
 	Vector2iVector getColoredNeighbors(Vector2i coord, int color);

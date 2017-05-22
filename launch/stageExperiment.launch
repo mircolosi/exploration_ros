@@ -4,16 +4,16 @@
 
 <remap from="scan" to="base_scan"/>
 
-
-<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-scanTopic scan -fixedFrame trajectory -type 0 -o testmrslam.g2o" />
-
 <!--
-<include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>
+<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-locUpdate 4 -scanTopic scan -fixedFrame trajectory -type 0 -o testmrslam.g2o" />
 -->
 
+<include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>
 
-<node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" args="-iter 5"  />
 
+<!--
+<node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" args="-iter 1"  />
+-->
 
 <node pkg="stage_ros" type="stageros" name="stageros" args="$(find 		mr_exploration)/stagefiles/hospital.world" respawn="false" >
 <param name="base_watchdog_timeout" value="0.2"/>

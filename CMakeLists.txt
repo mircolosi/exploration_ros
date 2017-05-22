@@ -152,6 +152,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 
 add_executable(frontier_planner
   src/frontier_planner.cpp
+  src/exploration/fake_projector.cpp
   src/exploration/frontier_detector.cpp
   src/exploration/goal_planner.cpp
   src/exploration/paths_rollout.cpp

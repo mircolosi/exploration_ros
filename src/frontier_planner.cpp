@@ -73,13 +73,13 @@ ros::NodeHandle nh;
 //Laserscan FAKE projection parameters
 float minRange = 0.0;
 float maxRange = 5.0;
-int numRanges = 101;
+int numRanges = 181;
 float fov = M_PI;
 Vector2f rangesLimits = {minRange, maxRange};
 
-srrg_scan_matcher::Projector2D projector;
-projector.setMaxRange(rangesLimits[0]);
-projector.setMinRange(rangesLimits[1]);
+FakeProjector projector;
+projector.setMaxRange(maxRange);
+projector.setMinRange(minRange);
 projector.setFov(fov);
 projector.setNumRanges(numRanges);
 
@@ -117,9 +117,10 @@ goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
  
 while (ros::ok() && (numExplorationIterations != 0)){
-	
+
+
 	frontiersDetector.computeFrontiers();
-	frontiersDetector.rankRegions();
+
 	frontiersDetector.publishFrontierPoints();
    	frontiersDetector.publishCentroidMarkers();
 
@@ -131,6 +132,7 @@ while (ros::ok() && (numExplorationIterations != 0)){
 	frontiersDetector.updateClouds();
 	abortedGoals = goalPlanner.getAbortedGoals();
 
+	std::cout<<unknownCellsCloud->size()<<" --- "<<occupiedCellsCloud->size()<<std::endl;
 
 	if (centroids.size() == 0){
 		std::cout<<"NO CENTROIDS EXTRACTED... EXIT"<<std::endl;
@@ -149,7 +151,7 @@ while (ros::ok() && (numExplorationIterations != 0)){
 			return 0;
 		}
 
-		Vector3f goal = pathsRollout.extractGoalFromSampledPoses();
+		PoseWithInfo goal = pathsRollout.extractGoalFromSampledPoses();
 
 		std::string frame = mapFrame;
 

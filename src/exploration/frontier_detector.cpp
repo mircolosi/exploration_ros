@@ -162,19 +162,59 @@ bool FrontierDetector::requestOccupancyMap(){
 
 
 
-void FrontierDetector::computeFrontiers(){
-	
-	ros::spinOnce();  //look for costmap update
+void FrontierDetector::computeFrontiers(int distance){
+
+	int startRow;
+	int startCol;
+	int endRow;
+	int endCol;
+
+	ros::spinOnce();  
+
+	try{
+		_tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
+		_tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
+
+	}
+	catch (...) {
+		std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
+	 }
+
+	float mapX = (_tfMapToBase.getOrigin().y() - _mapOriginY)/_mapResolution;
+	float mapY = (_tfMapToBase.getOrigin().x() - _mapOriginX)/_mapResolution;
+
+
+	if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
+		startRow = 0;
+		startCol = 0;
+		endRow = _occupancyMap->rows;
+		endCol = _occupancyMap->cols;
+	}
+
+	else{
+		startRow = mapX - distance/_mapResolution;
+		startCol = mapY - distance/_mapResolution;
+		endRow = mapX + distance/_mapResolution + 1;
+		endCol = mapY + distance/_mapResolution +1;
+	}
+
+
+	computeFrontierPoints(startRow, startCol, endRow, endCol);
+	computeFrontierRegions();
+	computeFrontierCentroids();
+	rankFrontierRegions(mapX, mapY);
+
+}
+
+void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int endRow, int endCol){
+
 
 	_frontiers.clear();
-	_unknownFrontierCells.clear();
 	_occupiedCells.clear();
-	_regions.clear();
-	_centroids.clear();
-
-	for(int c = 0; c < _occupancyMap->cols; c++) {
-    	for(int r = 0; r < _occupancyMap->rows; r++) {
-
+		
+    for(int r = startRow; r < endRow; r++) {
+		for(int c = startCol; c < endCol; c++) {
+    	
     		if ((_occupancyMap->at<unsigned char>(r,c) == _freeColor)){ //If the current cell is free consider it
     			Vector2i coord = {r,c};
     			if (_costMap->at<unsigned char>(r, c) == _circumscribedThreshold){//If the current free cell is too close to an obstacle skip
@@ -199,8 +239,15 @@ void FrontierDetector::computeFrontiers(){
     				}
     			}
 
+}
 
-    Vector2iVector examined;
+
+void FrontierDetector::computeFrontierRegions(){
+
+	_regions.clear();
+	_unknownFrontierCells.clear();
+
+	Vector2iVector examined;
 
     for (int i = 0; i < _frontiers.size(); i++){
 
@@ -212,43 +259,51 @@ void FrontierDetector::computeFrontiers(){
 
     		for (int k = 0; k < tempRegion.size(); k ++){
 
-    		Vector2iVector neighbor;
-    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1]});
-    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1]});
-    		neighbor.push_back({tempRegion[k][0], tempRegion[k][1] + 1});
-    		neighbor.push_back({tempRegion[k][0], tempRegion[k][1] - 1});
-    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1] + 1});
-    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1] - 1});
-    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1] + 1});
-    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1] - 1});
+	    		Vector2iVector neighbor;
+	    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1]});
+	    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1]});
+	    		neighbor.push_back({tempRegion[k][0], tempRegion[k][1] + 1});
+	    		neighbor.push_back({tempRegion[k][0], tempRegion[k][1] - 1});
+	    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1] + 1});
+	    		neighbor.push_back({tempRegion[k][0] + 1, tempRegion[k][1] - 1});
+	    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1] + 1});
+	    		neighbor.push_back({tempRegion[k][0] - 1, tempRegion[k][1] - 1});
 
-    		for (int j = 0; j < neighbor.size(); j ++){
+	    		for (int j = 0; j < neighbor.size(); j ++){
 
-    			if ((contains(_frontiers, neighbor[j]))&&(!contains(examined, neighbor[j]))) {
-    				examined.push_back(neighbor[j]);
-    				tempRegion.push_back(neighbor[j]);
-    										}
-    								}
-						}
-		if (tempRegion.size() >= _sizeThreshold){
-		   	_regions.push_back(tempRegion);
+	    			if ((contains(_frontiers, neighbor[j]))&&(!contains(examined, neighbor[j]))) {
+	    				examined.push_back(neighbor[j]);
+	    				tempRegion.push_back(neighbor[j]);
+	    										}
+	    								}
+							}
+			if (tempRegion.size() >= _sizeThreshold){
+			   	_regions.push_back(tempRegion);
 
-		   for (int l = 0; l < tempRegion.size(); l ++){
-		   		Vector2iVector neighbors = getColoredNeighbors(tempRegion[l], _unknownColor);
-		   		for (int m = 0; m < neighbors.size(); m++){
-		   			if (!contains(_unknownFrontierCells, neighbors[m])){
-		   				_unknownFrontierCells.push_back(neighbors[m]);	}
-		   									
-		   									}
-		   								}
-									}
+			   for (int l = 0; l < tempRegion.size(); l ++){
+			   		Vector2iVector neighbors = getColoredNeighbors(tempRegion[l], _unknownColor);
+			   		for (int m = 0; m < neighbors.size(); m++){
+			   			if (!contains(_unknownFrontierCells, neighbors[m])){
+			   				_unknownFrontierCells.push_back(neighbors[m]);	}
+			   									
+			   									}
+			   								}
+										}
 
-						
-						}
+							
+							}
 
     			}
 
-			
+
+}
+	
+	
+void FrontierDetector::computeFrontierCentroids(){
+
+	_centroids.clear();
+
+
 	for (int i = 0; i < _regions.size(); i++){
 		int accX = 0;
 		int accY = 0;
@@ -298,24 +353,15 @@ void FrontierDetector::computeFrontiers(){
 	}
 
 
-}
-
-
-
-void FrontierDetector::rankRegions(){
-
-
-try{
-	_tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
-	_tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
 
 }
-catch (...) {
-	std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
- }
 
-	float mapX = (_tfMapToBase.getOrigin().y() - _mapOriginY)/_mapResolution;
-	float mapY = (_tfMapToBase.getOrigin().x() - _mapOriginX)/_mapResolution;
+    
+			
+
+
+void FrontierDetector::rankFrontierRegions(float mapX, float mapY){
+
 
 	Vector2f mapCoord(mapX, mapY);
 
@@ -506,7 +552,7 @@ void FrontierDetector::updateClouds(){
 
 	createDensePointsCloud(&_unknownCellsCloud, _unknownFrontierCells, false);
 
-	createDensePointsCloud(&_occupiedCellsCloud, _occupiedCells, true);
+	createDensePointsCloud(&_occupiedCellsCloud, _occupiedCells, false);
 
 }
 
@@ -604,6 +650,15 @@ Vector2iVector FrontierDetector::getColoredNeighbors (Vector2i coord, int color)
 }
 
 
+Vector2iVector FrontierDetector::get4Neighbors(Vector2i cell){
+	Vector2iVector neighbors;
 
+	neighbors.push_back({cell[0] + 1, cell[1]});
+	neighbors.push_back({cell[0] - 1, cell[1]});
+	neighbors.push_back({cell[0], cell[1] + 1});
+	neighbors.push_back({cell[0], cell[1] - 1});
+
+	return neighbors;
+}
 
 

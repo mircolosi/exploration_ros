@@ -20,7 +20,7 @@
 
 
 <!--
-<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-scanTopic scan -fixedFrame trajectory -type 0 -o testmrslam.g2o" />
+<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-locUpdate 0.75 -scanTopic scan -fixedFrame trajectory -type 0 -o testmrslam.g2o" />
 -->
 
 

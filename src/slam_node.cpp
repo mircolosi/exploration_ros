@@ -58,7 +58,7 @@ int main(int argc, char **argv)
   arg.param("minInliers",    minInliers, 5,     "min inliers");
   arg.param("windowLoopClosure",  windowLoopClosure, 10,   "sliding window for loop closures");
   arg.param("inlierThreshold",  inlierThreshold, 2.,   "inlier threshold");
-  arg.param("locUpdate", localizationUpdateTime, 0.75, "interval for updating the robot pose in the map, in seconds");
+  arg.param("locUpdate", localizationUpdateTime, 1, "interval for updating the robot pose in the map, in seconds");
   arg.param("type",  typeExperiment, 0, "0 if stage simulation or 1 if real robot experiment");
   arg.param("odometryTopic", odometryTopic, "odom", "odometry ROS topic");
   arg.param("scanTopic", scanTopic, "base_scan", "scan ROS topic");
@@ -149,7 +149,6 @@ int main(int argc, char **argv)
 
     }
     
-    mapCreator.computeMap();
     mapServer.publishMapPose(currEst);
     mapServer.publishMapMetaData();
     mapServer.publishMap();

@@ -20,10 +20,11 @@
 #include "nav_msgs/OccupancyGrid.h"
 
 #include "projector2d.h"
+#include "exploration/fake_projector.h"
 
 #include "g2o/types/slam2d/se2.h"
 #include "frontier_detector.h"
-
+#include "paths_rollout.h"
 #include "srrg_types/defs.h"
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
@@ -34,12 +35,12 @@ class GoalPlanner {
 public:
 
 	
-	GoalPlanner(MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10);
+	GoalPlanner(MoveBaseClient *ac, FakeProjector *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10);
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
 
-	void publishGoal(Vector3f goalPosition, std::string frame);
+	void publishGoal(PoseWithInfo goalPose, std::string frame);
 
 	void waitForGoal();
 
@@ -60,7 +61,7 @@ protected:
 	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints);
 
 
-	srrg_scan_matcher::Projector2D *_projector;
+	FakeProjector *_projector;
 	Vector2f _laserOffset;
 	FrontierDetector *_frontierDetector;
 
@@ -68,7 +69,7 @@ protected:
 
 	float _xyThreshold = 0.25;
 
-	Vector3f _goal;
+	PoseWithInfo _goal;
 	int _minUnknownRegionSize;
 
 

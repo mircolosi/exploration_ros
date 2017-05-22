@@ -7,7 +7,7 @@ using namespace Eigen;
 
 
 
-PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, srrg_scan_matcher::Projector2D *projector, Vector2f laserOffset, int maxCentroidsNumber, int regionSize, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, float lambdaDecay){
+PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, FakeProjector *projector, Vector2f laserOffset, int maxCentroidsNumber, int regionSize, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, float lambdaDecay){
 
 	_nearCentroidsThreshold = nearCentroidsThreshold;
 	_farCentroidsThreshold = farCentroidsThreshold;
@@ -64,6 +64,8 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 	startPose.position.x = _tfMapToBase.getOrigin().x(); 
 	startPose.position.y = _tfMapToBase.getOrigin().y();
 
+	std::cout<<startPose.position.x <<" "<<startPose.position.y<<std::endl;
+
 	geometry_msgs::Quaternion qMsg;
 	tf::quaternionTFToMsg(_tfMapToBase.getRotation(),qMsg);
 
@@ -84,6 +86,9 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 		geometry_msgs::Pose goalPose;
 		goalPose.position.x = meterCentroids[i][0];  
 		goalPose.position.y = meterCentroids[i][1];
+
+			std::cout<<goalPose.position.x <<" "<<goalPose.position.y<<std::endl;
+
 
 		float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
 
@@ -138,10 +143,10 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 
 }
 
-Vector3f PathsRollout::extractGoalFromSampledPoses(){
+PoseWithInfo PathsRollout::extractGoalFromSampledPoses(){
 
 
-	Vector3f goalPose;
+	PoseWithInfo goalPose;
 
 	Cloud2D augmentedCloud = *_unknownCellsCloud;
 
@@ -304,7 +309,7 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 
 
 
-Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
+PoseWithInfo PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 	
 	PoseWithInfo goalPose;
 	Isometry2f transform;
@@ -352,7 +357,7 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 			//std::cout<<i<<"-"<<j<<" "<<laserPose[0]<<" "<<laserPose[1]<<" "<<laserPose[2]<<" points: "<<countFrontier<<" score: "<<score <<std::endl;
 
 
-			if ((score > goalPose.score) && (countFrontier > _minUnknownRegionSize)){
+			if (score > goalPose.score){
 				//std::cout<<"GOAL: "<< pose[0]<<" "<<pose[1]<<" "<<pose[2]<<" SCORE: "<<score<<std::endl;
 				goalPose.pose = pose;
 				goalPose.score = score;
@@ -365,7 +370,7 @@ Vector3f PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 	}
 	
 	std::cout<<"predictedAngle = "<< goalPose.predictedAngle<<std::endl;
-	return goalPose.pose;
+	return goalPose;
 }
 
 
@@ -390,18 +395,18 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,
 	FloatVector _ranges;
 	IntVector _pointsIndices;
 
-	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
-
-
-/*	cv::Mat testImage = cv::Mat(20/0.05, 20/0.05, CV_8UC1);
+	//_projector->sparseProjection(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+	visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
+/* 
+	cv::Mat testImage = cv::Mat(20/0.05, 20/0.05, CV_8UC1);
 	testImage.setTo(cv::Scalar(0));
 	cv::circle(testImage, cv::Point(robotPose[1]/0.05,robotPose[0]/0.05), 5, 200);
 	cv::circle(testImage, cv::Point(laserPose[1]/0.05, laserPose[0]/0.05), 1, 200);
 	std::stringstream title;
 	title << "virtualscan_test/test_"<<_imageCount<<".jpg"; 
-*/
-//_imageCount++;
-	for (int k = 0; k < _pointsIndices.size(); k++){
+	_imageCount++;
+	*/
+	/*for (int k = 0; k < _pointsIndices.size(); k++){
 		if (_pointsIndices[k] != -1){
 			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
 			if (_pointsIndices[k] < numInterestingPoints){
@@ -411,9 +416,8 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,
 							}
 						}
 					}
-
 	//cv::imwrite(title.str(),testImage);
-
+*/
 	return visiblePoints;
 
 }
@@ -436,7 +440,7 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints){
 
 
-	float distanceFromStartWeight = 1;
+	float distanceFromStartWeight = 1.25;
 	float distanceFromGoalWeight = - 0.1;
 	float angleDistanceWeight = 0.15;
 
@@ -459,7 +463,7 @@ float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int n
 	
 	float score = numVisiblePoints * exp(decay);
 
-	std::cout<<pose.index<<"/"<<pose.planLenght <<" "<<pose.predictedAngle<< " .. "<<orientation<<" ---> "<< distanceFromStart<<" "<<distanceFromGoal<<" "<<angularCost<<" = "<<cost<<" -> "<<score<<std::endl;
+	std::cout<<_imageCount<<": index-> "<<pose.index<<"/"<<pose.planLenght <<" preferred angle-> "<<pose.predictedAngle<< " angle-> "<<orientation<<"("<<angleDifference<<") visiblePoints-> "<<numVisiblePoints<<" ---> cost:"<<cost<<" score: "<<score<<std::endl;
 
 	return score;
 }

@@ -29,12 +29,12 @@ TrajectoryPlannerROS:
   sim_time: 2
   sim_granularity: 0.025
   vx_samples: 20
-  vtheta_samples: 80
+  vtheta_samples: 60
 
   #Parameters for scoring trajectories
   meter_scoring: true
   gdist_scale: 1
-  pdist_scale: 1.8
+  pdist_scale: 1.5
   occdist_scale: 0.1
   heading_lookahead: 0.325
 

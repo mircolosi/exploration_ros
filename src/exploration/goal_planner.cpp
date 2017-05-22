@@ -7,7 +7,7 @@ using namespace srrg_scan_matcher;
 
 
 
-GoalPlanner::GoalPlanner(MoveBaseClient* ac,  srrg_scan_matcher::Projector2D *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize)
+GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize)
 {
 
 	_ac = ac;
@@ -63,28 +63,28 @@ bool GoalPlanner::requestOccupancyMap(){
 }	
 
 
-void GoalPlanner::publishGoal(Vector3f goalPose, std::string frame){
+void GoalPlanner::publishGoal(PoseWithInfo goalPose, std::string frame){
 
 	_goal = goalPose;
   
- 	move_base_msgs::MoveBaseGoal goal;
+ 	move_base_msgs::MoveBaseGoal goalMsg;
 
-	goal.target_pose.header.frame_id = frame;
-  	goal.target_pose.header.stamp = ros::Time::now();
+	goalMsg.target_pose.header.frame_id = frame;
+  	goalMsg.target_pose.header.stamp = ros::Time::now();
 
-	goal.target_pose.pose.position.x = goalPose[0];
-	goal.target_pose.pose.position.y = goalPose[1];	
+	goalMsg.target_pose.pose.position.x = goalPose.pose[0];
+	goalMsg.target_pose.pose.position.y = goalPose.pose[1];	
 
-	goal.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(goalPose[2]);
+	goalMsg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(goalPose.pose[2]);
 
 	std::stringstream infoGoal;
 
 	time_t _now = time(0);
 	tm *ltm = localtime(&_now);
-	infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]Sending goal "<< goalPose[0] << " "<< goalPose[1]<< " "<<goalPose[2];
+	infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]Sending goal "<< goalPose.pose[0] << " "<< goalPose.pose[1]<< " "<<goalPose.pose[2];
 
 	std::cout<<infoGoal.str()<<std::endl;
-	_ac->sendGoal(goal);
+	_ac->sendGoal(goalMsg);
 
 
 }
@@ -107,9 +107,8 @@ void GoalPlanner::waitForGoal(){
 	bool reached = false;
 	while (!reached){
 
-		_frontierDetector->computeFrontiers();
+		_frontierDetector->computeFrontiers(6);
 		_frontierDetector->updateClouds();
-		_frontierDetector->rankRegions();
 		_frontierDetector->publishFrontierPoints();
    		_frontierDetector->publishCentroidMarkers();
 
@@ -145,7 +144,7 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 	}
 
 	if (goalState == actionlib::SimpleClientGoalState::ABORTED){
-		_abortedGoals.push_back({_goal[0], _goal[1]}); 
+		_abortedGoals.push_back({_goal.pose[0], _goal.pose[1]}); 
 		_ac->cancelAllGoals();
 
 		std::stringstream infoGoal;
@@ -157,7 +156,7 @@ bool GoalPlanner::isGoalReached(Cloud2D cloud){
 	}
 
 
-	int numGoalFrontier = computeVisiblePoints(_goal, _laserOffset, cloud, _unknownCellsCloud->size());
+	int numGoalFrontier = computeVisiblePoints(_goal.pose, _laserOffset, cloud, _unknownCellsCloud->size());
 
 
 	if (numGoalFrontier < _minUnknownRegionSize){
@@ -183,10 +182,10 @@ catch (...) {
 	std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
  }
 
-	float distanceX = fabs(_tfMapToBase.getOrigin().x() - _goal[0]);
-	float distanceY = fabs(_tfMapToBase.getOrigin().y() - _goal[1]);
+	float distanceX = fabs(_tfMapToBase.getOrigin().x() - _goal.pose[0]);
+	float distanceY = fabs(_tfMapToBase.getOrigin().y() - _goal.pose[1]);
 
-	if ((distanceX > _xyThreshold*1.5)||(distanceY > _xyThreshold*1.5)){ // If distance greater than local planner xy threshold
+	if ((distanceX > _xyThreshold*2.5)||(distanceY > _xyThreshold*2.5)){ // If distance greater than local planner xy threshold
 		
 		float newGoalAngle;
 
@@ -194,13 +193,17 @@ catch (...) {
 
 			float yawAngle =  M_PI/4*j;
 
-			if (yawAngle == _goal[2]){
+			if (yawAngle == _goal.pose[2]){
 				continue;
 			}
 
-			Vector3f newPose = {_goal[0], _goal[1], yawAngle};
+			Vector3f newPose = {_goal.pose[0], _goal.pose[1], yawAngle};
 
 			int countDiscoverable = computeVisiblePoints(newPose, _laserOffset, cloud, _unknownCellsCloud->size());
+
+			if (yawAngle == _goal.predictedAngle){
+				countDiscoverable = countDiscoverable + 10;
+			}
 
 			if (countDiscoverable >= numGoalFrontier + 10 ){
 				numGoalFrontier = countDiscoverable;
@@ -212,10 +215,12 @@ catch (...) {
 
 		if (changed){ 
 			std::cout<<"POSE BEFORE CHANGING "<<_tfMapToBase.getOrigin().x()<<" "<<_tfMapToBase.getOrigin().y()<<std::endl;
-			std::cout<<"Changed angle from "<< _goal[2]<<" to "<<newGoalAngle<<std::endl;
+			std::cout<<"Changed angle from "<< _goal.pose[2]<<" to "<<newGoalAngle<<std::endl;
 			//_ac->cancelAllGoals();
+			PoseWithInfo newGoal = _goal;
+			newGoal.pose[2] = newGoalAngle;
 
-			publishGoal({_goal[0],_goal[1], newGoalAngle}, "map" ); //Publishing a new goal cancel the previous one
+			publishGoal(newGoal, "map" ); //Publishing a new goal cancel the previous one
 
 			return false;
 		}
@@ -252,8 +257,10 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,s
 	FloatVector _ranges;
 	IntVector _pointsIndices;
 
-	_projector->project(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
-
+	
+	visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
+	std::cout<<_unknownCellsCloud->size()<< " "<<_occupiedCellsCloud->size()<<std::endl;
+	std::cout<< visiblePoints<<std::endl;
 
 	/*cv::Mat testImage = cv::Mat(100/0.05, 100/0.05, CV_8UC1);
 	testImage.setTo(cv::Scalar(0));
@@ -262,7 +269,7 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,s
 	std::stringstream title;
 	title << "virtualscan_test/test_"<<yawAngle<<".jpg"; 
 */
-
+/*
 	for (int k = 0; k < _pointsIndices.size(); k++){
 		if (_pointsIndices[k] != -1){
 			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
@@ -275,7 +282,7 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,s
 					}
 
 	//cv::imwrite(title.str(),testImage);
-
+*/
 	return visiblePoints;
 
 }
