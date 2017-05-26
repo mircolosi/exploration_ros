@@ -29,7 +29,7 @@ void FakeProjector::updateParameters() {
 
   void FakeProjector::simpleProjection(FloatVector& ranges, IntVector& indices,
 			    const Eigen::Isometry2f& T,
-			    const Cloud2D& model) const {
+			    const Vector2fVector& model) const {
 
 
     float middle = _num_ranges * 0.5;
@@ -41,8 +41,7 @@ void FakeProjector::updateParameters() {
     std::fill(indices.begin(), indices.end(), -1);
     
     for (size_t i = 0; i < model.size(); ++i){
-		const RichPoint2D& rp = model[i];
-		Eigen::Vector2f p = T * rp.point();
+		Eigen::Vector2f p = T * model[i];
 
 		float distance = hypot(p.x(), p.y());
 		if ((distance < _min_range)||(distance > _max_range)){
@@ -70,7 +69,7 @@ void FakeProjector::updateParameters() {
 
   void FakeProjector::sparseProjection(FloatVector& ranges, IntVector& indices,
 			    const Eigen::Isometry2f& T,
-			    const Cloud2D& model) const {
+			    const Vector2fVector& model) const {
 
 
     float middle = _num_ranges * 0.5;
@@ -82,8 +81,7 @@ void FakeProjector::updateParameters() {
     std::fill(indices.begin(), indices.end(), -1);
     
     for (size_t i = 0; i < model.size(); ++i){
-		const RichPoint2D& rp = model[i];
-		Eigen::Vector2f p = T * rp.point();
+		Eigen::Vector2f p = T * model[i];
 
 		float distance = hypot(p.x(), p.y());
 		if ((distance < _min_range)||(distance > _max_range)){
@@ -128,7 +126,7 @@ void FakeProjector::updateParameters() {
   }
 
 
-  float FakeProjector::areaProjection(const Eigen::Isometry2f& T, const Cloud2D& unknownCloud, const Cloud2D& occupiedCloud){
+  float FakeProjector::areaProjection(const Eigen::Isometry2f& T, const Vector2fVector& unknownCloud, const Vector2fVector& occupiedCloud){
 
   	float area = 0; 
 
@@ -152,8 +150,7 @@ void FakeProjector::updateParameters() {
     std::fill(indicesOccupied.begin(), indicesOccupied.end(), -1);
     
     for (size_t i = 0; i < unknownCloud.size(); ++i){
-		const RichPoint2D& rp = unknownCloud[i];
-		Eigen::Vector2f p = T * rp.point();
+		Eigen::Vector2f p = T * unknownCloud[i];
 
 		float distance = hypot(p.x(), p.y());
 		if ((distance < _min_range)||(distance > _max_range)){
@@ -177,8 +174,7 @@ void FakeProjector::updateParameters() {
 
     
     for (size_t i = 0; i < occupiedCloud.size(); ++i){
-		const RichPoint2D& rp = occupiedCloud[i];
-		Eigen::Vector2f p = T * rp.point();
+		Eigen::Vector2f p = T * occupiedCloud[i];
 
 		float distance = hypot(p.x(), p.y());
 		if ((distance < _min_range)||(distance > _max_range)){

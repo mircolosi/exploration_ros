@@ -162,7 +162,7 @@ bool FrontierDetector::requestOccupancyMap(){
 
 
 
-void FrontierDetector::computeFrontiers(int distance){
+void FrontierDetector::computeFrontiers(int distance, Vector2f centerCoord){
 
 	int startRow;
 	int startCol;
@@ -192,10 +192,22 @@ void FrontierDetector::computeFrontiers(int distance){
 	}
 
 	else{
-		startRow = mapX - distance/_mapResolution;
-		startCol = mapY - distance/_mapResolution;
-		endRow = mapX + distance/_mapResolution + 1;
-		endCol = mapY + distance/_mapResolution +1;
+		int originX;
+		int originY;
+		if (centerCoord != Vector2f{FLT_MAX, FLT_MAX}){
+			originX = (centerCoord[1]- _mapOriginY) /_mapResolution;
+			originY = (centerCoord[0]- _mapOriginX)/_mapResolution;	}
+		else{
+			originX = mapX;
+			originY = mapY;
+		}
+
+		int mapDistance = round(distance/_mapResolution);
+
+		startRow = std::max(0,originX - mapDistance);
+		startCol = std::max(0,originY - mapDistance);
+		endRow = std::min(_occupancyMap->rows, originX + mapDistance + 1);
+		endCol = std::min(_occupancyMap->cols, originY + mapDistance +1);
 	}
 
 
@@ -210,7 +222,7 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
 
 
 	_frontiers.clear();
-	_occupiedCells.clear();
+	_occupiedCellsCloud.clear();
 		
     for(int r = startRow; r < endRow; r++) {
 		for(int c = startCol; c < endCol; c++) {
@@ -234,7 +246,9 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
     							}
 
     		else if (_costMap->at<unsigned char>(r, c) == _occupiedColor ){
-					_occupiedCells.push_back({r,c});	}
+    				float x = c*_mapResolution + _mapOriginY;
+    				float y = r*_mapResolution + _mapOriginX;
+					_occupiedCellsCloud.push_back({x,y});	}
 
     				}
     			}
@@ -245,7 +259,7 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
 void FrontierDetector::computeFrontierRegions(){
 
 	_regions.clear();
-	_unknownFrontierCells.clear();
+	_unknownCellsCloud.clear();
 
 	Vector2iVector examined;
 
@@ -283,8 +297,10 @@ void FrontierDetector::computeFrontierRegions(){
 			   for (int l = 0; l < tempRegion.size(); l ++){
 			   		Vector2iVector neighbors = getColoredNeighbors(tempRegion[l], _unknownColor);
 			   		for (int m = 0; m < neighbors.size(); m++){
-			   			if (!contains(_unknownFrontierCells, neighbors[m])){
-			   				_unknownFrontierCells.push_back(neighbors[m]);	}
+			   				float x = neighbors[m][1]*_mapResolution + _mapOriginY;
+			   				float y = neighbors[m][0]*_mapResolution + _mapOriginX;
+			   				if (!contains(_unknownCellsCloud, Vector2f{x,y})){
+			   					_unknownCellsCloud.push_back({x,y});	}
 			   									
 			   									}
 			   								}
@@ -298,6 +314,7 @@ void FrontierDetector::computeFrontierRegions(){
 
 }
 	
+
 	
 void FrontierDetector::computeFrontierCentroids(){
 
@@ -489,78 +506,14 @@ void FrontierDetector::publishCentroidMarkers(){
 
 }
 
-void FrontierDetector::createDensePointsCloud(srrg_scan_matcher::Cloud2D* pointCloud, const Vector2iVector points, const bool expansion){
-
-	float dist = 0.01;
-
-	if (expansion){
-		int countCell = 0;
-		pointCloud->resize(points.size()*5);
-		for (int i = 0; i< pointCloud->size(); i = i + 5){
-			float x = points[countCell][1]*_mapResolution + _mapOriginY;
-			float y = points[countCell][0]*_mapResolution + _mapOriginX;
-			
-			float x1 = x + dist;
-			float y1 = y; 
-			float x2 = x - dist;
-			float y2 = y; 
-			float x3 = x;
-			float y3 = y + dist; 
-			float x4 = x;
-			float y4 = y - dist; 
-
-	/*		float x5 = x + dist;
-			float y5 = y + dist;
-			float x6 = x - dist;
-			float y6 = y - dist;
-			float x7 = x - dist;
-			float y7 = y + dist; 
-			float x8 = x + dist;
-			float y8 = y - dist;  */
-
-			(*pointCloud)[i] = (srrg_scan_matcher::RichPoint2D({x,y}));
-			(*pointCloud)[i + 1] = (srrg_scan_matcher::RichPoint2D({x1,y1}));
-			(*pointCloud)[i + 2] = (srrg_scan_matcher::RichPoint2D({x2,y2}));
-			(*pointCloud)[i + 3] = (srrg_scan_matcher::RichPoint2D({x3,y3}));
-			(*pointCloud)[i + 4] = (srrg_scan_matcher::RichPoint2D({x4,y4}));
-			/*(*pointCloud)[i + 5] = (srrg_scan_matcher::RichPoint2D({x5,y5}));
-			(*pointCloud)[i + 6] = (srrg_scan_matcher::RichPoint2D({x6,y6}));
-			(*pointCloud)[i + 7] = (srrg_scan_matcher::RichPoint2D({x7,y7}));
-			(*pointCloud)[i + 8] = (srrg_scan_matcher::RichPoint2D({x8,y8}));
-	*/
-			countCell++;
-		}
-	}
-	else{
-		int countCell = 0;
-		pointCloud->resize(points.size());
-		for (int i = 0; i< pointCloud->size(); i = i + 1){
-			float x = points[countCell][1]*_mapResolution + _mapOriginY;
-			float y = points[countCell][0]*_mapResolution + _mapOriginX;
-
-			(*pointCloud)[i] = (srrg_scan_matcher::RichPoint2D({x,y}));
-
-			countCell++;
-		}
-
-	}
 
 
-}
 
-void FrontierDetector::updateClouds(){
-
-	createDensePointsCloud(&_unknownCellsCloud, _unknownFrontierCells, false);
-
-	createDensePointsCloud(&_occupiedCellsCloud, _occupiedCells, false);
-
-}
-
-srrg_scan_matcher::Cloud2D* FrontierDetector::getUnknownCloud(){
+Vector2fVector* FrontierDetector::getUnknownCloud(){
 	return &_unknownCellsCloud;
 }
 
-srrg_scan_matcher::Cloud2D* FrontierDetector::getOccupiedCloud(){
+Vector2fVector* FrontierDetector::getOccupiedCloud(){
 	return &_occupiedCellsCloud;
 }
 
@@ -574,15 +527,11 @@ regionVector FrontierDetector::getFrontierRegions(){
 Vector2iVector FrontierDetector::getFrontierCentroids(){
 	return _centroids;	}
 
-Vector2iVector FrontierDetector::getUnknownCells(){
-	return _unknownFrontierCells;
-}
-Vector2iVector FrontierDetector::getOccupiedCells(){
-	return _occupiedCells;
-}
 
 nav_msgs::MapMetaData FrontierDetector::getMapMetaData(){
 	return _mapMetaData;	}
+
+
 
 
 bool FrontierDetector::isNeighbor(Vector2i coordI, Vector2i coordJ){

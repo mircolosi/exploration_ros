@@ -26,7 +26,7 @@ class OccupancyMapServer{
 
 public:
 
-	OccupancyMapServer(cv::Mat* occupancyMap, int typeExperiment, string mapTopicName = "map", string odomFrameName = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
+	OccupancyMapServer(cv::Mat* occupancyMap, int typeExperiment,string laserFrameName = "base_laser_link", string mapTopicName = "map", string odomFrameName = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
 
 	void publishMap ();
 	void publishMapMetaData();
@@ -55,6 +55,7 @@ protected:
 	string _mapTopicName;
 
 	string _odomFrameName;
+	string _laserFrameName;
 
 	Vector2f _mapOffset;
 	float _mapResolution;
@@ -88,9 +89,9 @@ protected:
 
 
 	tf::Transform _tfMap2Odom;
-	tf::Stamped<tf::Pose> _robotMapPose;
+	tf::Transform _tfMap2Laser;
 
-	ros::Duration _transformTolerance;
+	ros::Duration _updateTime;
 	ros::Time _lastTime;
 
 };

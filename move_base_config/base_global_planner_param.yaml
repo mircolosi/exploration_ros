@@ -1,3 +1,3 @@
 GlobalPlanner:
-   allow_unknown: false
+   allow_unknown: true
    

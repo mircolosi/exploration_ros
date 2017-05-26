@@ -64,8 +64,6 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 	startPose.position.x = _tfMapToBase.getOrigin().x(); 
 	startPose.position.y = _tfMapToBase.getOrigin().y();
 
-	std::cout<<startPose.position.x <<" "<<startPose.position.y<<std::endl;
-
 	geometry_msgs::Quaternion qMsg;
 	tf::quaternionTFToMsg(_tfMapToBase.getRotation(),qMsg);
 
@@ -87,7 +85,6 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 		goalPose.position.x = meterCentroids[i][0];  
 		goalPose.position.y = meterCentroids[i][1];
 
-			std::cout<<goalPose.position.x <<" "<<goalPose.position.y<<std::endl;
 
 
 		float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
@@ -148,7 +145,7 @@ PoseWithInfo PathsRollout::extractGoalFromSampledPoses(){
 
 	PoseWithInfo goalPose;
 
-	Cloud2D augmentedCloud = *_unknownCellsCloud;
+	Vector2fVector augmentedCloud = *_unknownCellsCloud;
 
 	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
 
@@ -309,7 +306,7 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 
 
 
-PoseWithInfo PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
+PoseWithInfo PathsRollout::extractBestPose(Vector2fVector cloud){
 	
 	PoseWithInfo goalPose;
 	Isometry2f transform;
@@ -374,7 +371,7 @@ PoseWithInfo PathsRollout::extractBestPose(srrg_scan_matcher::Cloud2D cloud){
 }
 
 
-int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints){
+int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints){
 
 	int visiblePoints = 0;
 
@@ -395,8 +392,8 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,
 	FloatVector _ranges;
 	IntVector _pointsIndices;
 
-	//_projector->sparseProjection(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
-	visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
+	_projector->sparseProjection(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+	//visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
 /* 
 	cv::Mat testImage = cv::Mat(20/0.05, 20/0.05, CV_8UC1);
 	testImage.setTo(cv::Scalar(0));
@@ -406,7 +403,7 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,
 	title << "virtualscan_test/test_"<<_imageCount<<".jpg"; 
 	_imageCount++;
 	*/
-	/*for (int k = 0; k < _pointsIndices.size(); k++){
+	for (int k = 0; k < _pointsIndices.size(); k++){
 		if (_pointsIndices[k] != -1){
 			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
 			if (_pointsIndices[k] < numInterestingPoints){
@@ -417,7 +414,7 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,
 						}
 					}
 	//cv::imwrite(title.str(),testImage);
-*/
+
 	return visiblePoints;
 
 }
@@ -494,11 +491,11 @@ void PathsRollout::setAbortedGoals(Vector2fVector abortedGoals){
 	_abortedGoals = abortedGoals;
 }
 
-void PathsRollout::setUnknownCellsCloud(Cloud2D* cloud){
+void PathsRollout::setUnknownCellsCloud(Vector2fVector* cloud){
 	_unknownCellsCloud = cloud;
 }
 
-void PathsRollout::setOccupiedCellsCloud(Cloud2D* cloud){
+void PathsRollout::setOccupiedCellsCloud(Vector2fVector* cloud){
 	_occupiedCellsCloud = cloud;
 }
 

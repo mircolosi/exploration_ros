@@ -52,13 +52,13 @@ public:
 
 	Vector2fVector getAbortedGoals();
 
-	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
-	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
+	void setUnknownCellsCloud(Vector2fVector* cloud);
+	void setOccupiedCellsCloud(Vector2fVector* cloud);
 
 protected:
 
-	bool isGoalReached(srrg_scan_matcher::Cloud2D cloud);
-	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints);
+	bool isGoalReached(Vector2fVector cloud);
+	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints);
 
 
 	FakeProjector *_projector;
@@ -73,8 +73,8 @@ protected:
 	int _minUnknownRegionSize;
 
 
-	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
-	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
+	Vector2fVector* _unknownCellsCloud;
+	Vector2fVector* _occupiedCellsCloud;
 
 	Vector2fVector _abortedGoals;
 

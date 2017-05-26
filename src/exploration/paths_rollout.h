@@ -52,7 +52,7 @@ public:
 
 	PoseWithInfo extractGoalFromSampledPoses();
 
-	PoseWithInfo extractBestPose(srrg_scan_matcher::Cloud2D cloud);
+	PoseWithInfo extractBestPose(Vector2fVector cloud);
 
 
 	std::vector<PoseWithInfo> makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
@@ -60,8 +60,8 @@ public:
 
 	void setAbortedGoals(Vector2fVector abortedGoals);
 
-	void setUnknownCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
-	void setOccupiedCellsCloud(srrg_scan_matcher::Cloud2D* cloud);
+	void setUnknownCellsCloud(Vector2fVector* cloud);
+	void setOccupiedCellsCloud(Vector2fVector* cloud);
 	void setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg);
 
 
@@ -70,7 +70,7 @@ protected:
 	float predictAngle(Vector3f currentPose, Vector3f nextPosition);
 	bool isActionDone(MoveBaseClient* ac);
 	float computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints);
-	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints);
+	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints);
 
 
 	FakeProjector * _projector;
@@ -105,8 +105,8 @@ protected:
 	float _nearCentroidsThreshold;
 	float _farCentroidsThreshold;
 
-	srrg_scan_matcher::Cloud2D* _unknownCellsCloud;
-	srrg_scan_matcher::Cloud2D* _occupiedCellsCloud;
+	Vector2fVector* _unknownCellsCloud;
+	Vector2fVector* _occupiedCellsCloud;
 
 	float _lambda;
 

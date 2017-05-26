@@ -24,18 +24,20 @@ bool OccupancyMapServer::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::
 }
 
 
-OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment, string mapTopicName, string odomFrameName, ros::Duration tolerance, float threshold, float freeThreshold){
+OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment, string laserFrameName, string mapTopicName, string odomFrameName, ros::Duration tolerance, float threshold, float freeThreshold){
 
 	_occupancyMap = occupancyMap;
 
 	_typeExperiment = typeExperiment;
 
-	_transformTolerance = tolerance;
+	_updateTime = tolerance;
 
 	_threshold = threshold;
 	_freeThreshold = freeThreshold;
 
 	_odomFrameName = odomFrameName;
+
+	_laserFrameName = laserFrameName;
 
 	std::stringstream fullTopicName;
 	//fullTopicName << "/robot_" << idRobot << "/" << _mapTopicName;
@@ -97,7 +99,7 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 	actualPoseQuaternions.setRPY(0,0, actualPose.rotation().angle());
 	actualPoseTF.setRotation(actualPoseQuaternions);
 
-	_robotMapPose = tf::Stamped<tf::Pose>(map2Trajectory*actualPoseTF, ros::Time::now(), _mapTopicName);
+	_tfMap2Laser = map2Trajectory*actualPoseTF;
 
 
 }
@@ -105,19 +107,25 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 
 void OccupancyMapServer::adjustMapToOdom() {
 
-	//tf::Stamped<tf::Pose> tmp_tf_stamped (_robotMapPose.inverse(),ros::Time::now(), "base_link");
-	tf::Stamped<tf::Pose> tmp_tf_stamped (_robotMapPose.inverse(),ros::Time(0), "base_link");
-	tf::Pose map_to_odom;
+
 
 	try{
-		tf::Stamped<tf::Pose> odom_to_map;
+		tf::StampedTransform odom_to_laser;
+		tf::Transform odom_to_map;
+		tf::Transform map_to_odom;
+		tf::Transform laser_to_map;
 
-		_tfListener.transformPose(_odomFrameName, tmp_tf_stamped, odom_to_map);
 
-		map_to_odom = tf::Pose(odom_to_map.inverse());
+		_tfListener.lookupTransform(_odomFrameName, _laserFrameName, ros::Time(0), odom_to_laser);
 
-		if ((ros::Time::now() >= _lastTime + _transformTolerance)||(_first == true)){
-			std::cout<<"ADJUSTED MAP !!!!!!!!"<<std::endl;
+		laser_to_map = _tfMap2Laser.inverse();
+
+		odom_to_map = (odom_to_laser*laser_to_map);
+
+		map_to_odom = odom_to_map.inverse();
+
+
+		if ((ros::Time::now() >= _lastTime + _updateTime)||(_first == true)){
 			_tfMap2Odom = map_to_odom;
 			_lastTime =ros::Time::now();
 			_first = false;

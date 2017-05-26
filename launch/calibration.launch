@@ -1,0 +1,32 @@
+<launch>
+  <master auto="start"/>
+
+
+<!--
+<node pkg="thin_joystick_teleop" name="joystick" type="joy_teleop_node"/>
+-->
+
+
+<node pkg="srrg_orazio_ros" name="orazio" type="orazio_robot_node">
+	<param name="serial_device" value="/dev/ttyACM1" />
+</node>
+
+
+
+<node pkg="thin_hokuyo" name="laser" type="thin_hokuyo_node"/>
+
+
+<node pkg="srrg_core_ros" name="state_publisher" type="srrg_state_publisher_node" output="screen" args="-c $(find mr_exploration)/marrtino/marrtino_transforms.txt" />
+
+<include file="$(find mr_exploration)/launch/srrg_scan_matcher.launch"/>
+
+
+
+<node pkg="srrg_nw_calibration_ros" name="calibration" type="new_world_calibration_ros_auto_node" args="-guess $(find mr_exploration)/marrtino/marrtino_hokuyo_guess.txt" />
+
+
+
+</launch>
+
+
+

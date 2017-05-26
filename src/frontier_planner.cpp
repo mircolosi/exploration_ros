@@ -42,7 +42,7 @@ Vector2iVector centroids;
 Vector2iVector frontierPoints;
 Vector2fVector abortedGoals;
 regionVector regions;
-srrg_scan_matcher::Cloud2D *unknownCellsCloud, *occupiedCellsCloud;
+Vector2fVector *unknownCellsCloud, *occupiedCellsCloud;
  
 
 std::string mapFrame;
@@ -129,10 +129,8 @@ while (ros::ok() && (numExplorationIterations != 0)){
 	regions = frontiersDetector.getFrontierRegions();
 	centroids = frontiersDetector.getFrontierCentroids();
 
-	frontiersDetector.updateClouds();
 	abortedGoals = goalPlanner.getAbortedGoals();
 
-	std::cout<<unknownCellsCloud->size()<<" --- "<<occupiedCellsCloud->size()<<std::endl;
 
 	if (centroids.size() == 0){
 		std::cout<<"NO CENTROIDS EXTRACTED... EXIT"<<std::endl;

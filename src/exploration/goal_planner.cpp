@@ -97,7 +97,7 @@ void GoalPlanner::waitForGoal(){
 	ros::Rate loop_rate1(15);
 	ros::Rate loop_rate2(2);
 
-	Cloud2D augmentedCloud; 
+	Vector2fVector augmentedCloud; 
 
 	//This loop is needed to wait for the message status to be updated
 	while(_ac->getState() != actionlib::SimpleClientGoalState::ACTIVE){
@@ -107,8 +107,7 @@ void GoalPlanner::waitForGoal(){
 	bool reached = false;
 	while (!reached){
 
-		_frontierDetector->computeFrontiers(6);
-		_frontierDetector->updateClouds();
+		_frontierDetector->computeFrontiers(8, Vector2f{_goal.pose[0], _goal.pose[1]});
 		_frontierDetector->publishFrontierPoints();
    		_frontierDetector->publishCentroidMarkers();
 
@@ -125,7 +124,7 @@ void GoalPlanner::waitForGoal(){
 }
 
 
-bool GoalPlanner::isGoalReached(Cloud2D cloud){
+bool GoalPlanner::isGoalReached(Vector2fVector cloud){
 
 
 	actionlib::SimpleClientGoalState goalState = _ac->getState();
@@ -235,7 +234,7 @@ catch (...) {
 
 
 
-int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,srrg_scan_matcher::Cloud2D cloud, int numInterestingPoints){
+int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints){
 
 	int visiblePoints = 0;
 
@@ -257,10 +256,8 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,s
 	FloatVector _ranges;
 	IntVector _pointsIndices;
 
-	
-	visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
-	std::cout<<_unknownCellsCloud->size()<< " "<<_occupiedCellsCloud->size()<<std::endl;
-	std::cout<< visiblePoints<<std::endl;
+	_projector->sparseProjection(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
+	//visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
 
 	/*cv::Mat testImage = cv::Mat(100/0.05, 100/0.05, CV_8UC1);
 	testImage.setTo(cv::Scalar(0));
@@ -269,7 +266,7 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,s
 	std::stringstream title;
 	title << "virtualscan_test/test_"<<yawAngle<<".jpg"; 
 */
-/*
+
 	for (int k = 0; k < _pointsIndices.size(); k++){
 		if (_pointsIndices[k] != -1){
 			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
@@ -282,7 +279,7 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,s
 					}
 
 	//cv::imwrite(title.str(),testImage);
-*/
+
 	return visiblePoints;
 
 }
@@ -307,11 +304,11 @@ Vector2fVector GoalPlanner::getAbortedGoals(){
 }
 
 
-void GoalPlanner::setUnknownCellsCloud(Cloud2D* cloud){
+void GoalPlanner::setUnknownCellsCloud(Vector2fVector* cloud){
 	_unknownCellsCloud = cloud;
 }
 
-void GoalPlanner::setOccupiedCellsCloud(Cloud2D* cloud){
+void GoalPlanner::setOccupiedCellsCloud(Vector2fVector* cloud){
 	_occupiedCellsCloud = cloud;
 }
 

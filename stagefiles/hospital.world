@@ -90,7 +90,7 @@ floorplan
 #erratic( pose [  18        7.5     0.000 -90.000 ] name "robot7" color "cyan")
 
 # 2robots simulation
-erratic( pose [ -19.000   -4.000   0.000   0.000 ] name "robot0" color "red")
+erratic( pose [ -19.000   -3.000   0.000   0.000 ] name "robot0" color "red")
 #erratic( pose [  18        7.5     0.000 -90.000 ] name "robot1" color "blue")
 
 # 4robots simulation

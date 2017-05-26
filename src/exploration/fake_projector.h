@@ -18,11 +18,11 @@ public:
 
 FakeProjector();
 
-void simpleProjection(FloatVector& ranges, IntVector& indices, const Eigen::Isometry2f& T, const Cloud2D& model) const;
+void simpleProjection(FloatVector& ranges, IntVector& indices, const Eigen::Isometry2f& T, const Vector2fVector& model) const;
 
-void sparseProjection(FloatVector& ranges, IntVector& indices, const Eigen::Isometry2f& T, const Cloud2D& model) const;
+void sparseProjection(FloatVector& ranges, IntVector& indices, const Eigen::Isometry2f& T, const Vector2fVector& model) const;
 
-float areaProjection(const Eigen::Isometry2f& T, const Cloud2D& unknownCloud, const Cloud2D& occupiedCloud);
+float areaProjection(const Eigen::Isometry2f& T, const Vector2fVector& unknownCloud, const Vector2fVector& occupiedCloud);
 
 
 inline void setMaxRange(float max_range) { _max_range = max_range; }

@@ -50,7 +50,7 @@ public:
 
 	bool requestOccupancyMap();
 
-	void computeFrontiers(int distance = -1);
+	void computeFrontiers(int distance = -1, Vector2f centerCoord = {FLT_MAX,FLT_MAX});
 		void computeFrontiers2();
 
 
@@ -68,8 +68,8 @@ public:
 	Vector2iVector getUnknownCells();
 	Vector2iVector getOccupiedCells();
 
-	srrg_scan_matcher::Cloud2D* getUnknownCloud();
-	srrg_scan_matcher::Cloud2D* getOccupiedCloud();
+	Vector2fVector* getUnknownCloud();
+	Vector2fVector* getOccupiedCloud();
 
 
 
@@ -97,7 +97,7 @@ void rankFrontierRegions(float mapX, float mapY);
 
 
 
-	inline bool contains(Vector2iVector vector, Vector2i element){
+	template<class V, class E> inline bool contains(V vector, E element){
 		if (std::find(vector.begin(), vector.end(), element) != vector.end())
 			return true;
 		else 
@@ -129,14 +129,10 @@ void rankFrontierRegions(float mapX, float mapY);
 	regionVector _regions;
 	Vector2iVector _centroids;
 
-	Vector2iVector _unknownFrontierCells;
-	Vector2iVector _occupiedCells;
+	Vector2fVector _unknownCellsCloud;
+	Vector2fVector _occupiedCellsCloud;
 
 	Vector3f _robotPose;
-
-	srrg_scan_matcher::Cloud2D _unknownCellsCloud;
-	srrg_scan_matcher::Cloud2D _occupiedCellsCloud;
-
 
 	std::string _topicPointsName;
 	std::string _topicMarkersName;

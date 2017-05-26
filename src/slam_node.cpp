@@ -33,9 +33,9 @@ int main(int argc, char **argv)
   int  minInliers;
   int windowLoopClosure;
   double inlierThreshold;
-  float localizationUpdateTime;
+  float localizationTimeUpdate, localizationAngularUpdate, localizationLinearUpdate;
   std::string outputFilename;
-  std::string odometryTopic, scanTopic, occupancyTopic, mapPoseTopic, fixedFrame;
+  std::string odometryTopic, scanTopic, occupancyTopic, mapPoseTopic, laserFrameName, fixedFrame;
 
   int typeExperiment;
 
@@ -52,20 +52,21 @@ int main(int argc, char **argv)
   float freeThrehsold = 0.3;
 
 
-  arg.param("resolution",  resolution, 0.025, "resolution of the matching grid");
-  arg.param("maxScore",    maxScore, 0.15,     "score of the matcher, the higher the less matches");
+  arg.param("resolution", resolution, 0.025, "resolution of the matching grid");
+  arg.param("maxScore", maxScore, 0.15, "score of the matcher, the higher the less matches");
   arg.param("kernelRadius", kernelRadius, 0.2,  "radius of the convolution kernel");
-  arg.param("minInliers",    minInliers, 5,     "min inliers");
-  arg.param("windowLoopClosure",  windowLoopClosure, 10,   "sliding window for loop closures");
-  arg.param("inlierThreshold",  inlierThreshold, 2.,   "inlier threshold");
-  arg.param("locUpdate", localizationUpdateTime, 1, "interval for updating the robot pose in the map, in seconds");
-  arg.param("type",  typeExperiment, 0, "0 if stage simulation or 1 if real robot experiment");
+  arg.param("minInliers", minInliers, 5, "min inliers");
+  arg.param("windowLoopClosure",  windowLoopClosure, 10, "sliding window for loop closures");
+  arg.param("inlierThreshold",  inlierThreshold, 2., "inlier threshold");
+  arg.param("angularUpdate", localizationAngularUpdate, M_PI_4, "angular rotation interval for updating the graph, in radians");
+  arg.param("linearUpdate", localizationLinearUpdate, 0.25, "linear translation interval for updating the graph, in meters");
+  arg.param("timeUpdate", localizationTimeUpdate, 0, "interval in time for updating the robot pose in the map, in seconds");
+  arg.param("type", typeExperiment, 0, "0 if stage simulation or 1 if real robot experiment");
+  arg.param("laserFrame", laserFrameName, "base_laser_link", "name of the laser TF frame");
   arg.param("odometryTopic", odometryTopic, "odom", "odometry ROS topic");
   arg.param("scanTopic", scanTopic, "base_scan", "scan ROS topic");
   arg.param("occupancyTopic", occupancyTopic, "map", "occupancy grid ROS topic");
-  arg.param("mapPoseTopic", mapPoseTopic, "map_pose", "robot pose in the map ROS topic");
   arg.param("fixedFrame", fixedFrame, "odom", "fixed frame to visualize the graph with ROS Rviz");
-  arg.param("o", outputFilename, "", "file where to save output");
   arg.parseArgs(argc, argv);
 
   ros::init(argc, argv, "slam_node");
@@ -83,11 +84,11 @@ int main(int argc, char **argv)
   //Map building
   cv::Mat occupancyMap;
   Eigen::Vector2f offset;
-  ros::Duration updateInterval = ros::Duration(localizationUpdateTime);
+  ros::Duration updateInterval = ros::Duration(localizationTimeUpdate);
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
   Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  OccupancyMapServer mapServer(&occupancyMap,typeExperiment, occupancyTopic, odometryTopic, updateInterval, threhsold, freeThrehsold);
+  OccupancyMapServer mapServer(&occupancyMap,typeExperiment, laserFrameName, occupancyTopic, odometryTopic, updateInterval, threhsold, freeThrehsold);
 
   //Set initial information
   SE2 currEst = rh.getOdom();
@@ -119,8 +120,8 @@ int main(int argc, char **argv)
 
     odomPosk_1 = odomPosk;
 
-    if((distanceSE2(gslam.lastVertex()->estimate(), currEst) > 0.25) || 
-       (fabs(gslam.lastVertex()->estimate().rotation().angle()-currEst.rotation().angle()) > M_PI_4)){
+    if((distanceSE2(gslam.lastVertex()->estimate(), currEst) > localizationLinearUpdate) || 
+       (fabs(gslam.lastVertex()->estimate().rotation().angle()-currEst.rotation().angle()) > localizationAngularUpdate)){
       //Add new data
       RobotLaser* laseri = rh.getLaser();
 
@@ -148,6 +149,9 @@ int main(int argc, char **argv)
       mapServer.adjustMapToOdom();
 
     }
+
+    offset = mapCreator.getInitialOffset();
+    mapServer.setOffset(offset);
     
     mapServer.publishMapPose(currEst);
     mapServer.publishMapMetaData();
