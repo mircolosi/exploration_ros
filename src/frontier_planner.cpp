@@ -28,7 +28,7 @@ g2o::CommandArgs arg;
 std::string frontierPointsTopic, markersTopic;
 
 int thresholdRegionSize;
-int thresholdExploredArea = 7;
+int thresholdExploredArea;
 nav_msgs::MapMetaData occupancyMapInfo;
 
 float lambdaDecay;
@@ -45,21 +45,24 @@ regionVector regions;
 Vector2fVector *unknownCellsCloud, *occupiedCellsCloud;
  
 
-std::string mapFrame;
+std::string mapFrame, baseFrame, laserFrame;
 
 cv::Mat occupancyMap, costMap;
 
 
 Vector2f laserOffset;
 
-arg.param("mapFrame", mapFrame, "map", "mapFrame for this robot");
+arg.param("mapFrame", mapFrame, "map", "TF mapFrame for the robot");
+arg.param("baseFrame", baseFrame, "base_link", "TF base Frame for the robot");
+arg.param("laserFrame", laserFrame, "base_laser_link", "TF laser Frame for the robot");
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
+arg.param("exploredArea", thresholdExploredArea, 10, "minimum number of visible frontier points before aborting a goal");
 arg.param("lambda", lambdaDecay, 1, "distance decay factor for choosing next goal");
-arg.param("mc", nearCentroidsThreshold, 0.5, "Laser scanner range minimum limit");
-arg.param("Mc", farCentroidsThreshold, 8.0, "Laser scanner range minimum limit");
-arg.param("nc", maxCentroidsNumber, 8, "Laser scanner range minimum limit");
+arg.param("mc", nearCentroidsThreshold, 0.5, "Lower distance limit to consider 2 goals as the same, in meters");
+arg.param("Mc", farCentroidsThreshold, 8.0, "Max distance at which a centroid is considered if there are also closer ones, in meters");
+arg.param("nc", maxCentroidsNumber, 8, "Maximum number of centroids considered during each search for a goal");
 arg.param("iter", numExplorationIterations, 10, "Number of plans to be computed. -1 means infinite");
 
 arg.parseArgs(argc, argv);
@@ -67,8 +70,6 @@ arg.parseArgs(argc, argv);
 ros::init(argc, argv, "frontier_planner");
 
 ros::NodeHandle nh;
-
-
 
 //Laserscan FAKE projection parameters
 float minRange = 0.0;
@@ -89,8 +90,8 @@ ac.waitForServer(); //will wait for infinite time
 tf::TransformListener tfListener;
 tf::StampedTransform tfBase2Laser;
 try{
-	tfListener.waitForTransform("base_link", "base_laser_link", ros::Time(0), ros::Duration(1.0));
-	tfListener.lookupTransform("base_link", "base_laser_link", ros::Time(0), tfBase2Laser);
+	tfListener.waitForTransform(baseFrame, laserFrame, ros::Time(0), ros::Duration(1.0));
+	tfListener.lookupTransform(baseFrame, laserFrame, ros::Time(0), tfBase2Laser);
 
 	laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
 }
@@ -99,7 +100,7 @@ catch (...) {
 	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
  }
 
-FrontierDetector frontiersDetector(&occupancyMap, &costMap,  frontierPointsTopic, markersTopic, thresholdRegionSize);
+FrontierDetector frontiersDetector(&occupancyMap, &costMap,thresholdRegionSize);
 
 unknownCellsCloud = frontiersDetector.getUnknownCloud();
 occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
@@ -109,7 +110,7 @@ PathsRollout pathsRollout(&costMap, &ac, &projector, laserOffset, maxCentroidsNu
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
 
-GoalPlanner goalPlanner(&ac, &projector, &frontiersDetector, laserOffset, thresholdExploredArea);
+GoalPlanner goalPlanner(&ac, &projector, &frontiersDetector, &costMap, laserOffset, thresholdExploredArea, mapFrame, baseFrame);
 
 goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
@@ -123,6 +124,7 @@ while (ros::ok() && (numExplorationIterations != 0)){
 
 	frontiersDetector.publishFrontierPoints();
    	frontiersDetector.publishCentroidMarkers();
+
 
 	occupancyMapInfo = frontiersDetector.getMapMetaData();
 	frontierPoints = frontiersDetector.getFrontierPoints();
@@ -143,13 +145,12 @@ while (ros::ok() && (numExplorationIterations != 0)){
 		pathsRollout.setAbortedGoals(abortedGoals);
 
 		int numSampledPoses = pathsRollout.computeAllSampledPlans(centroids, mapFrame);
-		std::cout<<"Sampled "<<numSampledPoses<<" poses"<<std::endl;
 		if (numSampledPoses == 0){
 			std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
 			return 0;
 		}
 
-		PoseWithInfo goal = pathsRollout.extractGoalFromSampledPoses();
+		PoseWithInfo goal = pathsRollout.extractBestPose();
 
 		std::string frame = mapFrame;
 

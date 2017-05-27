@@ -32,7 +32,7 @@ Requirements:
 
 - This code requires ROS Stage and the ROS Navigation stack 
 
-The code has been tested on Ubuntu 14.04 (64bits). 
+The code has been tested on Ubuntu 14.04 and 16.04 (64bits). 
 
 Installation
 ------------
@@ -62,7 +62,9 @@ The default parameters work well in general, anyway for specific program options
   
 **Example of use:**
 
-It's possible to test the whole system by launching the launch file present in the launch directory
+It's possible to test the whole system by launching the launch file present in the launch directory. CHECK that the planner node is UNCOMMENTED inside the launch file, otherwise the robot will not move.
 
-    $ roslaunch 1RobotStage.launch
+    $ roslaunch stageExperiment.launch
+
+The frontier planner node can be used also with different planners (such as gmapping). The only requirements are the availability of an occupancy grid map and of a map -> odom TF transform.
 

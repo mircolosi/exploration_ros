@@ -46,13 +46,12 @@ public:
 	void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
 	void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-	FrontierDetector(cv::Mat *occupancy, cv::Mat *cost, std::string namePoints = "points", std::string nameMarkers = "visualization_marker", int thresholdSize = 30, int minNeighborsThreshold = 4);
+	FrontierDetector(cv::Mat *occupancy, cv::Mat *cost, int thresholdSize = 30, int minNeighborsThreshold = 4, std::string namePoints = "points", std::string nameMarkers = "markers", std::string nameMap = "map", std::string nameMapMetadata = "");
 
 	bool requestOccupancyMap();
 
 	void computeFrontiers(int distance = -1, Vector2f centerCoord = {FLT_MAX,FLT_MAX});
-		void computeFrontiers2();
-
+		
 
 	void rankRegions();
 	
@@ -84,11 +83,11 @@ public:
 
 
 protected:
-Vector2iVector get4Neighbors(Vector2i cell);
-void computeFrontierPoints(int startR, int startC, int endR, int endC);
-void computeFrontierRegions();
-void computeFrontierCentroids();
-void rankFrontierRegions(float mapX, float mapY);
+	Vector2iVector get4Neighbors(Vector2i cell);
+	void computeFrontierPoints(int startR, int startC, int endR, int endC);
+	void computeFrontierRegions();
+	void computeFrontierCentroids();
+	void rankFrontierRegions(float mapX, float mapY);
 
 
 	bool isNeighbor(Vector2i coordI, Vector2i coordJ);
@@ -114,10 +113,6 @@ void rankFrontierRegions(float mapX, float mapY);
 	float _mixtureParam = 1;
 
 	nav_msgs::MapMetaData _mapMetaData;
-	float _mapResolution;
-	float _mapOriginX;
-	float _mapOriginY;
-
 
 	unsigned char _freeColor = 0;
 	unsigned char _unknownColor = -1;
@@ -136,8 +131,8 @@ void rankFrontierRegions(float mapX, float mapY);
 
 	std::string _topicPointsName;
 	std::string _topicMarkersName;
-	std::string _topicRobotPoseName;
-	std::string _fixedFrameId;
+	std::string _topicMapName;
+	std::string _topicMapMetadataName;
 
 	nav_msgs::OccupancyGrid _costMapMsg;
 

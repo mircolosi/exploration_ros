@@ -24,8 +24,7 @@ define topurg ranger
 
 define erratic position
 (
-  #size [0.415 0.392 0.25]
-  size [0.350 0.350 0.250]
+  size [0.35 0.35 0.25]
   origin [-0.050 0.000 0.000 0.000]
   gui_nose 1
   drive "diff"

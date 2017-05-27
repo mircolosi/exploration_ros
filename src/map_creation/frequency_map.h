@@ -42,6 +42,7 @@ class FrequencyMap : public Eigen::Matrix<FrequencyMapCell, Eigen::Dynamic, Eige
     return Eigen::Vector2i(lrint((wp.x() - _offset.x()) / _resolution),
 			   lrint((wp.y() - _offset.y()) / _resolution)); 
   }
+
   
   bool isInside(const Eigen::Vector2i &mp) const { 
     return mp.x() >= 0 && mp.y() >=0 && mp.x() < this->rows() && mp.y() < this->cols();

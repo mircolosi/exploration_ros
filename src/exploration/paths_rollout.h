@@ -50,10 +50,7 @@ public:
 
 	int computeAllSampledPlans(Vector2iVector centroids, std::string frame);
 
-	PoseWithInfo extractGoalFromSampledPoses();
-
-	PoseWithInfo extractBestPose(Vector2fVector cloud);
-
+	PoseWithInfo extractBestPose();
 
 	std::vector<PoseWithInfo> makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
 	std::vector<PoseWithInfo> sampleTrajectory(nav_msgs::Path path);
@@ -70,7 +67,7 @@ protected:
 	float predictAngle(Vector3f currentPose, Vector3f nextPosition);
 	bool isActionDone(MoveBaseClient* ac);
 	float computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints);
-	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints);
+	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset);
 
 
 	FakeProjector * _projector;

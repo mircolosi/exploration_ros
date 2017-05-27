@@ -79,7 +79,8 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 
 	//Compute the map->trajectory transformation
 	tf::Transform map2Trajectory;
-	map2Trajectory.setOrigin(tf::Vector3(-_mapOffset[0],-_mapOffset[1], 0.0));
+	map2Trajectory.setOrigin(tf::Vector3(0.0,0.0, 0.0));
+
 	tf::Quaternion map2TrajectoryQuaternions;
 	if (_typeExperiment == SIM_EXPERIMENT){
 		map2TrajectoryQuaternions.setRPY(0, 0, -M_PI_2);	}
@@ -153,9 +154,6 @@ void OccupancyMapServer::publishMap() {
 
 	_gridMsg.data.resize(_occupancyMap->rows * _occupancyMap->cols);
 
-	_gridMsg.info.width = _occupancyMap->cols;
-	_gridMsg.info.height = _occupancyMap->rows;
-
 
 	for(int r = 0; r < _occupancyMap->rows; r++) {
 		for(int c = 0; c < _occupancyMap->cols; c++) {
@@ -168,9 +166,21 @@ void OccupancyMapServer::publishMap() {
 	//header (uint32 seq, time stamp, string frame_id)
 
 	//info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
+
+
+
+	_gridMsg.info.width = _occupancyMap->cols;
+	_gridMsg.info.height = _occupancyMap->rows;
+
+	_gridMsg.info.origin.position.x = _mapOffset.x();
+	_gridMsg.info.origin.position.y = _mapOffset.y();
+
 	_gridMsg.info.map_load_time = ros::Time::now();
 	_gridMsg.info.resolution = _mapResolution;
+
 	_pubOccupGrid.publish(_gridMsg);
+
+
 
 
 }
@@ -183,8 +193,8 @@ void OccupancyMapServer::publishMapMetaData() {
 
 	msg.resolution = _mapResolution;
 	
-	msg.origin.position.x = 0.0;
-	msg.origin.position.y = 0.0;
+	msg.origin.position.x = _mapOffset.x();
+	msg.origin.position.y = _mapOffset.y();
 	msg.origin.position.z = 0.0;
 	msg.origin.orientation.x = 0;
 	msg.origin.orientation.y = 0; 

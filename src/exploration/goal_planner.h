@@ -35,7 +35,7 @@ class GoalPlanner {
 public:
 
 	
-	GoalPlanner(MoveBaseClient *ac, FakeProjector *projector, FrontierDetector *frontierDetector,Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10);
+	GoalPlanner(MoveBaseClient *ac, FakeProjector *projector, FrontierDetector *frontierDetector, cv::Mat *costImage, Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string mapFrame = "map", std::string baseFrame = "base_link");
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
@@ -57,15 +57,16 @@ public:
 
 protected:
 
-	bool isGoalReached(Vector2fVector cloud);
-	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints);
+	bool isGoalReached();
+	void displayStringWithTime(std::string text);
+	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset);
 
 
 	FakeProjector *_projector;
 	Vector2f _laserOffset;
 	FrontierDetector *_frontierDetector;
 
-	float _mapResolution;
+	float _mapResolution = 0.05;
 
 	float _xyThreshold = 0.25;
 
@@ -78,9 +79,11 @@ protected:
 
 	Vector2fVector _abortedGoals;
 
-	std::string _fixedFrameId;
+	std::string _mapFrame;
+	std::string _baseFrame;
 
 	cv::Mat* _occupancyMap;
+	cv::Mat* _costMap;
 	
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;

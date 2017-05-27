@@ -4,8 +4,17 @@
 
 <remap from="scan" to="base_scan"/>
 
+<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-timeUpdate 0 -angularUpdate 0.25 -linearUpdate 0.25 -scanTopic scan -fixedFrame trajectory -type 0" />
 
-<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-timeUpdate 1 -angularUpdate 0.5 -linearUpdate 0.5 -scanTopic scan -fixedFrame trajectory -type 0" />
+
+<!--
+<rosparam file="$(find nav2d_tutorials)/param/ros.yaml"/>
+<node name="Mapper" pkg="nav2d_karto" type="mapper">
+	<remap from="scan" to="base_scan"/>
+	<rosparam file="$(find nav2d_tutorials)/param/mapper.yaml"/>
+</node>
+-->
+
 
 
 <!--

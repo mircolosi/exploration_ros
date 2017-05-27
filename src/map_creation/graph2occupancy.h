@@ -65,7 +65,7 @@ public:
 	float getAngle ();
 	float getFreeThreshold ();
 
-	Vector2f getInitialOffset();
+	Vector2f getMapCenter();
 
 
 
@@ -76,7 +76,7 @@ protected:
 	FrequencyMap _map;
 	cv::Mat *_mapImage;
 
-	Vector2f _initialOffset;
+	Vector2f _mapCenter;
 
 	SE2 _groundTruthInitialPose;
 
@@ -96,8 +96,6 @@ protected:
 	unsigned char _unknownColor = -1;
 	unsigned char _occupiedColor = 100;
 
-
-	bool _first = true;
 
 };
 

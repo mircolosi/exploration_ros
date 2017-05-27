@@ -27,6 +27,9 @@ class RosHandlerSR
 
   SE2 getOdom();
   RobotLaser* getLaser();
+
+  float getLaserMaxRange();
+
   
   inline void setOdomTopic(std::string odomTopic) {_odomTopic = odomTopic;}
   inline void setScanTopic(std::string scanTopic) {_scanTopic = scanTopic;}
@@ -52,6 +55,8 @@ class RosHandlerSR
   
 
   bool _useOdom, _useLaser;
+  bool _firstScan;
+  float _laserMaxRange;
 
   //ROS msgs
   nav_msgs::Odometry _odom;

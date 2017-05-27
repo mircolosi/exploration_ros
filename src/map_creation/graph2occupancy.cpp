@@ -15,6 +15,11 @@ Graph2occupancy::Graph2occupancy(OptimizableGraph *graph, cv::Mat *image, float 
     _threshold = threhsold;
     _rows = rows;
     _cols = cols;
+
+    if (usableRange > 12.0){
+      usableRange = 12.0;
+        }
+
     _maxRange = maxRange;
     _usableRange = usableRange;
     _gain = gain;
@@ -65,26 +70,25 @@ void Graph2occupancy::computeMap(){
       }      
       robotLasers.push_back(robotLaser);
       robotPoses.push_back(v->estimate());
+
       double x = v->estimate().translation().x();
       double y = v->estimate().translation().y();
       
-      xmax = xmax > x+_usableRange ? xmax : x+_usableRange;
-      ymax = ymax > y+_usableRange ? ymax : y+_usableRange;
-      xmin = xmin < x-_usableRange ? xmin : x-_usableRange;
-      ymin = ymin < y-_usableRange ? ymin : y-_usableRange;
+      xmax = xmax > x+_maxRange ? xmax : x + _maxRange;
+      ymax = ymax > y+_maxRange ? ymax : y + _maxRange;
+      xmin = xmin < x-_maxRange ? xmin : x - _maxRange;
+      ymin = ymin < y-_maxRange ? ymin : y - _maxRange;
  
       d = d->next();
     }
   }
 
   boundingBox(0,0)=xmin;
-  boundingBox(0,1)=xmax;
   boundingBox(1,0)=ymin;
+  boundingBox(0,1)=xmax;
   boundingBox(1,1)=ymax;
 
 
-  //std::cout << "Found " << robotLasers.size() << " laser scans"<< std::endl;
-  //std::cout << "Bounding box: " << std::endl << boundingBox << std::endl; 
   if(robotLasers.size() == 0)  {
     std::cout << "No laser scans found ... quitting!" << std::endl;
     return;
@@ -95,27 +99,28 @@ void Graph2occupancy::computeMap(){
    ************************************************************************/
   // Create the map
   Vector2i size;
-  if(_rows != 0 && _cols != 0) { size = Vector2i(_rows, _cols); }
+  Vector2f offset;
+  if(_rows != 0 && _cols != 0) { 
+  	size = Vector2i(_rows, _cols); 
+    offset = Vector2f(-size.x() * _resolution / 2.0f, -size.y() * _resolution / 2.0f);
+    _mapCenter = offset;
+							}
   else {
-    size = Vector2i((boundingBox(0, 1) - boundingBox(0, 0))/ _resolution,
-         (boundingBox(1, 1) - boundingBox(1, 0))/ _resolution);
+    size = Vector2i((boundingBox(0, 1) - boundingBox(0, 0))/ _resolution, (boundingBox(1, 1) - boundingBox(1, 0))/ _resolution);
+   	offset = Vector2f(boundingBox(0, 0),boundingBox(1, 0));
+   	_mapCenter = Vector2f(boundingBox(1, 0),- boundingBox(0, 1));
     } 
- // std::cout << "Map size: " << size.transpose() << std::endl;
+
+
+
   if(size.x() == 0 || size.y() == 0) {
     std::cout << "Zero map size ... quitting!" << std::endl;
    return;
   }
 
-  
 
-  //Vector2f offset(-size.x() * _resolution / 2.0f, -size.y() * _resolution / 2.0f);
-  Vector2f offset(boundingBox(0, 0),boundingBox(1, 0));
 
-  if (_first){
-    _initialOffset = offset;
-    _first = false;
-  }
-  
+
 
   FrequencyMapCell unknownCell;
   
@@ -238,8 +243,8 @@ void Graph2occupancy::computeMap(){
   }
 
 
-  Vector2f Graph2occupancy::getInitialOffset(){
-    return _initialOffset;
+  Vector2f Graph2occupancy::getMapCenter(){
+    return _mapCenter;
   }
 
 

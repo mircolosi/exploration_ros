@@ -34,8 +34,8 @@ TrajectoryPlannerROS:
   #Parameters for scoring trajectories
   meter_scoring: true
   gdist_scale: 1
-  pdist_scale: 1.5
-  occdist_scale: 0.1
+  pdist_scale: 1.8
+  occdist_scale: 0.001
   heading_lookahead: 0.325
 
   #To use the Dynamic Window Approach to control instead of Trajectory Rollout 

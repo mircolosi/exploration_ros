@@ -34,6 +34,7 @@ int main(int argc, char **argv)
   int windowLoopClosure;
   double inlierThreshold;
   float localizationTimeUpdate, localizationAngularUpdate, localizationLinearUpdate;
+  float maxRange, usableRange;
   std::string outputFilename;
   std::string odometryTopic, scanTopic, occupancyTopic, mapPoseTopic, laserFrameName, fixedFrame;
 
@@ -44,8 +45,6 @@ int main(int argc, char **argv)
   float threhsold = 0.55; 
   float rows = 0;
   float cols = 0; 
-  float maxRange = 8;
-  float usableRange = 8;
   float gain = 3.0;
   float squareSize = 0;
   float angle = 0.0;
@@ -76,14 +75,17 @@ int main(int argc, char **argv)
   rh.useLaser(true);
   rh.init();   //Wait for initial ground-truth position, odometry and laserScan
   rh.run();
-  
+
+  maxRange = rh.getLaserMaxRange() - 0.01;
+  usableRange = maxRange;
+
   //Graph building
   GraphSLAM gslam;
   gslam.init(resolution, kernelRadius, windowLoopClosure, maxScore, inlierThreshold, minInliers);
 
   //Map building
   cv::Mat occupancyMap;
-  Eigen::Vector2f offset;
+  Eigen::Vector2f mapCenter;
   ros::Duration updateInterval = ros::Duration(localizationTimeUpdate);
   
   GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
@@ -99,13 +101,13 @@ int main(int argc, char **argv)
 
   mapCreator.computeMap();
   
-  offset = mapCreator.getInitialOffset();
-  mapServer.setOffset(offset);
+  mapCenter = mapCreator.getMapCenter();
+  mapServer.setOffset(mapCenter);
   mapServer.setResolution(mapResolution);
   mapServer.publishMapMetaData();
 
 
-	ros::Duration(0.5).sleep();
+  ros::Duration(0.5).sleep();
 
   mapServer.publishMapPose(currEst);
   mapServer.adjustMapToOdom();
@@ -145,13 +147,14 @@ int main(int argc, char **argv)
       graphPublisher.publishGraph();
 
       mapCreator.computeMap();
+      mapCenter = mapCreator.getMapCenter();
+      mapServer.setOffset(mapCenter);
+      
       mapServer.publishMapPose(currEst);
       mapServer.adjustMapToOdom();
 
     }
 
-    offset = mapCreator.getInitialOffset();
-    mapServer.setOffset(offset);
     
     mapServer.publishMapPose(currEst);
     mapServer.publishMapMetaData();

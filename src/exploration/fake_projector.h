@@ -24,6 +24,9 @@ void sparseProjection(FloatVector& ranges, IntVector& indices, const Eigen::Isom
 
 float areaProjection(const Eigen::Isometry2f& T, const Vector2fVector& unknownCloud, const Vector2fVector& occupiedCloud);
 
+int countVisiblePointsFromSparseProjection(const Eigen::Isometry2f& T, const Vector2fVector& interestingCloud, const Vector2fVector& obstaclesCloud = Vector2fVector{});
+
+
 
 inline void setMaxRange(float max_range) { _max_range = max_range; }
 inline float maxRange() const { return _max_range; }

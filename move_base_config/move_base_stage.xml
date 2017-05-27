@@ -15,7 +15,7 @@
     <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
     -->
 
-    <rosparam file="$(find mr_exploration)/move_base_config/base_global_planner_param.yaml" command="load" />
+    <rosparam file="$(find mr_exploration)/move_base_config/base_global_planner_params_stage.yaml" command="load" />
     <rosparam file="$(find mr_exploration)/move_base_config/costmap_common_params_stage.yaml" command="load" ns="global_costmap" />
     <rosparam file="$(find mr_exploration)/move_base_config/costmap_common_params_stage.yaml" command="load" ns="local_costmap" />
     <rosparam file="$(find mr_exploration)/move_base_config/local_costmap_params.yaml" command="load" />

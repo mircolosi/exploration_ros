@@ -65,6 +65,39 @@ void FakeProjector::updateParameters() {
   
   }
 
+  int FakeProjector::countVisiblePointsFromSparseProjection(const Eigen::Isometry2f& T, const Vector2fVector& interestingCloud, const Vector2fVector& obstaclesCloud){
+
+
+
+  	FloatVector ranges;
+  	IntVector indices;
+	
+	Vector2fVector augmentedCloud = interestingCloud;
+
+	augmentedCloud.insert(augmentedCloud.end(), obstaclesCloud.begin(), obstaclesCloud.end());
+
+
+  	sparseProjection(ranges, indices, T, augmentedCloud);
+
+
+  	int visiblePoints = 0;
+
+	for (int k = 0; k < indices.size(); k++){
+		if (indices[k] != -1){
+			if (indices[k] < interestingCloud.size()){
+				visiblePoints ++;
+							}
+						}
+					}
+
+
+	return visiblePoints;
+
+
+  }
+
+
+
 
 
   void FakeProjector::sparseProjection(FloatVector& ranges, IntVector& indices,
@@ -118,9 +151,6 @@ void FakeProjector::updateParameters() {
 					indices[index] = -1;
 								}
 						}
-
-  
- 
     }
   
   }

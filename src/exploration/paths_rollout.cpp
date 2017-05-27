@@ -80,11 +80,9 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 	
 	for (int i = 0; i < meterCentroids.size(); i++){
 
-
 		geometry_msgs::Pose goalPose;
 		goalPose.position.x = meterCentroids[i][0];  
 		goalPose.position.y = meterCentroids[i][1];
-
 
 
 		float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
@@ -140,22 +138,7 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 
 }
 
-PoseWithInfo PathsRollout::extractGoalFromSampledPoses(){
 
-
-	PoseWithInfo goalPose;
-
-	Vector2fVector augmentedCloud = *_unknownCellsCloud;
-
-	augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
-
-	
-	goalPose = extractBestPose(augmentedCloud);
-
-
-	return goalPose;
-
-}
 
 
 
@@ -306,7 +289,7 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 
 
 
-PoseWithInfo PathsRollout::extractBestPose(Vector2fVector cloud){
+PoseWithInfo PathsRollout::extractBestPose(){
 	
 	PoseWithInfo goalPose;
 	Isometry2f transform;
@@ -346,7 +329,7 @@ PoseWithInfo PathsRollout::extractBestPose(Vector2fVector cloud){
 				}
 			}
 
-			int countFrontier = computeVisiblePoints(pose, _laserOffset, cloud, _unknownCellsCloud->size());	
+			int countFrontier = computeVisiblePoints(pose, _laserOffset);	
 
 
 			float score = computePoseScore(_vectorSampledPoses[i], yawAngle, countFrontier);
@@ -371,7 +354,7 @@ PoseWithInfo PathsRollout::extractBestPose(Vector2fVector cloud){
 }
 
 
-int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints){
+int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset){
 
 	int visiblePoints = 0;
 
@@ -389,31 +372,11 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,
 
 	Isometry2f pointsToLaserTransform = transform.inverse();
 
-	FloatVector _ranges;
-	IntVector _pointsIndices;
-
-	_projector->sparseProjection(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
 	//visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
-/* 
-	cv::Mat testImage = cv::Mat(20/0.05, 20/0.05, CV_8UC1);
-	testImage.setTo(cv::Scalar(0));
-	cv::circle(testImage, cv::Point(robotPose[1]/0.05,robotPose[0]/0.05), 5, 200);
-	cv::circle(testImage, cv::Point(laserPose[1]/0.05, laserPose[0]/0.05), 1, 200);
-	std::stringstream title;
-	title << "virtualscan_test/test_"<<_imageCount<<".jpg"; 
-	_imageCount++;
-	*/
-	for (int k = 0; k < _pointsIndices.size(); k++){
-		if (_pointsIndices[k] != -1){
-			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
-			if (_pointsIndices[k] < numInterestingPoints){
-				visiblePoints ++;
-				//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 255;
 
-							}
-						}
-					}
-	//cv::imwrite(title.str(),testImage);
+	visiblePoints =  _projector ->countVisiblePointsFromSparseProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
+
+
 
 	return visiblePoints;
 
@@ -437,9 +400,9 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints){
 
 
-	float distanceFromStartWeight = 1.25;
-	float distanceFromGoalWeight = - 0.1;
-	float angleDistanceWeight = 0.15;
+	float distanceFromStartWeight = 1.5;
+	float distanceFromGoalWeight = - 0.25;
+	float angleDistanceWeight = 0.25;
 
 	float distanceFromStart = float(pose.index)/_longestPlan;
 	float distanceFromGoal = 1.0 - float(pose.index)/pose.planLenght;
@@ -460,7 +423,7 @@ float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int n
 	
 	float score = numVisiblePoints * exp(decay);
 
-	std::cout<<_imageCount<<": index-> "<<pose.index<<"/"<<pose.planLenght <<" preferred angle-> "<<pose.predictedAngle<< " angle-> "<<orientation<<"("<<angleDifference<<") visiblePoints-> "<<numVisiblePoints<<" ---> cost:"<<cost<<" score: "<<score<<std::endl;
+	//std::cout<<_imageCount<<": index-> "<<pose.index<<"/"<<pose.planLenght <<" preferred angle-> "<<pose.predictedAngle<< " angle-> "<<orientation<<"("<<angleDifference<<") visiblePoints-> "<<numVisiblePoints<<" ---> cost:"<<cost<<" score: "<<score<<std::endl;
 
 	return score;
 }

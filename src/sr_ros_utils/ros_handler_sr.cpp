@@ -11,6 +11,7 @@ RosHandlerSR::RosHandlerSR (int typeExperiment, std::string odomTopic, std::stri
 
   _useOdom = false;
   _useLaser = false;
+  _firstScan = true;
 }
 
 
@@ -26,6 +27,7 @@ void RosHandlerSR::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 void RosHandlerSR::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
   _laserscan = *msg;
+
 }
 
 
@@ -82,6 +84,7 @@ void RosHandlerSR::init(){
   //Init scan
     sensor_msgs::LaserScan::ConstPtr lasermsg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(_scanTopic);
     _laserscan = *lasermsg;
+    _laserMaxRange = _laserscan.range_max;
   }
 
 
@@ -94,6 +97,11 @@ void RosHandlerSR::run(){
   if (_useLaser) //Subscribe Laser
     _subScan = _nh.subscribe<sensor_msgs::LaserScan>(_scanTopic, 1000,  &RosHandlerSR::scanCallback, this);
 
+}
+
+
+float RosHandlerSR::getLaserMaxRange(){
+  return _laserMaxRange;
 }
 
 

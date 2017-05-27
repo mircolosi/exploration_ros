@@ -7,7 +7,7 @@ using namespace srrg_scan_matcher;
 
 
 
-GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, FrontierDetector *frontierDetector, Vector2f laserOffset, int minThresholdSize)
+GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, FrontierDetector *frontierDetector, cv::Mat *costImage, Vector2f laserOffset, int minThresholdSize, std::string mapFrame, std::string baseFrame)
 {
 
 	_ac = ac;
@@ -16,17 +16,16 @@ GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, Frontier
 
 	_frontierDetector = frontierDetector;
 
+	_costMap = costImage;
+
 	_laserOffset = laserOffset;
 
 	_minUnknownRegionSize = minThresholdSize;
 
-	std::stringstream fullFixedFrameId;
-	//fullFixedFrameId << "/robot_" << _idRobot << "/map";
-	fullFixedFrameId << "map";
-	_fixedFrameId = fullFixedFrameId.str();
+	_mapFrame = mapFrame;
+	_baseFrame = baseFrame;
 
-
-	_mapClient = _nh.serviceClient<nav_msgs::GetMap>("map");
+	_mapClient = _nh.serviceClient<nav_msgs::GetMap>(_mapFrame);
 
 
 }
@@ -97,8 +96,6 @@ void GoalPlanner::waitForGoal(){
 	ros::Rate loop_rate1(15);
 	ros::Rate loop_rate2(2);
 
-	Vector2fVector augmentedCloud; 
-
 	//This loop is needed to wait for the message status to be updated
 	while(_ac->getState() != actionlib::SimpleClientGoalState::ACTIVE){
 		loop_rate1.sleep();
@@ -111,11 +108,8 @@ void GoalPlanner::waitForGoal(){
 		_frontierDetector->publishFrontierPoints();
    		_frontierDetector->publishCentroidMarkers();
 
-		augmentedCloud = *_unknownCellsCloud;
 
-		augmentedCloud.insert(augmentedCloud.end(), _occupiedCellsCloud->begin(), _occupiedCellsCloud->end());
-
-		reached = isGoalReached(augmentedCloud);
+		reached = isGoalReached();
 
   		loop_rate2.sleep();
   	}  	
@@ -124,7 +118,7 @@ void GoalPlanner::waitForGoal(){
 }
 
 
-bool GoalPlanner::isGoalReached(Vector2fVector cloud){
+bool GoalPlanner::isGoalReached(){
 
 
 	actionlib::SimpleClientGoalState goalState = _ac->getState();
@@ -132,12 +126,19 @@ bool GoalPlanner::isGoalReached(Vector2fVector cloud){
 
 	if (goalState == actionlib::SimpleClientGoalState::SUCCEEDED){
 		
-		std::stringstream infoGoal;
-		time_t _now = time(0);
-		tm *ltm = localtime(&_now);
-		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The goal SUCCEEDED.";
-		std::cout<<infoGoal.str()<<std::endl;
+		displayStringWithTime("The goal SUCCEEDED");
 		
+		return true;
+	}
+
+	unsigned char goalCellCost = _costMap->at<unsigned char>(_goal.pose[1]/_mapResolution, _goal.pose[0]/_mapResolution);
+
+	if ((goalCellCost>= 90)&&(goalCellCost <=100)){
+		_abortedGoals.push_back({_goal.pose[0], _goal.pose[1]}); 
+		_ac->cancelAllGoals();
+
+		displayStringWithTime("The goal is too close to an obstacle -> ABORTED");
+
 		return true;
 
 	}
@@ -146,25 +147,19 @@ bool GoalPlanner::isGoalReached(Vector2fVector cloud){
 		_abortedGoals.push_back({_goal.pose[0], _goal.pose[1]}); 
 		_ac->cancelAllGoals();
 
-		std::stringstream infoGoal;
-		time_t _now = time(0);
-		tm *ltm = localtime(&_now);
-		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The goal has been ABORTED";
-		std::cout<<infoGoal.str()<<std::endl;
+		displayStringWithTime("The goal has been ABORTED");
+
 		return true;
 	}
 
 
-	int numGoalFrontier = computeVisiblePoints(_goal.pose, _laserOffset, cloud, _unknownCellsCloud->size());
+	int numGoalFrontier = computeVisiblePoints(_goal.pose, _laserOffset);
 
 
 	if (numGoalFrontier < _minUnknownRegionSize){
 		_ac->cancelAllGoals();
-		std::stringstream infoGoal;
-		time_t _now = time(0);
-		tm *ltm = localtime(&_now);
-		infoGoal <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]The area has been EXPLORED.";
-		std::cout<<infoGoal.str()<<std::endl;
+
+		displayStringWithTime("The area has been EXPLORED");
 
 		return true;
 	}
@@ -173,8 +168,8 @@ bool GoalPlanner::isGoalReached(Vector2fVector cloud){
 	bool changed = false;
 
 try{
-	_tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
-	_tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
+	_tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(5.0));
+	_tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
 
 }
 catch (...) {
@@ -198,7 +193,7 @@ catch (...) {
 
 			Vector3f newPose = {_goal.pose[0], _goal.pose[1], yawAngle};
 
-			int countDiscoverable = computeVisiblePoints(newPose, _laserOffset, cloud, _unknownCellsCloud->size());
+			int countDiscoverable = computeVisiblePoints(newPose, _laserOffset);
 
 			if (yawAngle == _goal.predictedAngle){
 				countDiscoverable = countDiscoverable + 10;
@@ -215,11 +210,11 @@ catch (...) {
 		if (changed){ 
 			std::cout<<"POSE BEFORE CHANGING "<<_tfMapToBase.getOrigin().x()<<" "<<_tfMapToBase.getOrigin().y()<<std::endl;
 			std::cout<<"Changed angle from "<< _goal.pose[2]<<" to "<<newGoalAngle<<std::endl;
-			//_ac->cancelAllGoals();
+
 			PoseWithInfo newGoal = _goal;
 			newGoal.pose[2] = newGoalAngle;
 
-			publishGoal(newGoal, "map" ); //Publishing a new goal cancel the previous one
+			publishGoal(newGoal, _mapFrame ); //Publishing a new goal cancel the previous one
 
 			return false;
 		}
@@ -234,10 +229,9 @@ catch (...) {
 
 
 
-int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,Vector2fVector cloud, int numInterestingPoints){
+int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset){
 
 	int visiblePoints = 0;
-
 
 	Vector3f laserPose;
 
@@ -253,34 +247,24 @@ int GoalPlanner::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset,V
 
 	Isometry2f pointsToLaserTransform = transform.inverse();
 
-	FloatVector _ranges;
-	IntVector _pointsIndices;
-
-	_projector->sparseProjection(_ranges, _pointsIndices, pointsToLaserTransform, cloud);
 	//visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
 
-	/*cv::Mat testImage = cv::Mat(100/0.05, 100/0.05, CV_8UC1);
-	testImage.setTo(cv::Scalar(0));
-	cv::circle(testImage, cv::Point(robotPose[1]/0.05,robotPose[0]/0.05), 5, 200);
-	cv::circle(testImage, cv::Point(laserPose[1]/0.05, laserPose[0]/0.05), 1, 200);
-	std::stringstream title;
-	title << "virtualscan_test/test_"<<yawAngle<<".jpg"; 
-*/
+	visiblePoints =  _projector ->countVisiblePointsFromSparseProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
 
-	for (int k = 0; k < _pointsIndices.size(); k++){
-		if (_pointsIndices[k] != -1){
-			//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 127;
-			if (_pointsIndices[k] < numInterestingPoints){
-				visiblePoints ++;
-				//testImage.at<unsigned char>(cloud[_pointsIndices[k]].point()[0]/0.05,cloud[_pointsIndices[k]].point()[1]/0.05) = 255;
 
-							}
-						}
-					}
-
-	//cv::imwrite(title.str(),testImage);
 
 	return visiblePoints;
+
+}
+
+
+void GoalPlanner::displayStringWithTime(std::string text){
+
+	std::stringstream info;
+	time_t _now = time(0);
+	tm *ltm = localtime(&_now);
+	info <<"["<<ltm->tm_hour << ":"<< ltm->tm_min << ":"<< ltm->tm_sec << "]"<< text <<".";
+	std::cout<<info.str()<<std::endl;
 
 }
 
