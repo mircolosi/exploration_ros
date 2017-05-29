@@ -4,7 +4,8 @@
 
 <remap from="scan" to="base_scan"/>
 
-<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-timeUpdate 0 -angularUpdate 0.25 -linearUpdate 0.25 -scanTopic scan -fixedFrame trajectory -type 0" />
+
+<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-minInliers 7 -timeUpdate 0 -angularUpdate 0.45 -linearUpdate 1 -scanTopic scan  -type 0" />
 
 
 <!--
@@ -16,7 +17,6 @@
 -->
 
 
-
 <!--
 <include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>
 -->
@@ -26,7 +26,7 @@
 <node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" args="-iter 10"  />
 -->
 
-<node pkg="stage_ros" type="stageros" name="stageros" args="$(find mr_exploration)/stagefiles/tutorial.world" respawn="false" >
+<node pkg="stage_ros" type="stageros" name="stageros" args="$(find mr_exploration)/stagefiles/tutorial2.world" respawn="false" >
 <param name="base_watchdog_timeout" value="0.2"/>
 </node>
 

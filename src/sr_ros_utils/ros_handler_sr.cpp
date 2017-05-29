@@ -11,7 +11,6 @@ RosHandlerSR::RosHandlerSR (int typeExperiment, std::string odomTopic, std::stri
 
   _useOdom = false;
   _useLaser = false;
-  _firstScan = true;
 }
 
 
@@ -84,7 +83,7 @@ void RosHandlerSR::init(){
   //Init scan
     sensor_msgs::LaserScan::ConstPtr lasermsg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(_scanTopic);
     _laserscan = *lasermsg;
-    _laserMaxRange = _laserscan.range_max;
+    _laserMaxRange = _laserscan.range_max - 0.01;
   }
 
 

@@ -39,16 +39,14 @@ OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment,
 
 	_laserFrameName = laserFrameName;
 
-	std::stringstream fullTopicName;
-	//fullTopicName << "/robot_" << idRobot << "/" << _mapTopicName;
-	fullTopicName << mapTopicName;
-	_mapTopicName = fullTopicName.str();
+
+	_mapTopicName = mapTopicName;
 
 	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_mapTopicName,1);
 
 	_pubMapMetaData = _nh.advertise<nav_msgs::MapMetaData>("map_metadata", 1);
 
-	_server = _nh.advertiseService("map", &OccupancyMapServer::mapCallback, this);
+	_server = _nh.advertiseService(_mapTopicName, &OccupancyMapServer::mapCallback, this);
 
 
 	_gridMsg.header.frame_id = _mapTopicName;

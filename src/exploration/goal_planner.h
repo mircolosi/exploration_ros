@@ -48,12 +48,12 @@ public:
 
 	cv::Mat getImageMap();
 
-	float getResolution();
-
 	Vector2fVector getAbortedGoals();
 
 	void setUnknownCellsCloud(Vector2fVector* cloud);
 	void setOccupiedCellsCloud(Vector2fVector* cloud);
+	void setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg);
+
 
 protected:
 
@@ -66,7 +66,7 @@ protected:
 	Vector2f _laserOffset;
 	FrontierDetector *_frontierDetector;
 
-	float _mapResolution = 0.05;
+	nav_msgs::MapMetaData _mapMetaData;
 
 	float _xyThreshold = 0.25;
 

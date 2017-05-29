@@ -20,12 +20,12 @@ raytrace_range: 3.0
 
 #The footprint of the robot and associated padding
 footprint: [[-0.175, -0.175], [-0.175, 0.175], [0.175, 0.175], [0.175, -0.175]]
-footprint_padding: 0.02
+footprint_padding: 0.03
 
 
 #Cost function parameters
 inflation_radius: 0.75
-cost_scaling_factor: 4
+cost_scaling_factor: 5
 
 #The cost at which a cell is considered an obstacle when a map is read from the map_server
 lethal_cost_threshold: 100

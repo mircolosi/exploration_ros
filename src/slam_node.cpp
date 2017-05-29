@@ -36,19 +36,20 @@ int main(int argc, char **argv)
   float localizationTimeUpdate, localizationAngularUpdate, localizationLinearUpdate;
   float maxRange, usableRange;
   std::string outputFilename;
-  std::string odometryTopic, scanTopic, occupancyTopic, mapPoseTopic, laserFrameName, fixedFrame;
-
+  std::string odometryTopic, scanTopic, occupancyTopic, mapPoseTopic, laserFrameName;
   int typeExperiment;
 
   //map parameters
   float mapResolution = 0.05;
-  float threhsold = 0.55; 
+  float occupiedThrehsold = 0.65; 
+  //float rows = 75/mapResolution;
+  //float cols = 75/mapResolution; 
   float rows = 0;
-  float cols = 0; 
+  float cols = 0;
   float gain = 3.0;
   float squareSize = 0;
   float angle = 0.0;
-  float freeThrehsold = 0.3;
+  float freeThrehsold = 0.196;
 
 
   arg.param("resolution", resolution, 0.025, "resolution of the matching grid");
@@ -65,7 +66,6 @@ int main(int argc, char **argv)
   arg.param("odometryTopic", odometryTopic, "odom", "odometry ROS topic");
   arg.param("scanTopic", scanTopic, "base_scan", "scan ROS topic");
   arg.param("occupancyTopic", occupancyTopic, "map", "occupancy grid ROS topic");
-  arg.param("fixedFrame", fixedFrame, "odom", "fixed frame to visualize the graph with ROS Rviz");
   arg.parseArgs(argc, argv);
 
   ros::init(argc, argv, "slam_node");
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
   rh.init();   //Wait for initial ground-truth position, odometry and laserScan
   rh.run();
 
-  maxRange = rh.getLaserMaxRange() - 0.01;
+  maxRange = rh.getLaserMaxRange();
   usableRange = maxRange;
 
   //Graph building
@@ -88,9 +88,8 @@ int main(int argc, char **argv)
   Eigen::Vector2f mapCenter;
   ros::Duration updateInterval = ros::Duration(localizationTimeUpdate);
   
-  GraphRosPublisher graphPublisher(gslam.graph(), fixedFrame);
-  Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, mapResolution, threhsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
-  OccupancyMapServer mapServer(&occupancyMap,typeExperiment, laserFrameName, occupancyTopic, odometryTopic, updateInterval, threhsold, freeThrehsold);
+  Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, mapResolution, occupiedThrehsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
+  OccupancyMapServer mapServer(&occupancyMap,typeExperiment, laserFrameName, occupancyTopic, odometryTopic, updateInterval, occupiedThrehsold, freeThrehsold);
 
   //Set initial information
   SE2 currEst = rh.getOdom();
@@ -143,8 +142,6 @@ int main(int argc, char **argv)
       char buf[100];
       sprintf(buf, "robot-%i-%s", 0, outputFilename.c_str());
       gslam.saveGraph(buf);
-
-      graphPublisher.publishGraph();
 
       mapCreator.computeMap();
       mapCenter = mapCreator.getMapCenter();

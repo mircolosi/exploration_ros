@@ -34,6 +34,7 @@ struct PoseWithInfo {
 	int planLenght;
 	float score = -1;
 	float predictedAngle;
+	int predictedVisiblePoints;
 };
 
 
@@ -72,9 +73,7 @@ protected:
 
 	FakeProjector * _projector;
 
-	float _resolution; 
-	float _mapOriginX;
-	float _mapOriginY;
+	nav_msgs::MapMetaData _mapMetaData;
 
 	float _xyThreshold = 0.25;
 

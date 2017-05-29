@@ -309,6 +309,8 @@ void FrontierDetector::computeFrontierRegions(){
     			}
 
 
+
+
 }
 	
 
@@ -365,6 +367,9 @@ void FrontierDetector::computeFrontierCentroids(){
 		}
 
 	}
+
+
+
 
 
 

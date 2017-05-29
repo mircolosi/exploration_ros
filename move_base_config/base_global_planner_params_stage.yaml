@@ -1,3 +1,9 @@
 GlobalPlanner:
-   allow_unknown: true
+   allow_unknown: false
+   use_dijkstra: true
+   use_quadratic: true
+   cost_factor: 0.55
+   neutral_cost: 66
+   lethal_cost: 253
+
    

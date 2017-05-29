@@ -37,7 +37,8 @@ bool GoalPlanner::requestOccupancyMap(){
 
 
 	if (_mapClient.call(req,res)){
-		_mapResolution = res.map.info.resolution;
+
+		_mapMetaData = res.map.info;
 
 		int currentCell = 0;
 		*_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
@@ -131,9 +132,11 @@ bool GoalPlanner::isGoalReached(){
 		return true;
 	}
 
-	unsigned char goalCellCost = _costMap->at<unsigned char>(_goal.pose[1]/_mapResolution, _goal.pose[0]/_mapResolution);
 
-	if ((goalCellCost>= 90)&&(goalCellCost <=100)){
+	Vector2i goalCell = {round((_goal.pose[1] - _mapMetaData.origin.position.y)/_mapMetaData.resolution), round((_goal.pose[0] - _mapMetaData.origin.position.x)/_mapMetaData.resolution)};
+	unsigned char goalCellCost = _costMap->at<unsigned char>(goalCell[0], goalCell[1]);
+
+	if ((goalCellCost >= 99 ) && (goalCellCost <= 100)){
 		_abortedGoals.push_back({_goal.pose[0], _goal.pose[1]}); 
 		_ac->cancelAllGoals();
 
@@ -154,9 +157,11 @@ bool GoalPlanner::isGoalReached(){
 
 
 	int numGoalFrontier = computeVisiblePoints(_goal.pose, _laserOffset);
+	int exploredThreshold = std::min(int(_goal.predictedVisiblePoints/3), _minUnknownRegionSize);
 
 
-	if (numGoalFrontier < _minUnknownRegionSize){
+	if (numGoalFrontier < exploredThreshold){
+		std::cout<<"explored: "<<numGoalFrontier<<std::endl;
 		_ac->cancelAllGoals();
 
 		displayStringWithTime("The area has been EXPLORED");
@@ -279,9 +284,6 @@ std::string GoalPlanner::getActionServerStatus(){
 	return _ac->getState().toString();
 }
 
-float GoalPlanner::getResolution(){
-	return _mapResolution;
-}
 
 Vector2fVector GoalPlanner::getAbortedGoals(){
 	return _abortedGoals;
@@ -296,3 +298,7 @@ void GoalPlanner::setOccupiedCellsCloud(Vector2fVector* cloud){
 	_occupiedCellsCloud = cloud;
 }
 
+void GoalPlanner::setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg){
+	_mapMetaData = mapMetaDataMsg;
+
+}

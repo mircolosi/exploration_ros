@@ -55,7 +55,6 @@ class RosHandlerSR
   
 
   bool _useOdom, _useLaser;
-  bool _firstScan;
   float _laserMaxRange;
 
   //ROS msgs

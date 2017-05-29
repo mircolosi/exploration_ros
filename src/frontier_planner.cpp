@@ -59,9 +59,9 @@ arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS top
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
 arg.param("exploredArea", thresholdExploredArea, 10, "minimum number of visible frontier points before aborting a goal");
-arg.param("lambda", lambdaDecay, 1, "distance decay factor for choosing next goal");
+arg.param("lambda", lambdaDecay, 1.25, "distance decay factor for choosing next goal");
 arg.param("mc", nearCentroidsThreshold, 0.5, "Lower distance limit to consider 2 goals as the same, in meters");
-arg.param("Mc", farCentroidsThreshold, 8.0, "Max distance at which a centroid is considered if there are also closer ones, in meters");
+arg.param("Mc", farCentroidsThreshold, 5.0, "Max distance at which a centroid is considered if there are also closer ones, in meters");
 arg.param("nc", maxCentroidsNumber, 8, "Maximum number of centroids considered during each search for a goal");
 arg.param("iter", numExplorationIterations, 10, "Number of plans to be computed. -1 means infinite");
 
@@ -73,7 +73,7 @@ ros::NodeHandle nh;
 
 //Laserscan FAKE projection parameters
 float minRange = 0.0;
-float maxRange = 5.0;
+float maxRange = 4.0;
 int numRanges = 181;
 float fov = M_PI;
 Vector2f rangesLimits = {minRange, maxRange};
@@ -105,7 +105,7 @@ FrontierDetector frontiersDetector(&occupancyMap, &costMap,thresholdRegionSize);
 unknownCellsCloud = frontiersDetector.getUnknownCloud();
 occupiedCellsCloud = frontiersDetector.getOccupiedCloud();
 
-PathsRollout pathsRollout(&costMap, &ac, &projector, laserOffset, maxCentroidsNumber, thresholdRegionSize, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, lambdaDecay);
+PathsRollout pathsRollout(&costMap, &ac, &projector, laserOffset, maxCentroidsNumber, thresholdExploredArea, nearCentroidsThreshold, farCentroidsThreshold, 1, 8, lambdaDecay);
 
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
@@ -125,13 +125,9 @@ while (ros::ok() && (numExplorationIterations != 0)){
 	frontiersDetector.publishFrontierPoints();
    	frontiersDetector.publishCentroidMarkers();
 
-
-	occupancyMapInfo = frontiersDetector.getMapMetaData();
 	frontierPoints = frontiersDetector.getFrontierPoints();
 	regions = frontiersDetector.getFrontierRegions();
 	centroids = frontiersDetector.getFrontierCentroids();
-
-	abortedGoals = goalPlanner.getAbortedGoals();
 
 
 	if (centroids.size() == 0){
@@ -141,7 +137,11 @@ while (ros::ok() && (numExplorationIterations != 0)){
 
 	else {
 
+		occupancyMapInfo = frontiersDetector.getMapMetaData();
 		pathsRollout.setMapMetaData(occupancyMapInfo);
+		goalPlanner.setMapMetaData(occupancyMapInfo);
+
+		abortedGoals = goalPlanner.getAbortedGoals();
 		pathsRollout.setAbortedGoals(abortedGoals);
 
 		int numSampledPoses = pathsRollout.computeAllSampledPlans(centroids, mapFrame);

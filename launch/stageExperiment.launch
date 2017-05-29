@@ -5,13 +5,13 @@
 <remap from="scan" to="base_scan"/>
 
 
-<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-timeUpdate 0 -angularUpdate 0.5 -linearUpdate 0.5 -scanTopic scan -fixedFrame trajectory -type 0" />
-
+<node pkg="mr_exploration" name="slam" type="slam_node" output="screen" args="-timeUpdate 0 -angularUpdate 0.5 -linearUpdate 0.5 -scanTopic scan -type 0" />
 
 
 <!--
 <include file="$(find mr_exploration)/move_base_config/slam_gmapping.xml"/>
 -->
+
 
 <!--
 <node pkg="mr_exploration" name="planner" type="frontier_planner" output="screen" args="-iter 1"  />
