@@ -192,6 +192,47 @@ target_link_libraries(slam_node
 )
 add_dependencies(slam_node mr_exploration_generate_messages_cpp)
 
+add_executable(mapper_node
+  src/mapper_node.cpp
+  src/sr_ros_utils/ros_handler_sr.cpp
+  src/map_creation/grid_line_traversal.cpp
+  src/map_creation/frequency_map.cpp
+  src/map_creation/graph2occupancy.cpp
+  src/map_creation/occupancy_map_server.cpp
+)
+target_link_libraries(mapper_node  
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}    
+  ${CSPARSE_LIBRARY}
+  ${G2O_TYPES_DATA}
+  ${G2O_SOLVER_CSPARSE_EXTENSION}
+  ${G2O_SOLVER_CSPARSE}
+  ${G2O_CORE_LIBRARY}
+  ${G2O_STUFF_LIBRARY}
+  ${G2O_TYPES_SLAM2D}
+
+)
+add_dependencies(mapper_node mr_exploration_generate_messages_cpp)
+
+add_executable(goal_check
+  src/goal_check.cpp
+)
+target_link_libraries(goal_check  
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}    
+  ${CSPARSE_LIBRARY}
+  ${G2O_TYPES_DATA}
+  ${G2O_SOLVER_CSPARSE_EXTENSION}
+  ${G2O_SOLVER_CSPARSE}
+  ${G2O_CORE_LIBRARY}
+  ${G2O_STUFF_LIBRARY}
+  ${G2O_TYPES_SLAM2D}
+
+)
+add_dependencies(goal_check mr_exploration_generate_messages_cpp)
+
+
+
 
 
 

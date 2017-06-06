@@ -5,9 +5,12 @@ global_costmap:
   global_frame: map
   robot_base_frame: base_link
 
+#  track_unknown_space: true
+#  unknown_cost_value: 255
+
   #Set the update and publish frequency of the costmap
-  update_frequency: 5.0
-  publish_frequency: 1.0
+  update_frequency: 10.0
+  publish_frequency: 1
   always_send_full_costmap: false
 
   #We'll use a map served by the map_server to initialize this costmap

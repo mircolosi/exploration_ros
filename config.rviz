@@ -136,29 +136,29 @@ Visualization Manager:
       Class: rviz/Map
       Color Scheme: map
       Draw Behind: false
-      Enabled: true
+      Enabled: false
       Name: Occupancy Map
       Topic: /map
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 0.449999988
       Class: rviz/Map
       Color Scheme: costmap
       Draw Behind: true
-      Enabled: true
+      Enabled: false
       Name: Global Cost Map
       Topic: /move_base_node/global_costmap/costmap
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 0.699999988
       Class: rviz/Map
       Color Scheme: costmap
       Draw Behind: false
-      Enabled: false
+      Enabled: true
       Name: Local Cost Map
       Topic: /move_base_node/local_costmap/costmap
       Unreliable: false
-      Value: false
+      Value: true
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /markers

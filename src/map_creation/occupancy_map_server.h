@@ -2,6 +2,8 @@
 #include <fstream>
 
 #include "ros/ros.h"
+#include <ros/package.h>
+
 #include "nav_msgs/OccupancyGrid.h"
 #include "nav_msgs/GetMap.h"
 
@@ -11,6 +13,8 @@
 
 
 #include "g2o/types/slam2d/vertex_se2.h"
+
+#include <boost/filesystem.hpp> 
 
 #include "srrg_types/defs.h"
 

@@ -45,7 +45,7 @@ regionVector regions;
 Vector2fVector *unknownCellsCloud, *occupiedCellsCloud;
  
 
-std::string mapFrame, baseFrame, laserFrame;
+std::string mapFrame, baseFrame, laserFrame, laserTopicName;
 
 cv::Mat occupancyMap, costMap;
 
@@ -55,6 +55,7 @@ Vector2f laserOffset;
 arg.param("mapFrame", mapFrame, "map", "TF mapFrame for the robot");
 arg.param("baseFrame", baseFrame, "base_link", "TF base Frame for the robot");
 arg.param("laserFrame", laserFrame, "base_laser_link", "TF laser Frame for the robot");
+arg.param("scanTopic", laserTopicName,"scan", "laser scan ROS topic");
 arg.param("pointsTopic", frontierPointsTopic, "points", "frontier points ROS topic");
 arg.param("markersTopic", markersTopic, "markers", "frontier centroids ROS topic");
 arg.param("regionSize", thresholdRegionSize, 15, "minimum size of a frontier region");
@@ -97,7 +98,7 @@ try{
 }
 catch (...) {
 	laserOffset = {0.05, 0.0};
-	std::cout<<"Catch exception: base_laser_link frame not exists. Using default values."<<std::endl;
+	std::cout<<"Catch exception: "<<laserFrame<<" not exists. Using default values."<<std::endl;
  }
 
 FrontierDetector frontiersDetector(&occupancyMap, &costMap,thresholdRegionSize);
@@ -110,11 +111,17 @@ PathsRollout pathsRollout(&costMap, &ac, &projector, laserOffset, maxCentroidsNu
 pathsRollout.setUnknownCellsCloud(unknownCellsCloud);
 pathsRollout.setOccupiedCellsCloud(occupiedCellsCloud);
 
-GoalPlanner goalPlanner(&ac, &projector, &frontiersDetector, &costMap, laserOffset, thresholdExploredArea, mapFrame, baseFrame);
+GoalPlanner goalPlanner(&ac, &projector, &frontiersDetector, &costMap, laserOffset, thresholdExploredArea, mapFrame, baseFrame,laserTopicName);
 
 goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
 goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
+
+/*if (ros::ok()){
+
+
+}
+*/
 
  
 while (ros::ok() && (numExplorationIterations != 0)){

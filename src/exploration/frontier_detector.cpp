@@ -173,10 +173,10 @@ void FrontierDetector::computeFrontiers(int distance, Vector2f centerCoord){
 		_tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
 
 	}
-	catch (...) {
-		std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
-	 }
-
+	catch (tf::TransformException ex)
+	{
+		std::cout<<"exception: "<<ex.what() <<std::endl;
+	}
 	float mapX = (_tfMapToBase.getOrigin().y() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
 	float mapY = (_tfMapToBase.getOrigin().x() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
 

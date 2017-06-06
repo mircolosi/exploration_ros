@@ -4,10 +4,20 @@ using namespace srrg_core;
 using namespace Eigen;
 using namespace srrg_scan_matcher;
 
+void GoalPlanner::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
+{
+  _laserscan = *msg;
+
+}
+
+void GoalPlanner::velCallback(const geometry_msgs::Twist::ConstPtr& msg)
+{
+  _twist = *msg;
+
+}
 
 
-
-GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, FrontierDetector *frontierDetector, cv::Mat *costImage, Vector2f laserOffset, int minThresholdSize, std::string mapFrame, std::string baseFrame)
+GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, FrontierDetector *frontierDetector, cv::Mat *costImage, Vector2f laserOffset, int minThresholdSize, std::string mapFrame, std::string baseFrame, std::string laserTopicName)
 {
 
 	_ac = ac;
@@ -24,8 +34,12 @@ GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, Frontier
 
 	_mapFrame = mapFrame;
 	_baseFrame = baseFrame;
+	_laserTopicName = laserTopicName;
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>(_mapFrame);
+	_subLaserScan = _nh.subscribe<sensor_msgs::LaserScan>(_laserTopicName, 1,  &GoalPlanner::scanCallback, this);
+	_subVel = _nh.subscribe<geometry_msgs::Twist>("cmd_vel", 1,  &GoalPlanner::velCallback, this);
+
 
 
 }
@@ -105,14 +119,16 @@ void GoalPlanner::waitForGoal(){
 	bool reached = false;
 	while (!reached){
 
-		_frontierDetector->computeFrontiers(8, Vector2f{_goal.pose[0], _goal.pose[1]});
+		//_frontierDetector->computeFrontiers(8, Vector2f{_goal.pose[0], _goal.pose[1]});
+		_frontierDetector->computeFrontiers();
 		_frontierDetector->publishFrontierPoints();
    		_frontierDetector->publishCentroidMarkers();
 
 
-		reached = isGoalReached();
-
+		
   		loop_rate2.sleep();
+  		reached = isGoalReached();
+	
   	}  	
 
 
@@ -121,6 +137,8 @@ void GoalPlanner::waitForGoal(){
 
 bool GoalPlanner::isGoalReached(){
 
+
+	ros::spinOnce();
 
 	actionlib::SimpleClientGoalState goalState = _ac->getState();
 
@@ -133,10 +151,36 @@ bool GoalPlanner::isGoalReached(){
 	}
 
 
+	int center = (_laserscan.ranges.size() - 1)/2 ;
+	float angle = 0.45;
+	int numBins = int(angle/_laserscan.angle_increment);
+	float distThresh = 0.45;
+
+	float minDist = 1000;
+
+	if ((_twist.linear.x > 0)||(_twist.linear.y > 0)){
+		for (int i = center - numBins; i < center + numBins; i++){
+			if (minDist > _laserscan.ranges[i]){
+				minDist = _laserscan.ranges[i];
+			}
+			if (_laserscan.ranges[i] < distThresh){
+				_ac->cancelAllGoals();
+				std::stringstream text;
+				text <<std::setprecision(3)<< "The ROBOT is too close to an obstacle( "<<  _laserscan.ranges[i]<< " m) -> REPLANNING";
+				displayStringWithTime(text.str());
+
+				return true;
+
+			}
+
+		}
+		std::cout<<minDist<<" " <<_twist.linear.x<<" "<<_twist.linear.y<<std::endl;
+	}
+
 	Vector2i goalCell = {round((_goal.pose[1] - _mapMetaData.origin.position.y)/_mapMetaData.resolution), round((_goal.pose[0] - _mapMetaData.origin.position.x)/_mapMetaData.resolution)};
 	unsigned char goalCellCost = _costMap->at<unsigned char>(goalCell[0], goalCell[1]);
 
-	if ((goalCellCost >= 99 ) && (goalCellCost <= 100)){
+	if ((goalCellCost == 99 ) || (goalCellCost == 100) || (goalCellCost == 255)){
 		_abortedGoals.push_back({_goal.pose[0], _goal.pose[1]}); 
 		_ac->cancelAllGoals();
 
@@ -170,16 +214,27 @@ bool GoalPlanner::isGoalReached(){
 	}
 
 
+	if ((goalState == actionlib::SimpleClientGoalState::RECALLED) || (goalState == actionlib::SimpleClientGoalState::PREEMPTED)){
+		_abortedGoals.push_back({_goal.pose[0], _goal.pose[1]}); 
+		displayStringWithTime("The goal has been PREEMPTED");
+
+		return true;
+	}
+
+
+
+
 	bool changed = false;
 
-try{
-	_tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(5.0));
-	_tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
+	try{
+		_tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(5.0));
+		_tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
 
-}
-catch (...) {
-	std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
- }
+	}
+	catch (tf::TransformException ex)
+	{
+		std::cout<<"exception: "<<ex.what() <<std::endl;
+	}
 
 	float distanceX = fabs(_tfMapToBase.getOrigin().x() - _goal.pose[0]);
 	float distanceY = fabs(_tfMapToBase.getOrigin().y() - _goal.pose[1]);

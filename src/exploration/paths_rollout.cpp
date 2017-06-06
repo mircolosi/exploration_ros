@@ -56,8 +56,8 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 	_tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
 
 	}
-	catch (...) {
-		std::cout<<"Catch exception: map2odom tf exception... Using old values."<<std::endl;
+	catch (tf::TransformException ex) {
+		std::cout<<"exception: "<< ex.what() <<std::endl;
 	 }
 
 	geometry_msgs::Pose startPose;
@@ -70,7 +70,7 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 	startPose.orientation = qMsg;  
 
 
-	//Wait for robot to stop moving (moveBaseClient can't do 2 things at same time)
+	//Wait for robot to stop moving (moveBaseClient can't do 2 things at same time, like moving and planning)
 	ros::Rate checkReadyRate(100);
 	while(!isActionDone(_ac)){
 		checkReadyRate.sleep();
@@ -190,17 +190,19 @@ std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
 		lastPose.index = 0;
 		lastPose.planLenght = path.poses.size() - 1;
 
-		//bool nearToAborted = false;
-		//for (int j = 0; j < _abortedGoals.size(); j ++){
-		//		float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - lastPose.pose[0]),2) + pow((_abortedGoals[j][1] - lastPose.pose[1]),2));
-		//	if (distanceAbortedGoal < _nearCentroidsThreshold){
-		//		nearToAborted = true;
-		//		break;
-		//	}
-		//}
-		//if (!nearToAborted){
+		bool nearToAborted = false;
+		for (int j = 0; j < _abortedGoals.size(); j ++){
+				float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - lastPose.pose[0]),2) + pow((_abortedGoals[j][1] - lastPose.pose[1]),2));
+			if (distanceAbortedGoal < _nearCentroidsThreshold){
+				nearToAborted = true;
+				break;
+			}
+		}
+		if (!nearToAborted){
 			vecSampledPoses.push_back(lastPose);
-		//}
+		}
+
+		
 		//Given a non empty path, I sample it (first pose already sampled, last pose will be treated differently later)
 		for (int i = 1; i < path.poses.size() - 1; i++){
 
@@ -400,7 +402,7 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints){
 
 
-	float distanceFromStartWeight = 1.65;
+	float distanceFromStartWeight = 1.85;
 	float distanceFromGoalWeight = - 0.5;
 	float angleDistanceWeight = 0.25;
 

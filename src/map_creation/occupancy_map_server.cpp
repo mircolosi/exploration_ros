@@ -2,6 +2,8 @@
 
 using namespace std;
 
+using namespace boost::filesystem;
+
 #define MAP_IDX(sx, i, j) ((sx) * (j) + (i))
 
 
@@ -44,7 +46,7 @@ OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment,
 
 	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_mapTopicName,1);
 
-	_pubMapMetaData = _nh.advertise<nav_msgs::MapMetaData>("map_metadata", 1);
+	_pubMapMetaData = _nh.advertise<nav_msgs::MapMetaData>(_mapTopicName + "_metadata", 1);
 
 	_server = _nh.advertiseService(_mapTopicName, &OccupancyMapServer::mapCallback, this);
 
@@ -65,7 +67,7 @@ OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment,
 	_tfMap2Odom =tf::Transform(tf::createQuaternionFromRPY( 0, 0, 0 ), tf::Point(0, 0, 0 ));
 
 
-_first = true;
+	_first = true;
 
 }
 
@@ -74,11 +76,9 @@ _first = true;
 
 
 void OccupancyMapServer::publishMapPose(SE2 actualPose){
-
 	//Compute the map->trajectory transformation
 	tf::Transform map2Trajectory;
 	map2Trajectory.setOrigin(tf::Vector3(0.0,0.0, 0.0));
-
 	tf::Quaternion map2TrajectoryQuaternions;
 	if (_typeExperiment == SIM_EXPERIMENT){
 		map2TrajectoryQuaternions.setRPY(0, 0, -M_PI_2);	}
@@ -95,6 +95,7 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 	actualPoseTF.frame_id_ = "trajectory";
 	actualPoseTF.setOrigin(tf::Vector3(actualPose.translation().x(), actualPose.translation().y(), 0.0));
 	tf::Quaternion actualPoseQuaternions;
+
 	actualPoseQuaternions.setRPY(0,0, actualPose.rotation().angle());
 	actualPoseTF.setRotation(actualPoseQuaternions);
 
@@ -105,8 +106,6 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 
 
 void OccupancyMapServer::adjustMapToOdom() {
-
-
 
 	try{
 		tf::StampedTransform odom_to_laser;
@@ -126,15 +125,15 @@ void OccupancyMapServer::adjustMapToOdom() {
 
 		if ((ros::Time::now() >= _lastTime + _updateTime)||(_first == true)){
 			_tfMap2Odom = map_to_odom;
+			std::cout<< "map2odom "<< map_to_odom.getOrigin().x()<< " "<< map_to_odom.getOrigin().y()<< " "<< map_to_odom.getOrigin().z()<<std::endl;
 			_lastTime =ros::Time::now();
 			_first = false;
 		}
 
 	}
-	catch (tf::TransformException)
+	catch (tf::TransformException ex)
 	{
-		ROS_DEBUG("Failed to subtract base to odom transform");
-
+		std::cout<<"exception: "<<ex.what() <<std::endl;
 	}
 	
 
@@ -209,6 +208,14 @@ void OccupancyMapServer::publishMapMetaData() {
 
 void OccupancyMapServer::saveMap(std::string outputFileName) {
 
+	//Save files in the current working directory. Be careful if using ROSLAUNCH since the cwd becomes ~/.ros
+	std::stringstream titleImage;
+	titleImage <<outputFileName <<".png"; 
+
+	std::stringstream titleYaml;
+	titleYaml<<outputFileName <<".yaml"; 
+
+
 	_occupancyMapImage = cv::Mat(_occupancyMap->rows, _occupancyMap->cols, CV_8UC1);
 	_occupancyMapImage.setTo(cv::Scalar(0));
 
@@ -226,18 +233,19 @@ void OccupancyMapServer::saveMap(std::string outputFileName) {
 	} 
 
 
-	cv::imwrite(outputFileName + ".png", _occupancyMapImage);
+	cv::imwrite(titleImage.str(), _occupancyMapImage);
 
 
-	std::ofstream ofs(std::string(outputFileName + ".yaml").c_str());
-	Eigen::Vector3f origin(0.0f, 0.0f, 0.0f);
-	ofs << "image: " << outputFileName << ".png" << endl
-	<< "resolution: " << _mapResolution << endl
-	<< "origin: [" << origin.x() << ", " << origin.y() << ", " << origin.z() << "]" << endl
-	<< "negate: 0" << endl
-	<< "occupied_thresh: " << _threshold << endl
-	<< "free_thresh: " << _freeThreshold << endl;
+	std::ofstream ofs;
+	ofs.open(titleYaml.str());
+	ofs << "image: " << titleImage.str() << endl;
+	ofs<< "resolution: " << _mapResolution << endl;
+	ofs<< "origin: [" << _mapOffset.x() << ", " << _mapOffset.y() << ", " << 0.0 << "]" << endl;
+	ofs<< "negate: 0" << endl;
+	ofs<< "occupied_thresh: " << _threshold << endl;
+	ofs<< "free_thresh: " << _freeThreshold << endl;
 
+	ofs.close();
 
 }
 

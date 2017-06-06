@@ -6,6 +6,7 @@
 #include "geometry_msgs/Point32.h"
 #include "sensor_msgs/PointCloud2.h"
 #include "tf/transform_listener.h"
+#include "sensor_msgs/LaserScan.h"
 
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
@@ -34,8 +35,11 @@ class GoalPlanner {
 
 public:
 
-	
-	GoalPlanner(MoveBaseClient *ac, FakeProjector *projector, FrontierDetector *frontierDetector, cv::Mat *costImage, Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string mapFrame = "map", std::string baseFrame = "base_link");
+	  void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
+	  void velCallback(const geometry_msgs::Twist::ConstPtr& msg);
+
+
+	GoalPlanner(MoveBaseClient *ac, FakeProjector *projector, FrontierDetector *frontierDetector, cv::Mat *costImage, Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string mapFrame = "map", std::string baseFrame = "base_link", std::string laserTopicName = "base_scan");
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();
@@ -81,12 +85,20 @@ protected:
 
 	std::string _mapFrame;
 	std::string _baseFrame;
+	std::string _laserTopicName;
 
 	cv::Mat* _occupancyMap;
 	cv::Mat* _costMap;
 	
 	ros::NodeHandle _nh;
 	ros::ServiceClient _mapClient;
+	ros::Subscriber _subLaserScan;
+	ros::Subscriber _subVel;
+
+	sensor_msgs::LaserScan _laserscan;
+	geometry_msgs::Twist _twist;
+
+
 	MoveBaseClient* _ac;
 
 	tf::TransformListener _tfListener;

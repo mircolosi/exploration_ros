@@ -91,10 +91,10 @@ void RosHandlerSR::init(){
 
 void RosHandlerSR::run(){
   if (_useOdom) //Subscribe Odom
-    _subOdom = _nh.subscribe<nav_msgs::Odometry>(_odomTopic, 1000, &RosHandlerSR::odomCallback, this);
+    _subOdom = _nh.subscribe<nav_msgs::Odometry>(_odomTopic, 1, &RosHandlerSR::odomCallback, this);
     
   if (_useLaser) //Subscribe Laser
-    _subScan = _nh.subscribe<sensor_msgs::LaserScan>(_scanTopic, 1000,  &RosHandlerSR::scanCallback, this);
+    _subScan = _nh.subscribe<sensor_msgs::LaserScan>(_scanTopic, 1,  &RosHandlerSR::scanCallback, this);
 
 }
 

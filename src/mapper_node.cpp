@@ -90,7 +90,6 @@ int main(int argc, char **argv)
   
   Graph2occupancy mapCreator(gslam.graph(), &occupancyMap, mapResolution, occupiedThrehsold, rows, cols, maxRange, usableRange, gain, squareSize, angle, freeThrehsold);
   OccupancyMapServer mapServer(&occupancyMap,typeExperiment, laserFrameName, occupancyTopic, odometryTopic, updateInterval, occupiedThrehsold, freeThrehsold);
-
   //Set initial information
   SE2 currEst = rh.getOdom();
   SE2 odomPosk_1 = currEst;
@@ -99,18 +98,16 @@ int main(int argc, char **argv)
   gslam.setInitialData(currEst, odomPosk_1, rlaser);
 
   mapCreator.computeMap();
-  
   mapCenter = mapCreator.getMapCenter();
   mapServer.setOffset(mapCenter);
   mapServer.setResolution(mapResolution);
+
   mapServer.publishMapMetaData();
 
-
   ros::Duration(0.5).sleep();
-
   mapServer.publishMapPose(currEst);
-  mapServer.adjustMapToOdom();
 
+  mapServer.adjustMapToOdom();
   ros::Rate loop_rate(10);
   while (ros::ok()){
     ros::spinOnce();
@@ -127,30 +124,14 @@ int main(int argc, char **argv)
       RobotLaser* laseri = rh.getLaser();
 
       gslam.addDataSM(odomPosk, laseri);
-      gslam.findConstraints();
       
-      struct timeval t_ini, t_fin;
-      double secs;
-      gettimeofday(&t_ini, NULL);
-      gslam.optimize(5);
-      gettimeofday(&t_fin, NULL);
-
-      secs = timeval_diff(&t_fin, &t_ini);
-      printf("Optimization took %.16g milliseconds\n", secs * 1000.0);
-
       currEst = gslam.lastVertex()->estimate();
-      char buf[100];
-      sprintf(buf, "robot-%i-%s", 0, outputFilename.c_str());
-      gslam.saveGraph(buf);
 
       mapCreator.computeMap();
       mapCenter = mapCreator.getMapCenter();
       mapServer.setOffset(mapCenter);
       
       mapServer.publishMapPose(currEst);
-      mapServer.adjustMapToOdom();
-
-      mapServer.saveMap("map");
 
     }
 

@@ -12,12 +12,18 @@ local_costmap:
   update_frequency: 5.0
   publish_frequency: 2.0
 
+  track_unknown_space: false
+  unknown_cost_value: 255
+
   #We'll configure this costmap to be a rolling window... meaning it is always
   #centered at the robot
-  static_map: false
+  static_map: true
   rolling_window: true
   width: 8.0
   height: 8.0
   resolution: 0.025
   origin_x: 0.0
   origin_y: 0.0
+
+
+

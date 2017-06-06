@@ -20,7 +20,7 @@ ODOM_PARAMS -1 1 0.45
 #
 # SENSOR2_PARAMS /base_link /laser 0 0 0
 #
-SENSOR2_PARAMS /base_link /laser_frame 0 0 0
+SENSOR2_PARAMS /odom /laser_frame 0 0 0
 #
 # SENSOR3_PARAMS is used to set the initial guess of a 3d sensor.
 # you can put as many SENSOR3_PARAMS as you have.
