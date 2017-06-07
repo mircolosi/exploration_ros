@@ -25,6 +25,12 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
 int main(int argc, char **argv){
 
+	g2o::CommandArgs arg;
+	std::string scanTopicName;
+
+	arg.param("scanTopic", scanTopicName, "base_scan", "scan ROS topic");
+
+
 	ros::init(argc, argv, "goal_check_node");
 
 
@@ -34,7 +40,6 @@ int main(int argc, char **argv){
 	ros::Subscriber _subScan;
 	
 	std::string goalTopicName = "move_base_node/current_goal";
-	std::string scanTopicName = "base_scan";
 
 	
 	_subGoal = _nh.subscribe<geometry_msgs::PoseStamped>(goalTopicName, 1,  goalCallback);
@@ -46,7 +51,7 @@ int main(int argc, char **argv){
 
 
 
-	ros::Rate loop_rate(1);
+	ros::Rate loop_rate(0.25);
 	while (ros::ok()){
 
 		ros::spinOnce();
@@ -62,6 +67,7 @@ int main(int argc, char **argv){
 
 		}
 		std::cout<<std::endl;
+		std::cout<<"-----------------------------------------------"<<std::endl;
 
 
 		//std::cout<<"GOAL "<<_goalPose<<std::endl;

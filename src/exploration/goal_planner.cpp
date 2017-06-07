@@ -37,8 +37,11 @@ GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, Frontier
 	_laserTopicName = laserTopicName;
 
 	_mapClient = _nh.serviceClient<nav_msgs::GetMap>(_mapFrame);
-	_subLaserScan = _nh.subscribe<sensor_msgs::LaserScan>(_laserTopicName, 1,  &GoalPlanner::scanCallback, this);
-	_subVel = _nh.subscribe<geometry_msgs::Twist>("cmd_vel", 1,  &GoalPlanner::velCallback, this);
+
+	if (_laserTopicName != ""){
+		_subLaserScan = _nh.subscribe<sensor_msgs::LaserScan>(_laserTopicName, 1,  &GoalPlanner::scanCallback, this);
+		_subVel = _nh.subscribe<geometry_msgs::Twist>("cmd_vel", 1,  &GoalPlanner::velCallback, this);
+	}
 
 
 
@@ -151,36 +154,36 @@ bool GoalPlanner::isGoalReached(){
 	}
 
 
-	int center = (_laserscan.ranges.size() - 1)/2 ;
-	float angle = 0.45;
-	int numBins = int(angle/_laserscan.angle_increment);
-	float distThresh = 0.45;
+	if (_laserTopicName != ""){
+		int center = (_laserscan.ranges.size() - 1)/2 ;
+		float angle = 0.45;
+		int numBins = int(angle/_laserscan.angle_increment);
+		float distThresh = 0.3;
 
-	float minDist = 1000;
+		if ((_twist.linear.x > 0)||(_twist.linear.y > 0)){ //If the robot is moving forward 
+			for (int i = center - numBins; i < center + numBins; i++){
 
-	if ((_twist.linear.x > 0)||(_twist.linear.y > 0)){
-		for (int i = center - numBins; i < center + numBins; i++){
-			if (minDist > _laserscan.ranges[i]){
-				minDist = _laserscan.ranges[i];
+				if (_laserscan.ranges[i] < distThresh){
+					_ac->cancelAllGoals();
+					std::stringstream text;
+					text <<std::setprecision(3)<< "The ROBOT is too close to an obstacle( "<<  _laserscan.ranges[i]<< " m) -> REPLANNING";
+					displayStringWithTime(text.str());
+
+					return true;
+
+				}
+
 			}
-			if (_laserscan.ranges[i] < distThresh){
-				_ac->cancelAllGoals();
-				std::stringstream text;
-				text <<std::setprecision(3)<< "The ROBOT is too close to an obstacle( "<<  _laserscan.ranges[i]<< " m) -> REPLANNING";
-				displayStringWithTime(text.str());
-
-				return true;
-
-			}
-
 		}
-		std::cout<<minDist<<" " <<_twist.linear.x<<" "<<_twist.linear.y<<std::endl;
+
 	}
+
+
 
 	Vector2i goalCell = {round((_goal.pose[1] - _mapMetaData.origin.position.y)/_mapMetaData.resolution), round((_goal.pose[0] - _mapMetaData.origin.position.x)/_mapMetaData.resolution)};
 	unsigned char goalCellCost = _costMap->at<unsigned char>(goalCell[0], goalCell[1]);
 
-	if ((goalCellCost == 99 ) || (goalCellCost == 100) || (goalCellCost == 255)){
+	if ((goalCellCost == 99 ) || (goalCellCost == 100) || (goalCellCost == 255)){ //If the goal cell is an obstacle or unknown cell
 		_abortedGoals.push_back({_goal.pose[0], _goal.pose[1]}); 
 		_ac->cancelAllGoals();
 
@@ -205,7 +208,7 @@ bool GoalPlanner::isGoalReached(){
 
 
 	if (numGoalFrontier < exploredThreshold){
-		std::cout<<"explored: "<<numGoalFrontier<<std::endl;
+		std::cout<<"visible points: "<<numGoalFrontier<<std::endl;
 		_ac->cancelAllGoals();
 
 		displayStringWithTime("The area has been EXPLORED");

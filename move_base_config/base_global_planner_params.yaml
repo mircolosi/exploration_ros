@@ -2,6 +2,7 @@ GlobalPlanner:
    allow_unknown: false
    use_dijkstra: true
    use_quadratic: true
+#   default_tolerance: 2.5 #It's not used inside the global planner code....
    cost_factor: 0.55
    neutral_cost: 66
    lethal_cost: 253

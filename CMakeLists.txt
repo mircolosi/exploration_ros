@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(mr_exploration)
+project(exploration_ros)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -83,7 +83,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES mr_exploration
+#  LIBRARIES exploration_ros
    CATKIN_DEPENDS message_runtime cg_mrslam
 #  DEPENDS system_lib
 )
@@ -98,19 +98,19 @@ catkin_package(
 # include_directories(include)
 
 ## Declare a cpp library
-# add_library(mr_exploration
-#   src/${PROJECT_NAME}/mr_exploration.cpp
+# add_library(exploration_ros
+#   src/${PROJECT_NAME}/exploration_ros.cpp
 # )
 
 ## Declare a cpp executable
-# add_executable(mr_exploration_node src/mr_exploration_node.cpp)
+# add_executable(exploration_ros_node src/exploration_ros_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(mr_exploration_node mr_exploration_generate_messages_cpp)
+# add_dependencies(exploration_ros_node exploration_ros_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(mr_exploration_node
+# target_link_libraries(exploration_ros_node
 #   ${catkin_LIBRARIES}
 # )
 
@@ -168,7 +168,7 @@ target_link_libraries(frontier_planner
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(frontier_planner mr_exploration_generate_messages_cpp)
+add_dependencies(frontier_planner exploration_ros_generate_messages_cpp)
 
 add_executable(slam_node
   src/slam_node.cpp
@@ -190,7 +190,7 @@ target_link_libraries(slam_node
   ${G2O_STUFF_LIBRARY}
   ${G2O_TYPES_SLAM2D}
 )
-add_dependencies(slam_node mr_exploration_generate_messages_cpp)
+add_dependencies(slam_node exploration_ros_generate_messages_cpp)
 
 add_executable(mapper_node
   src/mapper_node.cpp
@@ -212,7 +212,7 @@ target_link_libraries(mapper_node
   ${G2O_TYPES_SLAM2D}
 
 )
-add_dependencies(mapper_node mr_exploration_generate_messages_cpp)
+add_dependencies(mapper_node exploration_ros_generate_messages_cpp)
 
 add_executable(goal_check
   src/goal_check.cpp
@@ -229,7 +229,7 @@ target_link_libraries(goal_check
   ${G2O_TYPES_SLAM2D}
 
 )
-add_dependencies(goal_check mr_exploration_generate_messages_cpp)
+add_dependencies(goal_check exploration_ros_generate_messages_cpp)
 
 
 
@@ -256,7 +256,7 @@ add_dependencies(goal_check mr_exploration_generate_messages_cpp)
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS mr_exploration mr_exploration_node
+# install(TARGETS exploration_ros exploration_ros_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -281,7 +281,7 @@ add_dependencies(goal_check mr_exploration_generate_messages_cpp)
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_mr_exploration.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_exploration_ros.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
