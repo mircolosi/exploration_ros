@@ -14,6 +14,7 @@ Requirements:
 - [ROS indigo.](http://wiki.ros.org/indigo/Installation) or [ROS Kinetic.](http://wiki.ros.org/kinetic/Installation)
 
 - The **ROS Navigation stack** 
+
         $ git clone https://github.com/ros-planning/navigation.git
 
 
@@ -39,7 +40,8 @@ The following requirements are needed only if you want to run the **mapper_node*
 
 
 
-To run the simulation example it's necessary **ROS Stage**
+- To run the simulation example it's necessary **ROS Stage**
+
         $ git clone https://github.com/ros-simulation/stage_ros
 
 
