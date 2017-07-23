@@ -43,7 +43,7 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 
 	_vectorSampledPoses.clear();
 	Vector2fVector meterCentroids;
-	int countPlans = 0;
+
 
 
 	for (int i = 0; i < centroids.size(); i ++){
@@ -77,6 +77,8 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 	}
 
 	_longestPlan = 0;
+	int failedPlans = 0;
+	int successPlans = 0;
 	
 	for (int i = 0; i < meterCentroids.size(); i++){
 
@@ -87,16 +89,17 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 
 		float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
 
-		if ((countPlans > (round(_maxCentroidsNumber/2)))&&(distanceActualPose > _farCentroidsThreshold)){ //If I have already some plans and this is quite far, break.
+		if ((successPlans > (round(_maxCentroidsNumber/2)))&&(distanceActualPose > _farCentroidsThreshold)){ //If I have already some plans and this is quite far, break.
 				break;
 			}
 
 		std::vector<PoseWithInfo> sampledPlan = makeSampledPlan(frame, startPose, goalPose);
 
 		if (sampledPlan.size()>0){
-			countPlans++;
+			successPlans++;
 		}
 		else {
+			failedPlans++;
 			continue;
 		}
 
@@ -127,12 +130,16 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 		}
 
 
-		if (countPlans == _maxCentroidsNumber){ //When I reach the limit I stop computing plans
+		if (successPlans == _maxCentroidsNumber){ //When I reach the limit I stop computing plans
 			break; 		}
 
 
 	}
 
+
+	if (failedPlans > 0){
+		std::cout<<"Failed "<<failedPlans<<"/"<<centroids.size()<<" plans"<<std::endl;
+	}
 
 	return _vectorSampledPoses.size();
 
