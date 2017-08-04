@@ -11,11 +11,21 @@ Requirements:
  
 - The **srrg_core** package developed by G. Grisetti provides libraries and utilities.
 
+		$ git clone https://gitlab.com/srrg-software/srrg_boss.git
+		$ git clone https://gitlab.com/srrg-software/srrg_cmake_modules.git
+		$ git clone https://gitlab.com/srrg-software/srrg_core.git
+
+	After cloning these repos, we need to link them in our workspace and compile everything before continuing. 
+
+- The **srrg_scan_matcher** package
+
+		$ git clone https://gitlab.com/srrg-software/srrg_scan_matcher.git 
+
 - [ROS indigo.](http://wiki.ros.org/indigo/Installation) or [ROS Kinetic.](http://wiki.ros.org/kinetic/Installation)
 
 - The **ROS Navigation stack** 
 
-        $ git clone https://github.com/ros-planning/navigation.git
+        $ sudo apt-get install ros-YOUR_DISTRO-navigation
 
 
 #### Optional Requirements
@@ -42,7 +52,7 @@ The following requirements are needed only if you want to run the **mapper_node*
 
 - To run the simulation example it's necessary **ROS Stage**
 
-        $ git clone https://github.com/ros-simulation/stage_ros
+        $ sudo apt-get install ros-YOUR_DISTRO-stage
 
 
 Installation
