@@ -1,0 +1,8 @@
+#goal definition
+string goal #this is the task the robot needs to accomplish: "start_exploration" "interrupt_exploration" "stop_exploration"
+---
+#result definition
+string state
+---
+#feedback
+bool target_found 

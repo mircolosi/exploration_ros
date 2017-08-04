@@ -7,7 +7,8 @@
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="alberto.soragna@gmail.com">Alberto Soragna</maintainer>
+  <author email="alberto.soragna@gmail.com">Alberto Soragna</author>
+  <maintainer email="cplosi.1650227@studenti.uniroma1.it">Mirco Colosi</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
@@ -25,7 +26,7 @@
   <!-- Author tags are optional, mutiple are allowed, one per tag -->
   <!-- Authors do not have to be maintianers, but could be -->
   <!-- Example: -->
-  <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
+  <!--  -->
 
 
   <!-- The *_depend tags are used to specify dependencies -->
@@ -43,17 +44,21 @@
 
   <build_depend>roscpp</build_depend>
   <build_depend>std_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
   <build_depend>message_generation</build_depend>
   <build_depend>cg_mrslam</build_depend>
-
+  <build_depend>actionlib</build_depend>
+  <build_depend>actionlib_msgs</build_depend>
 
   <run_depend>roscpp</run_depend>
   <run_depend>std_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
   <run_depend>message_runtime</run_depend>
   <run_depend>cg_mrslam</run_depend>
   <run_depend>move_base</run_depend>
   <run_depend>stage_ros</run_depend>
-
+  <run_depend>actionlib</run_depend>
+  <run_depend>actionlib_msgs</run_depend>
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- You can specify that this package is a metapackage here: -->

@@ -9,12 +9,15 @@ set(CMAKE_BUILD_TYPE Release)
 find_package(catkin REQUIRED COMPONENTS
    roscpp
    std_msgs
+   geometry_msgs
    message_generation
    tf
    srrg_core
    cg_mrslam
    srrg_scan_matcher
    move_base
+   actionlib_msgs
+   actionlib
 )
 
 ## System dependencies are found with CMake's conventions
@@ -62,16 +65,19 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(
+  DIRECTORY 
+  action
+  FILES
+  Explorer.action
+)
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
   std_msgs  # Or other packages containing msgs
+  geometry_msgs
+  actionlib_msgs
 )
 
 ###################################
@@ -152,97 +158,6 @@ include_directories(src)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-add_executable(frontier_planner
-  src/frontier_planner.cpp
-  src/exploration/fake_projector.cpp
-  src/exploration/frontier_detector.cpp
-  src/exploration/goal_planner.cpp
-  src/exploration/paths_rollout.cpp
-)
-target_link_libraries(frontier_planner
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBS}    
-  ${CSPARSE_LIBRARY}
-  ${G2O_TYPES_DATA}
-  ${G2O_SOLVER_CSPARSE_EXTENSION}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_TYPES_SLAM2D}
-)
-add_dependencies(frontier_planner exploration_ros_generate_messages_cpp)
-
-add_executable(slam_node
-  src/slam_node.cpp
-  src/sr_ros_utils/ros_handler_sr.cpp
-  src/map_creation/grid_line_traversal.cpp
-  src/map_creation/frequency_map.cpp
-  src/map_creation/graph2occupancy.cpp
-  src/map_creation/occupancy_map_server.cpp
-
-)
-target_link_libraries(slam_node  
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBS}    
-  ${CSPARSE_LIBRARY}
-  ${G2O_TYPES_DATA}
-  ${G2O_SOLVER_CSPARSE_EXTENSION}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_TYPES_SLAM2D}
-)
-add_dependencies(slam_node exploration_ros_generate_messages_cpp)
-
-add_executable(mapper_node
-  src/mapper_node.cpp
-  src/sr_ros_utils/ros_handler_sr.cpp
-  src/map_creation/grid_line_traversal.cpp
-  src/map_creation/frequency_map.cpp
-  src/map_creation/graph2occupancy.cpp
-  src/map_creation/occupancy_map_server.cpp
-)
-target_link_libraries(mapper_node  
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBS}    
-  ${CSPARSE_LIBRARY}
-  ${G2O_TYPES_DATA}
-  ${G2O_SOLVER_CSPARSE_EXTENSION}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_TYPES_SLAM2D}
-
-)
-add_dependencies(mapper_node exploration_ros_generate_messages_cpp)
-
-add_executable(goal_check
-  src/goal_check.cpp
-)
-target_link_libraries(goal_check  
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBS}    
-  ${CSPARSE_LIBRARY}
-  ${G2O_TYPES_DATA}
-  ${G2O_SOLVER_CSPARSE_EXTENSION}
-  ${G2O_SOLVER_CSPARSE}
-  ${G2O_CORE_LIBRARY}
-  ${G2O_STUFF_LIBRARY}
-  ${G2O_TYPES_SLAM2D}
-
-)
-add_dependencies(goal_check exploration_ros_generate_messages_cpp)
-
-
-
-
-
-
-
-
-
-
-
 #############
 ## Install ##
 #############
@@ -290,3 +205,6 @@ add_dependencies(goal_check exploration_ros_generate_messages_cpp)
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+add_subdirectory(src)
+
