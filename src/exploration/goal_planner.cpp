@@ -122,12 +122,12 @@ void GoalPlanner::waitForGoal(){
 	bool reached = false;
 	while (!reached){
 
+		//mc here goes interrupt
+
 		//_frontierDetector->computeFrontiers(8, Vector2f{_goal.pose[0], _goal.pose[1]});
 		_frontierDetector->computeFrontiers();
 		_frontierDetector->publishFrontierPoints();
    		_frontierDetector->publishCentroidMarkers();
-
-
 		
   		loop_rate2.sleep();
   		reached = isGoalReached();

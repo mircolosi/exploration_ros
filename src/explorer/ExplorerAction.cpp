@@ -137,7 +137,12 @@ public:
     _as.start();
   }
 
-  ~ExplorerAction(void) {}
+  ~ExplorerAction() {
+    delete _goalPlanner;
+    delete _pathsRollout;
+    delete _frontiersDetector;
+    delete _projector;
+  }
 
   // called when the action starts
   void executeCB(const exploration_ros::ExplorerGoalConstPtr &goal) {
@@ -146,6 +151,53 @@ public:
     // while (... && isActive) {
     //    ...
     //}
+
+    while (ros::ok() && (_numExplorationIterations != 0) && _isActive) {
+
+      _frontiersDetector->computeFrontiers();
+
+      _frontiersDetector->publishFrontierPoints();
+      _frontiersDetector->publishCentroidMarkers();
+
+      _frontierPoints = _frontiersDetector->getFrontierPoints();
+      _regions = _frontiersDetector->getFrontierRegions();
+      _centroids = _frontiersDetector->getFrontierCentroids();
+
+      if (_centroids.size() == 0) {
+        //mc the map is fully explored
+        std::cout << "MAP FULLY EXPLORED" << std::endl;
+        _result.state = "SUCCEEDED";
+        break;
+      } else {
+        _occupancyMapInfo = _frontiersDetector->getMapMetaData();
+        _pathsRollout->setMapMetaData(_occupancyMapInfo);
+        _goalPlanner->setMapMetaData(_occupancyMapInfo);
+
+        _abortedGoals = _goalPlanner->getAbortedGoals();
+        _pathsRollout->setAbortedGoals(_abortedGoals);
+
+        int numSampledPoses = _pathsRollout->computeAllSampledPlans(_centroids, _mapFrame);
+        if (numSampledPoses == 0) {
+          //mc the goal is unreachable
+          std::cout << "NO POSE AVAILABLE FOR GOAL" << std::endl;
+          break;
+        }
+
+        PoseWithInfo goal = _pathsRollout->extractBestPose();
+
+        _goalPlanner->publishGoal(goal, _mapFrame);
+        //mc inside waitForGoals goes interrupt call
+        //mc possibly return bool state 
+        //mc bool interrupted = _goalPlanner->waitForGoal();
+        //mc if (interrupted){
+        //mc   _result.state = "PREEMPTED";
+        //mc   break;
+        //mc }
+        _goalPlanner->waitForGoal();
+
+        _numExplorationIterations--;
+      }
+    }
 
 
     // Set final outcome
