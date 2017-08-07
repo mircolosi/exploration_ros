@@ -471,7 +471,7 @@ void FrontierDetector::publishCentroidMarkers(){
   visualization_msgs::Marker marker;
 
 
-  marker.action = 3;  //used to clean old markers
+  // marker.action = 3;  //used to clean old markers
   markersMsg.markers.push_back(marker);
   _pubCentroidMarkers.publish(markersMsg);
 
@@ -500,6 +500,49 @@ void FrontierDetector::publishCentroidMarkers(){
     marker.color.r = 0.0;
     marker.color.g = 1.0;
     marker.color.b = 0.0;
+
+    markersMsg.markers.push_back(marker);
+  }
+  _pubCentroidMarkers.publish(markersMsg);
+
+}
+
+void FrontierDetector::publishCentroidMarkers(Vector2iVector target_) {
+
+  visualization_msgs::MarkerArray markersMsg;
+  visualization_msgs::Marker marker;
+
+
+  marker.action = 3;  //used to clean old markers
+  markersMsg.markers.push_back(marker);
+  _pubCentroidMarkers.publish(markersMsg);
+
+  markersMsg.markers.clear();
+  int size = target_.size();
+  int limit = min(8, size);
+  for (int i = 0; i < limit; i++){
+
+    std::cerr << "PUBLISHING TARGET_" << i << std::endl;
+    marker.header.frame_id = _topicMapName;
+    marker.header.stamp = ros::Time();
+    //marker.ns = "my_namespace";
+    marker.id = i;
+    marker.type = visualization_msgs::Marker::SPHERE;
+    marker.action = visualization_msgs::Marker::ADD;
+    marker.pose.position.x = target_[i][1]*_mapMetaData.resolution + _mapMetaData.origin.position.x;  //inverted because computed on the map (row, col -> y,x)
+    marker.pose.position.y = target_[i][0] *_mapMetaData.resolution + _mapMetaData.origin.position.y;
+    marker.pose.position.z = 0;
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = 0.35;
+    marker.scale.y = 0.35;
+    marker.scale.z = 0.35;
+    marker.color.a = 1.0; 
+    marker.color.r = 0.0;
+    marker.color.g = 0.0;
+    marker.color.b = 1.0;
 
     markersMsg.markers.push_back(marker);
   }

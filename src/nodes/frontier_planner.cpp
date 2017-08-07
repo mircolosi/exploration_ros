@@ -39,6 +39,7 @@ int main (int argc, char **argv){
   int numExplorationIterations;
 
   Vector2iVector centroids;
+  Vector2iVector targets;
   Vector2iVector frontierPoints;
   Vector2fVector abortedGoals;
   regionVector regions;
@@ -116,16 +117,15 @@ int main (int argc, char **argv){
   goalPlanner.setUnknownCellsCloud(unknownCellsCloud);
   goalPlanner.setOccupiedCellsCloud(occupiedCellsCloud);
 
-
-/*if (ros::ok()){
-
-
-}
-*/
-
+  //mc prova
+  int counter = 0;
 
   while (ros::ok() && (numExplorationIterations != 0)){
 
+    ++counter;
+    std::cerr << "**********************************" << std::endl;
+    std::cerr << "counter: " << counter << std::endl;
+    std::cerr << "**********************************" << std::endl;
 
     frontiersDetector.computeFrontiers();
 
@@ -136,12 +136,42 @@ int main (int argc, char **argv){
     regions = frontiersDetector.getFrontierRegions();
     centroids = frontiersDetector.getFrontierCentroids();
 
+    if (counter == 5) {
+      targets.push_back({160, 160});
 
+    } 
+    frontiersDetector.publishCentroidMarkers(targets);
+
+    if (targets.size() > 0) {
+
+      std::cerr << "TARGET FOUND!!!" << std::endl;
+      occupancyMapInfo = frontiersDetector.getMapMetaData();
+      pathsRollout.setMapMetaData(occupancyMapInfo);
+      goalPlanner.setMapMetaData(occupancyMapInfo);
+
+      abortedGoals = goalPlanner.getAbortedGoals();
+      pathsRollout.setAbortedGoals(abortedGoals);
+      if (!pathsRollout.computeTargetSampledPlans(targets, mapFrame)){
+        std::cout<<"NO TRAJECTORY TOWARD GOAL... CONTINUE EXPLORATION"<<std::endl;
+      } else {
+        PoseWithInfo goal = pathsRollout.extractTargetPose();
+
+        std::cerr << "Goal: " << goal.pose.transpose() << std::endl;
+
+        std::string frame = mapFrame;
+
+        goalPlanner.publishGoal(goal, frame);
+        std::cerr << "Approaching to the target" << std::endl;
+        goalPlanner.waitForGoal();
+        std::cerr << "Target apporached" << std::endl;
+        targets.clear();
+      }
+
+    }
     if (centroids.size() == 0){
       std::cout<<"NO CENTROIDS EXTRACTED... EXIT"<<std::endl;
       return 0;
     } else {
-
       occupancyMapInfo = frontiersDetector.getMapMetaData();
       pathsRollout.setMapMetaData(occupancyMapInfo);
       goalPlanner.setMapMetaData(occupancyMapInfo);
@@ -151,22 +181,29 @@ int main (int argc, char **argv){
 
       int numSampledPoses = pathsRollout.computeAllSampledPlans(centroids, mapFrame);
       if (numSampledPoses == 0){
-       std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
-       return 0;
-     }
+        std::cout<<"NO POSE AVAILABLE FOR GOAL... EXIT"<<std::endl;
+        return 0;
+      }
 
-     PoseWithInfo goal = pathsRollout.extractBestPose();
+      PoseWithInfo goal = pathsRollout.extractBestPose();
 
-     std::string frame = mapFrame;
+      std::string frame = mapFrame;
 
-     goalPlanner.publishGoal(goal, frame);
-     goalPlanner.waitForGoal();
+      goalPlanner.publishGoal(goal, frame);
+      //mc inside waitForGoals goes interrupt call
+      //mc possibly return bool state 
+      //mc bool interrupted = _goalPlanner->waitForGoal();
+      //mc if (interrupted){
+      //mc   _result.state = "PREEMPTED";
+      //mc   break;
+      //mc }
+      goalPlanner.waitForGoal();
 
-     numExplorationIterations--;
-   }
+      numExplorationIterations--;
+    }
 
 
- }
+  }
 
- return 0;
+  return 0;
 }

@@ -49,6 +49,7 @@ protected:
   int _numExplorationIterations;
 
   Vector2iVector _centroids;
+  Vector2iVector _targets;
   Vector2iVector _frontierPoints;
   Vector2fVector _abortedGoals;
   regionVector _regions;

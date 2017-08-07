@@ -59,8 +59,6 @@ public:
 
 	void updateClouds();
 
-
-
 	Vector2iVector getFrontierPoints();
 	regionVector getFrontierRegions();
 	Vector2iVector getFrontierCentroids();
@@ -70,17 +68,11 @@ public:
 	Vector2fVector* getUnknownCloud();
 	Vector2fVector* getOccupiedCloud();
 
-
-
 	nav_msgs::MapMetaData getMapMetaData();
-
-
 
 	void publishFrontierPoints();
 	void publishCentroidMarkers();
-
-
-
+	void publishCentroidMarkers(Vector2iVector target_);
 
 protected:
 	Vector2iVector get4Neighbors(Vector2i cell);
@@ -123,6 +115,7 @@ protected:
 	Vector2iVector _frontiers;
 	regionVector _regions;
 	Vector2iVector _centroids;
+	Vector2iVector _targets;
 
 	Vector2fVector _unknownCellsCloud;
 	Vector2fVector _occupiedCellsCloud;
