@@ -127,10 +127,6 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
     std::cout<<"Failed "<<failedPlans<<"/"<<centroids.size()<<" plans"<<std::endl;
   }
 
-  for (int i = 0; i < _vectorSampledPoses.size(); ++i) {
-    std::cerr << "_vectorSampledPoses[" << i << "]: " << _vectorSampledPoses[i].pose.transpose() << std::endl;
-  }
-
   return _vectorSampledPoses.size();
 
 }
@@ -226,9 +222,6 @@ std::vector<PoseWithInfo> PathsRollout::makeSampledPlan( std::string frame, geom
 
   if (_planClient.call(req,res)){
     if (!res.plan.poses.empty()) {
-
-      std::cerr << "res.plan.pose[last]: " << res.plan.poses[res.plan.poses.size() - 1].pose.position.x << " " << res.plan.poses[res.plan.poses.size()-1].pose.position.y << std::endl;
-
       sampledPlan = sampleTrajectory(res.plan);
     }
   }
@@ -398,7 +391,7 @@ PoseWithInfo PathsRollout::extractBestPose(){
 
 
       if (score > goalPose.score){
-        std::cout<<"GOAL: "<< pose[0]<<" "<<pose[1]<<" "<<pose[2]<<" SCORE: "<<score<<std::endl;
+        // std::cout<<"GOAL: "<< pose[0]<<" "<<pose[1]<<" "<<pose[2]<<" SCORE: "<<score<<std::endl;
         goalPose.pose = pose;
         goalPose.score = score;
         goalPose.predictedAngle = _vectorSampledPoses[i].pose[2]; 

@@ -1,5 +1,5 @@
 #goal definition
-string goal #this is the task the robot needs to accomplish: "exploration" "target" "wait"
+Goal goal
 
 ---
 #result definition

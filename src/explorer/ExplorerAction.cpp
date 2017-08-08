@@ -57,9 +57,11 @@ protected:
 
   std::string _mapFrame, _baseFrame, _laserFrame, _laserTopicName;
 
-  cv::Mat _occupancyMap, _costMap;
+  cv::Mat *_occupancyMap, *_costMap;
 
   Vector2f _laserOffset;
+
+  bool _exploration_completed = false;
 
   //Laserscan FAKE projection parameters
   float _minRange = 0.0;
@@ -72,12 +74,14 @@ protected:
   FrontierDetector* _frontiersDetector;
   PathsRollout* _pathsRollout;
   GoalPlanner* _goalPlanner;
+  MoveBaseClient* _ac;
 public:
 
   ExplorerAction(int argc_, char** argv_) : 
   _actionname(ACTIONNAME),
   _as(_nh, _actionname, boost::bind(&ExplorerAction::executeCB, this, _1), false) {
 
+    std::cerr << "Creation ExplorerActionServer" << std::endl;
     g2o::CommandArgs arg;
 
     arg.param("mapFrame",     _mapFrame, "map", "TF mapFrame for the robot");
@@ -96,13 +100,19 @@ public:
 
     arg.parseArgs(argc_, argv_);
 
+    _projector = new FakeProjector();
+
     _projector->setMaxRange(_maxRange);
     _projector->setMinRange(_minRange);
     _projector->setFov(_fov);
     _projector->setNumRanges(_numRanges);
 
-    MoveBaseClient ac("move_base",true);
-    ac.waitForServer(); //will wait for infinite time
+    _ac = new MoveBaseClient("move_base",true);
+
+    //wait for the action server to come up
+    while(!_ac->waitForServer(ros::Duration(5.0))){
+      std::cerr << "Waiting for the move_base action server to come up" << std::endl;
+    }
 
     tf::TransformListener tfListener;
     tf::StampedTransform tfBase2Laser;
@@ -116,17 +126,19 @@ public:
       std::cout<<"Catch exception: " << _laserFrame << " not exists. Using default values." << std::endl;
     }
 
-    _frontiersDetector = new FrontierDetector(&_occupancyMap, &_costMap, _thresholdRegionSize);
+    _occupancyMap = new cv::Mat();
+    _costMap = new cv::Mat();
+    _frontiersDetector = new FrontierDetector(_occupancyMap, _costMap, _thresholdRegionSize);
 
     _unknownCellsCloud = _frontiersDetector->getUnknownCloud();
     _occupiedCellsCloud = _frontiersDetector->getOccupiedCloud();
 
-    _pathsRollout = new PathsRollout(&_costMap, &ac, _projector, _laserOffset, _maxCentroidsNumber, _thresholdExploredArea, _nearCentroidsThreshold, _farCentroidsThreshold, 1, 8, _lambdaDecay);
+    _pathsRollout = new PathsRollout(_costMap, _ac, _projector, _laserOffset, _maxCentroidsNumber, _thresholdExploredArea, _nearCentroidsThreshold, _farCentroidsThreshold, 1, 8, _lambdaDecay);
 
     _pathsRollout->setUnknownCellsCloud(_unknownCellsCloud);
     _pathsRollout->setOccupiedCellsCloud(_occupiedCellsCloud);
 
-    _goalPlanner = new GoalPlanner(&ac, _projector, _frontiersDetector, &_costMap, _laserOffset, _thresholdExploredArea, _mapFrame, _baseFrame, _laserTopicName);
+    _goalPlanner = new GoalPlanner(_ac, _projector, _frontiersDetector, _costMap, _laserOffset, _thresholdExploredArea, _mapFrame, _baseFrame, _laserTopicName);
 
     _goalPlanner->setUnknownCellsCloud(_unknownCellsCloud);
     _goalPlanner->setOccupiedCellsCloud(_occupiedCellsCloud);
@@ -136,6 +148,7 @@ public:
     _as.registerPreemptCallback(boost::bind(&ExplorerAction::preemptCB, this));
 
     _as.start();
+    std::cerr << "Running ExplorerActionServer" << std::endl;
   }
 
   ~ExplorerAction() {
@@ -143,17 +156,20 @@ public:
     delete _pathsRollout;
     delete _frontiersDetector;
     delete _projector;
+    delete _ac;
+    delete _costMap;
+    delete _occupancyMap;
   }
 
   // called when the action starts
   void executeCB(const exploration_ros::ExplorerGoalConstPtr &goal) {
+    std::cerr << "EXECUTION CALLBACK" << std::endl;
+    // _as.acceptNewGoal();
     _isActive = true; // can get false later
 
-    // while (... && isActive) {
-    //    ...
-    //}
-
     while (ros::ok() && (_numExplorationIterations != 0) && _isActive) {
+
+      std::cerr << "compute frontiers" << std::endl;
 
       _frontiersDetector->computeFrontiers();
 
@@ -167,55 +183,80 @@ public:
       if (_centroids.size() == 0) {
         //mc the map is fully explored
         std::cout << "MAP FULLY EXPLORED" << std::endl;
-        _result.state = "SUCCEEDED";
+        _exploration_completed = true;
         break;
-      } else {
-        _occupancyMapInfo = _frontiersDetector->getMapMetaData();
-        _pathsRollout->setMapMetaData(_occupancyMapInfo);
-        _goalPlanner->setMapMetaData(_occupancyMapInfo);
+      }
 
-        _abortedGoals = _goalPlanner->getAbortedGoals();
-        _pathsRollout->setAbortedGoals(_abortedGoals);
+      _occupancyMapInfo = _frontiersDetector->getMapMetaData();
+      _pathsRollout->setMapMetaData(_occupancyMapInfo);
+      _goalPlanner->setMapMetaData(_occupancyMapInfo);
+
+      _abortedGoals = _goalPlanner->getAbortedGoals();
+      _pathsRollout->setAbortedGoals(_abortedGoals);
+      if ("exploration" == goal->goal.action) {
+        _feedback.action = "exploration";
+        std::cerr << "EXPLORAITON" << std::endl;
+        if (_exploration_completed) {
+          std::cerr << "Exploration Complete" << std::endl;
+          // _as.acceptNewGoal();
+          _as.setSucceeded();
+          break;
+        }
 
         int numSampledPoses = _pathsRollout->computeAllSampledPlans(_centroids, _mapFrame);
         if (numSampledPoses == 0) {
-          //mc the goal is unreachable
+            //mc the goal is unreachable
           std::cout << "NO POSE AVAILABLE FOR GOAL" << std::endl;
+          _as.setAborted();
           break;
         }
 
         PoseWithInfo goal = _pathsRollout->extractBestPose();
 
-        _goalPlanner->publishGoal(goal, _mapFrame);
-        //mc inside waitForGoals goes interrupt call
-        //mc possibly return bool state 
-        //mc bool interrupted = _goalPlanner->waitForGoal();
-        //mc if (interrupted){
-        //mc   _result.state = "PREEMPTED";
-        //mc   break;
-        //mc }
+        _goalPlanner->publishGoal(goal, _mapFrame); 
+          //mc inside waitForGoals goes interrupt call
+          //mc possibly return bool state 
+          //mc bool interrupted = _goalPlanner->waitForGoal();
+          //mc if (interrupted){
+          //mc   _result.state = "PREEMPTED";
+          //mc   break;
+          //mc }
+        // _as.acceptNewGoal();
         _goalPlanner->waitForGoal();
+        _as.setSucceeded();
 
         _numExplorationIterations--;
       }
+      if ("target" == goal->goal.action || _targets.size() > 0) {
+        _feedback.action = "target";
+        std::cerr << "TARGET APPROACH" << std::endl;
+        _targets.push_back({goal->goal.target_pose.position.x,goal->goal.target_pose.position.y});
+        if (!_pathsRollout->computeTargetSampledPlans(_targets, _mapFrame)){
+          std::cout<<"NO TRAJECTORY TOWARD GOAL... CONTINUE EXPLORATION"<<std::endl;
+          _as.setAborted();
+        } else {
+          PoseWithInfo target = _pathsRollout->extractTargetPose();
+
+          std::cerr << "Goal: " << target.pose.transpose() << std::endl;
+
+          _goalPlanner->publishGoal(target, _mapFrame);
+          std::cerr << "Approaching to the target" << std::endl;
+          _goalPlanner->waitForGoal();
+          std::cerr << "Target apporached" << std::endl;
+          _as.setSucceeded();
+          _targets.clear();
+        }
+      }
+      if ("wait" == goal->goal.action) {
+        std::cerr << "WAITING" << std::endl;
+        _feedback.action = "wait";
+        // _as.acceptNewGoal();
+        _as.setSucceeded();
+        break;
+      }
     }
-
-
-    // Set final outcome
-
-    if(_result.state=="SUCCEEDED"){
-      _as.setSucceeded();
-    } else if (_as.isPreemptRequested()) {
-      _as.setAborted();
-      _result.state = "PREEMPTED";
-    } else {
-      _as.setAborted();
-    }
-
-    ROS_INFO("Action finished with result: %s",_result.state.c_str());
-
-
   }
+
 
 
   // called when the action is interrupted
@@ -224,6 +265,7 @@ public:
     ROS_INFO("%s: Preempted ", _actionname.c_str());
     // set the action state to preempted
     _as.setPreempted();
+    _as.acceptNewGoal();
   }
 
 

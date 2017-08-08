@@ -138,7 +138,6 @@ int main (int argc, char **argv){
 
     if (counter == 5) {
       targets.push_back({160, 160});
-
     } 
     frontiersDetector.publishCentroidMarkers(targets);
 

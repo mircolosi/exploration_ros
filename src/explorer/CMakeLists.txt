@@ -19,3 +19,13 @@ target_link_libraries(exploration_action_node
 add_dependencies(exploration_action_node
 	 exploration_ros_generate_messages_cpp
 )
+
+add_executable(exploration_action_client ExplorerClient.cpp)
+
+target_link_libraries(exploration_action_client
+  ${catkin_LIBRARIES}
+)
+
+add_dependencies(exploration_action_client
+   exploration_ros_generate_messages_cpp
+)

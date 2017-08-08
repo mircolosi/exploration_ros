@@ -102,7 +102,6 @@ void GoalPlanner::publishGoal(PoseWithInfo goalPose, std::string frame){
   std::cout<<infoGoal.str()<<std::endl;
   _ac->sendGoal(goalMsg);
 
-
 }
 
 

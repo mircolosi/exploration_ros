@@ -9,18 +9,16 @@ using namespace srrg_core;
 void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
   _costMapMsg = *msg;
 
-
   int currentCell = 0;
-  *_costMap = cv::Mat(msg->info.height, msg->info.width, CV_8UC1);
+  cv::Mat tmp(msg->info.height, msg->info.width, CV_8UC1);
   for(int r = 0; r < msg->info.height; r++) {
     for(int c = 0; c < msg->info.width; c++) {
 
-      _costMap->at<unsigned char>(r, c) = msg->data[currentCell];
+      tmp.at<unsigned char>(r, c) = msg->data[currentCell];
       currentCell++;
     }
   }
-
-
+  tmp.copyTo(*_costMap);
 }
 
 void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
@@ -31,8 +29,6 @@ void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdate
      _costMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
    }
  }
-
-
 }
 
 
@@ -41,28 +37,27 @@ void FrontierDetector::mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr
 
   _mapMetaData = *msg;
 
-
 }
 
 void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
 
   int currentCell = 0;
-  *_occupancyMap = cv::Mat(msg->info.height, msg->info.width, CV_8UC1);
+  cv::Mat tmp(msg->info.height, msg->info.width, CV_8UC1);
   for(int r = 0; r < msg->info.height; r++) {
     for(int c = 0; c < msg->info.width; c++) {
 
-      _occupancyMap->at<unsigned char>(r, c) = msg->data[currentCell];
+      tmp.at<unsigned char>(r, c) = msg->data[currentCell];
       currentCell++;
     }
   }
+
+  tmp.copyTo(*_occupancyMap);
 
   if (_topicMapMetadataName == ""){
 
     _mapMetaData = msg->info;
 
   }
-
-
 }
 
 void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
@@ -73,8 +68,6 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
      _occupancyMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
    }
  }
-
-
 }
 
 
