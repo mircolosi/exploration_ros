@@ -138,9 +138,6 @@ void GoalPlanner::waitForGoal(){
 
 bool GoalPlanner::isGoalReached(){
 
-
-  ros::spinOnce();
-
   actionlib::SimpleClientGoalState goalState = _ac->getState();
 
 

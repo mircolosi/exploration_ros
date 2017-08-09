@@ -12,11 +12,9 @@
 <include file="$(find exploration_ros)/move_base_config/slam_gmapping.xml"/>
 -->
 
-<!-- <node pkg="exploration_ros" name="planner" type="frontier_planner" output="screen" args="-iter -1"  /> -->
+<node pkg="exploration_ros" name="action_server" type="exploration_action_node" output="screen" args="-iter -1"  /> 
 
-<!-- <node pkg="exploration_ros" name="action_server" type="exploration_action_node" output="screen" args="-iter -1"  />  -->
-
-<!-- <node pkg="exploration_ros" name="action_client" type="exploration_action_client" output="screen"/>  -->
+<node pkg="exploration_ros" name="action_client" type="exploration_action_client" output="screen"/> 
 
 <node pkg="stage_ros" type="stageros" name="stageros" args="$(find exploration_ros)/stagefiles/hospital.world" respawn="false" >
 <param name="base_watchdog_timeout" value="0.2"/>

@@ -164,13 +164,12 @@ public:
   // called when the action starts
   void executeCB(const exploration_ros::ExplorerGoalConstPtr &goal) {
     std::cerr << "EXECUTION CALLBACK" << std::endl;
-    // _as.acceptNewGoal();
+
     _isActive = true; // can get false later
 
     while (ros::ok() && (_numExplorationIterations != 0) && _isActive) {
 
-      std::cerr << "compute frontiers" << std::endl;
-
+      //mc compute frontiers
       _frontiersDetector->computeFrontiers();
 
       _frontiersDetector->publishFrontierPoints();
@@ -180,8 +179,11 @@ public:
       _regions = _frontiersDetector->getFrontierRegions();
       _centroids = _frontiersDetector->getFrontierCentroids();
 
-      if (_centroids.size() == 0) {
         //mc the map is fully explored
+      if (_centroids.size() == 0) {
+        //mc TODO check for the whole map
+
+        //mc if _centroids.size() == 0
         std::cout << "MAP FULLY EXPLORED" << std::endl;
         _exploration_completed = true;
         break;
@@ -193,13 +195,14 @@ public:
 
       _abortedGoals = _goalPlanner->getAbortedGoals();
       _pathsRollout->setAbortedGoals(_abortedGoals);
+
+      // EXPLORE ACTION
       if ("exploration" == goal->goal.action) {
         _feedback.action = "exploration";
         std::cerr << "EXPLORAITON" << std::endl;
         if (_exploration_completed) {
           std::cerr << "Exploration Complete" << std::endl;
-          // _as.acceptNewGoal();
-          _as.setSucceeded();
+          _result.state = "ABORTED [exploration complete]";
           break;
         }
 
@@ -207,27 +210,28 @@ public:
         if (numSampledPoses == 0) {
             //mc the goal is unreachable
           std::cout << "NO POSE AVAILABLE FOR GOAL" << std::endl;
-          _as.setAborted();
+          // _as.setAborted();
+          _result.state = "ABORTED [no pose available for goal]";
           break;
         }
 
         PoseWithInfo goal = _pathsRollout->extractBestPose();
 
         _goalPlanner->publishGoal(goal, _mapFrame); 
-          //mc inside waitForGoals goes interrupt call
-          //mc possibly return bool state 
-          //mc bool interrupted = _goalPlanner->waitForGoal();
-          //mc if (interrupted){
-          //mc   _result.state = "PREEMPTED";
-          //mc   break;
-          //mc }
-        // _as.acceptNewGoal();
+        if (_as.isNewGoalAvailable()) {
+          _result.state = "PREEMPTED";
+          break;
+        }
         _goalPlanner->waitForGoal();
-        _as.setSucceeded();
-
+        
+        _result.state = "SUCCEEDED";
         _numExplorationIterations--;
+        break;
       }
+
+      // GO TO TARGET ACTION
       if ("target" == goal->goal.action || _targets.size() > 0) {
+        std::cerr << "_targets.size(): " << _targets.size() << std::endl;
         _feedback.action = "target";
         std::cerr << "TARGET APPROACH" << std::endl;
         _targets.push_back({goal->goal.target_pose.position.x,goal->goal.target_pose.position.y});
@@ -243,17 +247,34 @@ public:
           std::cerr << "Approaching to the target" << std::endl;
           _goalPlanner->waitForGoal();
           std::cerr << "Target apporached" << std::endl;
-          _as.setSucceeded();
           _targets.clear();
+          _result.state = "SUCCEEDED";
         }
+        break;
       }
       if ("wait" == goal->goal.action) {
         std::cerr << "WAITING" << std::endl;
         _feedback.action = "wait";
-        // _as.acceptNewGoal();
-        _as.setSucceeded();
+        // if (_as.isNewGoalAvailable()){
+        //   _as.acceptNewGoal();
+        // }
+        // _as.setSucceeded();
         break;
       }
+    }
+
+    // Set final outcome
+    if (_as.isActive()){
+      if (_result.state=="SUCCEEDED") {
+        _as.setSucceeded();
+      } else if (_as.isPreemptRequested()) {
+        _as.setAborted();
+        _result.state = "PREEMPTED";
+      } else {
+        _as.setAborted();
+      }
+
+      ROS_INFO("Action finished with result: %s",_result.state.c_str());
     }
   }
 
@@ -265,7 +286,7 @@ public:
     ROS_INFO("%s: Preempted ", _actionname.c_str());
     // set the action state to preempted
     _as.setPreempted();
-    _as.acceptNewGoal();
+
   }
 
 

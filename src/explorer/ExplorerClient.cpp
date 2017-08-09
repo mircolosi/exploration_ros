@@ -3,37 +3,44 @@
 #include <actionlib/client/terminal_state.h>
 #include <exploration_ros/ExplorerAction.h>
 
-typedef actionlib::SimpleActionClient<exploration_ros::ExplorerAction> ExplorerAction;
+typedef actionlib::SimpleActionClient<exploration_ros::ExplorerAction> ExplorerActionClient;
 
 int main (int argc, char **argv)
 {
   class callbackObject {
   public:
-    callbackObject() : _exp_action(new ExplorerAction("explorer", true)) {
+    callbackObject() : _exp_client(new ExplorerActionClient("explorer", true)) {
       ROS_INFO("Waiting for action server to start.");
       // wait for the action server to start
-      while(!_exp_action->waitForServer(ros::Duration(5.0))){
+      while(!_exp_client->waitForServer(ros::Duration(5.0))){
         std::cerr << "Waiting for the move_base action server to come up" << std::endl;
       }
       ROS_INFO("Action server started, sending goal.");
     }
-    ~callbackObject() {delete _exp_action;}
+
+    ~callbackObject() {
+      delete _exp_client;
+    }
 
     inline void explorationCB(const ros::TimerEvent& event) {
-      _exp_action->cancelAllGoals();
+      _exp_client->cancelAllGoals();
 
-      std::cerr << "Sending exploration message" << std::endl;
+      std::cerr << "EXPLORATION message" << std::endl;
       exploration_ros::ExplorerGoal msg;
       msg.goal.action = "exploration";
 
-      _exp_action->sendGoal(msg);
-      _exp_action->waitForResult();
+      actionlib::SimpleClientGoalState goalState = _exp_client->getState();
+      std::cerr << "GOAL state: " << goalState.toString() << std::endl;
+      _exp_client->sendGoal(msg);
+      _exp_client->waitForResult();
+
+      // this->waitForGoal();
     }
 
     inline void targetCB(const ros::TimerEvent& event) {
-      _exp_action->cancelAllGoals();
+      _exp_client->cancelAllGoals();
 
-      std::cerr << "Sending goal" << std::endl;
+      std::cerr << "TARGET message" << std::endl;
       // send a goal to the action
       exploration_ros::ExplorerGoal msg;
 
@@ -41,15 +48,60 @@ int main (int argc, char **argv)
       msg.goal.target_pose.position.x = 160;
       msg.goal.target_pose.position.y = 160;
 
-      _exp_action->sendGoal(msg);
-      _exp_action->waitForResult();
+      actionlib::SimpleClientGoalState goalState = _exp_client->getState();
+      std::cerr << "GOAL state: " << goalState.toString() << std::endl;
+      _exp_client->sendGoal(msg);
+      _exp_client->waitForResult();
+
+      // this->waitForGoal();
+    }
+
+    inline void waitForGoal() {
+      ros::Rate loop_rate1(15);
+      ros::Rate loop_rate2(2);
+
+      while(_exp_client->getState() != actionlib::SimpleClientGoalState::ACTIVE){
+        loop_rate1.sleep();
+      }
+      bool reached = false;
+      while (!reached){
+        reached = isGoalReached();
+      }
+      _exp_client->cancelAllGoals();
 
     }
 
-    inline ExplorerAction* getExpAction() {return _exp_action;}
+    inline bool isGoalReached() {
+
+      actionlib::SimpleClientGoalState goalState = _exp_client->getState(); 
+
+      if (goalState == actionlib::SimpleClientGoalState::SUCCEEDED){
+        std::cerr << "GOAL state: " << goalState.toString() << std::endl;
+        printf("ExplorerActionClient: The goal SUCCEEDED\n");
+        return true;
+      }
+
+      if (goalState == actionlib::SimpleClientGoalState::ABORTED){
+        _exp_client->cancelAllGoals();
+        std::cerr << "GOAL state: " << goalState.toString() << std::endl;
+        printf("ExplorerActionClient: The goal has been ABORTED\n");
+        return true;
+      }
+
+      if ((goalState == actionlib::SimpleClientGoalState::RECALLED) || (goalState == actionlib::SimpleClientGoalState::PREEMPTED)){
+        std::cerr << "GOAL state: " << goalState.toString() << std::endl;
+        printf("ExplorerActionClient: The goal has been PREEMPTED\n<");
+        return true;
+      }
+
+      return false;
+
+
+    }
+
 
   private: 
-    ExplorerAction* _exp_action;
+    ExplorerActionClient* _exp_client;
   };
 
   ros::init(argc, argv, "test_explorer");
