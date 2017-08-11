@@ -1,8 +1,11 @@
 <launch>
+
+  <arg name="worldfile" default="$(find exploration_ros)/stagefiles/hospital.world"/>
+
   <master auto="start"/>
   <param name="/use_sim_time" value="true"/>
 
-<remap from="scan" to="base_scan"/>
+  <remap from="scan" to="base_scan"/>
 
 
 <node pkg="exploration_ros" name="slam" type="slam_node" output="screen" args="-timeUpdate 0 -angularUpdate 0.5 -linearUpdate 0.5 -scanTopic scan -type 0" />
@@ -15,7 +18,7 @@
 <node pkg="exploration_ros" name="planner" type="frontier_planner" output="screen" args="-iter -1"  />
 
 
-<node pkg="stage_ros" type="stageros" name="stageros" args="$(find exploration_ros)/stagefiles/hospital.world" respawn="false" >
+<node pkg="stage_ros" type="stageros" name="stageros" args="$(arg worldfile)" respawn="false" required="true" >
 <param name="base_watchdog_timeout" value="0.2"/>
 </node>
 
