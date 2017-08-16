@@ -9,6 +9,8 @@
 
 #include "sr_ros_utils/ros_handler_sr.h"
 
+
+using namespace g2o;
 using namespace cv;
 
 #include <sys/time.h>
@@ -64,8 +66,6 @@ int main(int argc, char **argv)
   ros::param::get("/slam/occupancyTopic", occupancyTopic);
 
   RosHandlerSR rh(typeExperiment, odometryFrame, scanTopic);
-
-
   rh.useOdom(true);
   rh.useLaser(true);
   rh.init();   //Wait for initial ground-truth position, odometry and laserScan

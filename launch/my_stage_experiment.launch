@@ -1,4 +1,7 @@
 <launch>
+
+  <arg name="worldfile" default="$(find exploration_ros)/stagefiles/hospital.world"/>
+
   <master auto="start"/>
   <param name="/use_sim_time" value="true"/>
 
@@ -13,13 +16,13 @@
     <param name="minInliers" value="5" /><!--  doc="min inliers"/> -->
     <param name="windowLoopClosure" value="10" /> <!-- doc="sliding window for loop closures"  /> -->
     <param name="inlierThreshold" value="2" /> <!-- doc="inlier threshold" /> -->
-    <param name="localizationAngularUpdate" value="0.5" /> <!-- doc="angular rotation interval for updating the graph, in radians" default="0.7853975"/> -->
-    <param name="localizationLinearUpdate"  value="0.5" /> <!-- doc="linear translation interval for updating the graph, in meters" default="0.25" /> -->
-    <param name="localizationTimeUpdate"  value="0" /> <!-- doc="interval in time for updating the robot pose in the map, in seconds" default="0" /> -->
-    <param name="typeExperiment" value="0" /> <!-- doc="0 if stage simulation or 1 if real robot experiment"  default="0"  /> -->
-    <param name="laserFrameName" value="base_laser_link" /> <!-- doc="name of the laser TF frame"/> -->
-    <param name="odometryFrame" value="odom" /> <!-- doc="odometry ROS topic"/> -->
-    <param name="scanTopic" value="base_scan" /> <!-- value="scan" doc="scan ROS topic"/> -->
+    <param name="angularUpdate" value="0.5" /> <!-- doc="angular rotation interval for updating the graph, in radians" default="0.7853975"/> -->
+    <param name="linearUpdate"  value="0.5" /> <!-- doc="linear translation interval for updating the graph, in meters" default="0.25" /> -->
+    <param name="timeUpdate"  value="0" /> <!-- doc="interval in time for updating the robot pose in the map, in seconds" default="0" /> -->
+    <param name="type" value="0" /> <!-- doc="0 if stage simulation or 1 if real robot experiment"  default="0"  /> -->
+    <param name="laserFrame" value="base_laser_link" /> <!-- doc="name of the laser TF frame"/> -->
+    <param name="odometryFrame" value="odom" /> <!-- doc="odometry ROS frame"/> -->
+    <param name="scanTopic" value="scan" /> <!-- value="scan" doc="scan ROS topic"/> -->
     <param name="occupancyTopic" value="map" /> <!-- doc="occupancy grid ROS topic"/> -->
 
   </node>
@@ -47,7 +50,7 @@
 
 <node pkg="exploration_ros" name="action_client" type="exploration_action_client" output="screen"/> 
 
-<node pkg="stage_ros" type="stageros" name="stageros" args="$(find exploration_ros)/stagefiles/hospital.world" respawn="false" >
+<node pkg="stage_ros" type="stageros" name="stageros" args="$(arg worldfile)" respawn="false" >
   <param name="base_watchdog_timeout" value="0.2"/>
 </node>
 
