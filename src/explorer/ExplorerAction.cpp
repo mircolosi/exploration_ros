@@ -1,10 +1,6 @@
 // http://wiki.ros.org/actionlib_tutorials/Tutorials/SimpleActionServer%28ExecuteCallbackMethod%29
 
-// define action/Explorer.action
-
 #include <unistd.h>
-
-#include "g2o/stuff/command_args.h"
 
 #include "ros/ros.h"
 #include "geometry_msgs/Pose2D.h"
@@ -82,23 +78,22 @@ public:
   _as(_nh, _actionname, boost::bind(&ExplorerAction::executeCB, this, _1), false) {
 
     std::cerr << "Creation ExplorerActionServer" << std::endl;
-    g2o::CommandArgs arg;
 
-    arg.param("mapFrame",     _mapFrame, "map", "TF mapFrame for the robot");
-    arg.param("baseFrame",    _baseFrame, "base_link", "TF base Frame for the robot");
-    arg.param("laserFrame",   _laserFrame, "base_laser_link", "TF laser Frame for the robot");
-    arg.param("scanTopic",    _laserTopicName,"scan", "laser scan ROS topic");
-    arg.param("pointsTopic",  _frontierPointsTopic, "points", "frontier points ROS topic");
-    arg.param("markersTopic", _markersTopic, "markers", "frontier centroids ROS topic");
-    arg.param("regionSize",   _thresholdRegionSize, 15, "minimum size of a frontier region");
-    arg.param("exploredArea", _thresholdExploredArea, 10, "minimum number of visible frontier points before aborting a goal");
-    arg.param("lambda",       _lambdaDecay, 1.25, "distance decay factor for choosing next goal");
-    arg.param("mc",           _nearCentroidsThreshold, 0.5, "Lower distance limit to consider 2 goals as the same, in meters");
-    arg.param("Mc",           _farCentroidsThreshold, 5.0, "Max distance at which a centroid is considered if there are also closer ones, in meters");
-    arg.param("nc",           _maxCentroidsNumber, 8, "Maximum number of centroids considered during each search for a goal");
-    arg.param("iter",         _numExplorationIterations, 10, "Number of plans to be computed. -1 means infinite");
-
-    arg.parseArgs(argc_, argv_);
+    // TODO adjust this
+    std::string prefix("/"+_actionname+"/");
+    _nh.getParam(prefix+"mapFrame",     _mapFrame);
+    _nh.getParam(prefix+"baseFrame",    _baseFrame);
+    _nh.getParam(prefix+"laserFrame",   _laserFrame);
+    _nh.getParam(prefix+"scanTopic",    _laserTopicName);
+    _nh.getParam(prefix+"pointsTopic",  _frontierPointsTopic);
+    _nh.getParam(prefix+"markersTopic", _markersTopic);
+    _nh.getParam(prefix+"regionSize",   _thresholdRegionSize);
+    _nh.getParam(prefix+"exploredArea", _thresholdExploredArea);
+    _nh.getParam(prefix+"lambda",       _lambdaDecay);
+    _nh.getParam(prefix+"mc",           _nearCentroidsThreshold);
+    _nh.getParam(prefix+"Mc",           _farCentroidsThreshold);
+    _nh.getParam(prefix+"nc",           _maxCentroidsNumber);
+    _nh.getParam(prefix+"iter",         _numExplorationIterations);
 
     _projector = new FakeProjector();
 
@@ -218,6 +213,7 @@ public:
         PoseWithInfo goal = _pathsRollout->extractBestPose();
 
         _goalPlanner->publishGoal(goal, _mapFrame); 
+        
         if (_as.isNewGoalAvailable()) {
           _result.state = "PREEMPTED";
           break;
@@ -295,7 +291,7 @@ public:
 
 int main(int argc, char** argv) {
 
-  ros::init(argc, argv, "exploration_node");
+  ros::init(argc, argv, ACTIONNAME);
 
   ExplorerAction a(argc, argv);
   ros::spin();

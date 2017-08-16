@@ -89,7 +89,14 @@ The default parameters work well in general, anyway for specific program options
 
 It's possible to test the whole system by using a launch file present in the package. IMPORTANT CHECK that the planner node is UNCOMMENTED inside the launch file, otherwise the robot will not move. 
 
-    $ roslaunch exploration_ros stage_experiment.launch
+    $ roslaunch exploration_ros my_stage_experiment.launch
+
+On the other hand, if you need to run the single components, you can use the following commands:
+    
+    $ rosrun exploration_ros exploration_action_node   
+    $ rosrun exploration_ros exploration_action_client
+
+for running the action server and client. 
 
 #### Integrating the system with other components
 
