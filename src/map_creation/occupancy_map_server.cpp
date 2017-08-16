@@ -11,7 +11,7 @@ bool OccupancyMapServer::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::
 
 
   //header (uint32 seq, time stamp, string frame_id)
- res.map.header.frame_id = _mapTopicName;
+ res.map.header.frame_id = _mapTopic;
   
   //info (time map_load_time  float32 resolution   uint32 width  uint32 height   geometry_msgs/Pose origin)
 
@@ -26,7 +26,7 @@ bool OccupancyMapServer::mapCallback(nav_msgs::GetMap::Request  &req, nav_msgs::
 }
 
 
-OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment, string laserFrameName, string mapTopicName, string odomFrameName, ros::Duration tolerance, float threshold, float freeThreshold){
+OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment, string laserFrame, string mapTopic, string odomFrame, ros::Duration tolerance, float threshold, float freeThreshold){
 
 	_occupancyMap = occupancyMap;
 
@@ -37,21 +37,21 @@ OccupancyMapServer::OccupancyMapServer(cv::Mat* occupancyMap,int typeExperiment,
 	_threshold = threshold;
 	_freeThreshold = freeThreshold;
 
-	_odomFrameName = odomFrameName;
+	_odomFrame = odomFrame;
 
-	_laserFrameName = laserFrameName;
-
-
-	_mapTopicName = mapTopicName;
-
-	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_mapTopicName,1);
-
-	_pubMapMetaData = _nh.advertise<nav_msgs::MapMetaData>(_mapTopicName + "_metadata", 1);
-
-	_server = _nh.advertiseService(_mapTopicName, &OccupancyMapServer::mapCallback, this);
+	_laserFrame = laserFrame;
 
 
-	_gridMsg.header.frame_id = _mapTopicName;
+	_mapTopic = mapTopic;
+
+	_pubOccupGrid = _nh.advertise<nav_msgs::OccupancyGrid>(_mapTopic,1);
+
+	_pubMapMetaData = _nh.advertise<nav_msgs::MapMetaData>(_mapTopic + "_metadata", 1);
+
+	_server = _nh.advertiseService(_mapTopic, &OccupancyMapServer::mapCallback, this);
+
+
+	_gridMsg.header.frame_id = _mapTopic;
 	geometry_msgs::Pose poseMsg;
 	poseMsg.position.x = 0.0;
 	poseMsg.position.y = 0.0;
@@ -88,7 +88,7 @@ void OccupancyMapServer::publishMapPose(SE2 actualPose){
 	map2Trajectory.setRotation(map2TrajectoryQuaternions);
 
 	//Broadcast the map->trajectory transformation
-	_tfBroadcaster.sendTransform(tf::StampedTransform(map2Trajectory, ros::Time::now(), _mapTopicName, "trajectory"));
+	_tfBroadcaster.sendTransform(tf::StampedTransform(map2Trajectory, ros::Time::now(), _mapTopic, "trajectory"));
 
 	//Compute the robot pose in the map frame
 	tf::Stamped<tf::Pose> actualPoseTF;
@@ -114,7 +114,7 @@ void OccupancyMapServer::adjustMapToOdom() {
 		tf::Transform laser_to_map;
 
 
-		_tfListener.lookupTransform(_odomFrameName, _laserFrameName, ros::Time(0), odom_to_laser);
+		_tfListener.lookupTransform(_odomFrame, _laserFrame, ros::Time(0), odom_to_laser);
 
 		laser_to_map = _tfMap2Laser.inverse();
 
@@ -141,7 +141,7 @@ void OccupancyMapServer::adjustMapToOdom() {
 
 void OccupancyMapServer::publishMapToOdom(){
 
-	_tfBroadcaster.sendTransform(tf::StampedTransform(_tfMap2Odom, ros::Time::now(), _mapTopicName, _odomFrameName)); 
+	_tfBroadcaster.sendTransform(tf::StampedTransform(_tfMap2Odom, ros::Time::now(), _mapTopic, _odomFrame)); 
 
 }
 
@@ -206,14 +206,14 @@ void OccupancyMapServer::publishMapMetaData() {
 
 
 
-void OccupancyMapServer::saveMap(std::string outputFileName) {
+void OccupancyMapServer::saveMap(std::string outputFile) {
 
 	//Save files in the current working directory. Be careful if using ROSLAUNCH since the cwd becomes ~/.ros
 	std::stringstream titleImage;
-	titleImage <<outputFileName <<".png"; 
+	titleImage <<outputFile <<".png"; 
 
 	std::stringstream titleYaml;
-	titleYaml<<outputFileName <<".yaml"; 
+	titleYaml<<outputFile <<".yaml"; 
 
 
 	_occupancyMapImage = cv::Mat(_occupancyMap->rows, _occupancyMap->cols, CV_8UC1);

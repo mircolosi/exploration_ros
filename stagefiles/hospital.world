@@ -24,7 +24,7 @@ define topurg ranger
 
 define erratic position
 (
-  size [0.35 0.35 0.25]
+  size [0.350 0.350 0.250]
   origin [-0.050 0.000 0.000 0.000]
   gui_nose 1
   drive "diff"
@@ -61,7 +61,7 @@ interval_sim 100  # simulation timestep in milliseconds
 
 window
 ( 
-  size [ 1920 1004 ] 
+  size [ 1918 1003 ] 
   center [-0.101 0.508] 
   scale 44.378 # pixels per meter
 

@@ -91,7 +91,7 @@ It's possible to test the whole system by using a launch file present in the pac
 
     $ roslaunch exploration_ros my_stage_experiment.launch
 
-On the other hand, if you need to run the single components, you can use the following commands:
+Otherwise, if you need to run the single components, you can use the following commands:
     
     $ rosrun exploration_ros exploration_action_node   
     $ rosrun exploration_ros exploration_action_client

@@ -20,7 +20,7 @@ using namespace g2o;
 class RosHandlerSR
 {
  public:
-  RosHandlerSR(int typeExperiment, std::string odomTopic = "odom", std::string scanTopic = "base_scan");
+  RosHandlerSR(int typeExperiment, std::string odometryFrame = "odom", std::string scanTopic = "base_scan");
   
   inline void useOdom(bool useOdom){_useOdom = useOdom;}
   inline void useLaser(bool useLaser){_useLaser = useLaser;}
@@ -31,7 +31,7 @@ class RosHandlerSR
   float getLaserMaxRange();
 
   
-  inline void setOdomTopic(std::string odomTopic) {_odomTopic = odomTopic;}
+  inline void setOdometryFrame(std::string odometryFrame) {_odometryFrame = odometryFrame;}
   inline void setScanTopic(std::string scanTopic) {_scanTopic = scanTopic;}
 
   void init();
@@ -50,7 +50,7 @@ class RosHandlerSR
   ros::Subscriber _subScan;
 
   //Topics names
-  std::string _odomTopic;
+  std::string _odometryFrame;
   std::string _scanTopic;
   
 

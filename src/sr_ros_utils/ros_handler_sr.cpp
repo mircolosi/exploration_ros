@@ -1,9 +1,9 @@
 #include "ros_handler_sr.h"
 
 
-RosHandlerSR::RosHandlerSR (int typeExperiment, std::string odomTopic, std::string scanTopic){
+RosHandlerSR::RosHandlerSR (int typeExperiment, std::string odometryFrame, std::string scanTopic){
   
-  _odomTopic = odomTopic;
+  _odometryFrame = odometryFrame;
   _scanTopic = scanTopic;
 
   _typeExperiment = typeExperiment;
@@ -75,7 +75,7 @@ void RosHandlerSR::init(){
 
   if (_useOdom){
     //Init Odom
-    nav_msgs::Odometry::ConstPtr odommsg = ros::topic::waitForMessage<nav_msgs::Odometry>(_odomTopic);
+    nav_msgs::Odometry::ConstPtr odommsg = ros::topic::waitForMessage<nav_msgs::Odometry>(_odometryFrame);
     _odom = *odommsg;
   }
   
@@ -91,7 +91,7 @@ void RosHandlerSR::init(){
 
 void RosHandlerSR::run(){
   if (_useOdom) //Subscribe Odom
-    _subOdom = _nh.subscribe<nav_msgs::Odometry>(_odomTopic, 1, &RosHandlerSR::odomCallback, this);
+    _subOdom = _nh.subscribe<nav_msgs::Odometry>(_odometryFrame, 1, &RosHandlerSR::odomCallback, this);
     
   if (_useLaser) //Subscribe Laser
     _subScan = _nh.subscribe<sensor_msgs::LaserScan>(_scanTopic, 1,  &RosHandlerSR::scanCallback, this);

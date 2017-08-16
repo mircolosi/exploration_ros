@@ -30,7 +30,7 @@ class OccupancyMapServer{
 
 public:
 
-	OccupancyMapServer(cv::Mat* occupancyMap, int typeExperiment,string laserFrameName = "base_laser_link", string mapTopicName = "map", string odomFrameName = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
+	OccupancyMapServer(cv::Mat* occupancyMap, int typeExperiment,string laserFrame = "base_laser_link", string mapTopic = "map", string odomFrame = "odom", ros::Duration tolerance = ros::Duration(1), float threshold = 0.0, float freeThreshold = 0.0);
 
 	void publishMap ();
 	void publishMapMetaData();
@@ -56,10 +56,10 @@ protected:
 	cv::Mat * _occupancyMap;
 	cv::Mat _occupancyMapImage;
 
-	string _mapTopicName;
+	string _mapTopic;
 
-	string _odomFrameName;
-	string _laserFrameName;
+	string _odomFrame;
+	string _laserFrame;
 
 	Vector2f _mapOffset;
 	float _mapResolution;
