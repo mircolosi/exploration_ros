@@ -7,7 +7,7 @@
 
   <remap from="scan" to="base_scan"/>
 
-
+  <group ns="my_robot" />
   <node pkg="exploration_ros" name="slam" type="slam_node" output="screen">
 
     <param name="resolution" value="0.025" /> <!-- doc="resolution of the matching grid"  -->
@@ -64,6 +64,6 @@
   <include file="$(find exploration_ros)/move_base_config/move_base.xml"/>
 
 
-
+  </group>
 </launch>
 
