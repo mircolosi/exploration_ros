@@ -49,21 +49,23 @@ int main(int argc, char **argv)
   float freeThrehsold = 0.196;
 
   ros::init(argc, argv, "slam_node");
-
-  ros::param::get("/slam/resolution", resolution);
-  ros::param::get("/slam/maxScore", maxScore);
-  ros::param::get("/slam/kernelRadius", kernelRadius);
-  ros::param::get("/slam/minInliers", minInliers);
-  ros::param::get("/slam/windowLoopClosure",  windowLoopClosure);
-  ros::param::get("/slam/inlierThreshold",  inlierThreshold);
-  ros::param::get("/slam/angularUpdate", localizationAngularUpdate);
-  ros::param::get("/slam/linearUpdate", localizationLinearUpdate);
-  ros::param::get("/slam/timeUpdate", localizationTimeUpdate);
-  ros::param::get("/slam/type", typeExperiment);
-  ros::param::get("/slam/laserFrame", laserFrame);
-  ros::param::get("/slam/odometryFrame", odometryFrame);
-  ros::param::get("/slam/scanTopic", scanTopic);
-  ros::param::get("/slam/occupancyTopic", occupancyTopic);
+  ros::NodeHandle nh; 
+  std::string prefix(ros::this_node::getName()+"/");
+  nh.resolveName(prefix+"action", true),
+  nh.getParam(nh.resolveName(prefix+"resolution", true), resolution);
+  nh.getParam(nh.resolveName(prefix+"maxScore", true), maxScore);
+  nh.getParam(nh.resolveName(prefix+"kernelRadius", true), kernelRadius);
+  nh.getParam(nh.resolveName(prefix+"minInliers", true), minInliers);
+  nh.getParam(nh.resolveName(prefix+"windowLoopClosure", true),  windowLoopClosure);
+  nh.getParam(nh.resolveName(prefix+"inlierThreshold", true),  inlierThreshold);
+  nh.getParam(nh.resolveName(prefix+"angularUpdate", true), localizationAngularUpdate);
+  nh.getParam(nh.resolveName(prefix+"linearUpdate", true), localizationLinearUpdate);
+  nh.getParam(nh.resolveName(prefix+"timeUpdate", true), localizationTimeUpdate);
+  nh.getParam(nh.resolveName(prefix+"type", true), typeExperiment);
+  nh.getParam(nh.resolveName(prefix+"laserFrame", true), laserFrame);
+  nh.getParam(nh.resolveName(prefix+"odometryFrame", true), odometryFrame);
+  nh.getParam(nh.resolveName(prefix+"scanTopic", true), scanTopic);
+  nh.getParam(nh.resolveName(prefix+"occupancyTopic", true), occupancyTopic);
 
   RosHandlerSR rh(typeExperiment, odometryFrame, scanTopic);
   rh.useOdom(true);

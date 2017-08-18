@@ -9,11 +9,18 @@ int main (int argc, char **argv)
 {
   class callbackObject {
   public:
-    callbackObject() : _exp_client(new ExplorerActionClient("explorer", true)) {
-      ROS_INFO("Waiting for action server to start.");
+    callbackObject() {
+
+      ros::NodeHandle this_node;
+      std::string action;
+      std::string prefix(ros::this_node::getName()+"/");
+      this_node.getParam(this_node.resolveName(prefix+"action", true), action);
+
+      _exp_client = new ExplorerActionClient(action, true); 
+
       // wait for the action server to start
       while(!_exp_client->waitForServer(ros::Duration(5.0))){
-        std::cerr << "Waiting for the move_base action server to come up" << std::endl;
+        std::cerr << "Waiting for the explorer action server to come up" << std::endl;
       }
       ROS_INFO("Action server started, sending goal.");
     }
@@ -104,7 +111,7 @@ int main (int argc, char **argv)
     ExplorerActionClient* _exp_client;
   };
 
-  ros::init(argc, argv, "test_explorer");
+  ros::init(argc, argv, "explorer_client");
   ros::NodeHandle timers_handler;
 
   callbackObject* cb = new callbackObject();

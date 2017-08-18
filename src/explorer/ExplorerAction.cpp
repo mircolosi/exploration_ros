@@ -17,6 +17,7 @@ using namespace Eigen;
 
 #define ACTIONNAME "explorer"
 
+typedef actionlib::SimpleActionServer<exploration_ros::ExplorerAction> ExplorerActionServer;
 class ExplorerAction
 {
 protected:
@@ -25,7 +26,7 @@ protected:
   std::string _actionname;
   bool _isActive;
 
-  actionlib::SimpleActionServer<exploration_ros::ExplorerAction> _as; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
+  ExplorerActionServer* _as; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
 
   // create messages that are used to published feedback/result
   exploration_ros::ExplorerFeedback _feedback;
@@ -73,27 +74,34 @@ protected:
   MoveBaseClient* _ac;
 public:
 
-  ExplorerAction(int argc_, char** argv_) : 
-  _actionname(ACTIONNAME),
-  _as(_nh, _actionname, boost::bind(&ExplorerAction::executeCB, this, _1), false) {
+  ExplorerAction(int argc_, char** argv_) {
+
 
     std::cerr << "Creation ExplorerActionServer" << std::endl;
 
     // TODO adjust this
-    std::string prefix("/"+_actionname+"/");
-    _nh.getParam(prefix+"mapFrame",     _mapFrame);
-    _nh.getParam(prefix+"baseFrame",    _baseFrame);
-    _nh.getParam(prefix+"laserFrame",   _laserFrame);
-    _nh.getParam(prefix+"scanTopic",    _laserTopicName);
-    _nh.getParam(prefix+"pointsTopic",  _frontierPointsTopic);
-    _nh.getParam(prefix+"markersTopic", _markersTopic);
-    _nh.getParam(prefix+"regionSize",   _thresholdRegionSize);
-    _nh.getParam(prefix+"exploredArea", _thresholdExploredArea);
-    _nh.getParam(prefix+"lambda",       _lambdaDecay);
-    _nh.getParam(prefix+"mc",           _nearCentroidsThreshold);
-    _nh.getParam(prefix+"Mc",           _farCentroidsThreshold);
-    _nh.getParam(prefix+"nc",           _maxCentroidsNumber);
-    _nh.getParam(prefix+"iter",         _numExplorationIterations);
+    std::string prefix(ros::this_node::getName()+"/");
+
+    std::cerr << "**********************************" << std::endl;
+    std::cerr << "ns: " << _nh.getNamespace() << std::endl;
+    std::cerr << "ns_unres: " << _nh.getUnresolvedNamespace() << std::endl;
+    std::cerr << "resolved: " << _nh.resolveName(prefix+"iter", true) << std::endl;
+    std::cerr << "**********************************" << std::endl;
+
+    _nh.getParam(_nh.resolveName(prefix+"action", true),       _actionname);
+    _nh.getParam(_nh.resolveName(prefix+"mapFrame", true),     _mapFrame);
+    _nh.getParam(_nh.resolveName(prefix+"baseFrame", true),    _baseFrame);
+    _nh.getParam(_nh.resolveName(prefix+"laserFrame", true),   _laserFrame);
+    _nh.getParam(_nh.resolveName(prefix+"scanTopic", true),    _laserTopicName);
+    _nh.getParam(_nh.resolveName(prefix+"pointsTopic", true),  _frontierPointsTopic);
+    _nh.getParam(_nh.resolveName(prefix+"markersTopic", true), _markersTopic);
+    _nh.getParam(_nh.resolveName(prefix+"regionSize", true),   _thresholdRegionSize);
+    _nh.getParam(_nh.resolveName(prefix+"exploredArea", true), _thresholdExploredArea);
+    _nh.getParam(_nh.resolveName(prefix+"lambda", true),       _lambdaDecay);
+    _nh.getParam(_nh.resolveName(prefix+"mc", true),           _nearCentroidsThreshold);
+    _nh.getParam(_nh.resolveName(prefix+"Mc", true),           _farCentroidsThreshold);
+    _nh.getParam(_nh.resolveName(prefix+"nc", true),           _maxCentroidsNumber);
+    _nh.getParam(_nh.resolveName(prefix+"iter", true),         _numExplorationIterations);
 
     _projector = new FakeProjector();
 
@@ -102,12 +110,16 @@ public:
     _projector->setFov(_fov);
     _projector->setNumRanges(_numRanges);
 
-    _ac = new MoveBaseClient("move_base",true);
+    _as = new ExplorerActionServer(_nh, _actionname, boost::bind(&ExplorerAction::executeCB, this, _1), false);
+    _ac = new MoveBaseClient("move_base", true);
 
     //wait for the action server to come up
     while(!_ac->waitForServer(ros::Duration(5.0))){
       std::cerr << "Waiting for the move_base action server to come up" << std::endl;
     }
+
+    std::cerr << "MOVE BASE CLIENT CREATED!!!" << std::endl;
+
 
     tf::TransformListener tfListener;
     tf::StampedTransform tfBase2Laser;
@@ -139,10 +151,10 @@ public:
     _goalPlanner->setOccupiedCellsCloud(_occupiedCellsCloud);
 
     //register the goal and feeback callbacks
-    // _as.registerGoalCallback(boost::bind(&ExplorerAction::goalCB, this));
-    _as.registerPreemptCallback(boost::bind(&ExplorerAction::preemptCB, this));
+    // _as->registerGoalCallback(boost::bind(&ExplorerAction::goalCB, this));
+    _as->registerPreemptCallback(boost::bind(&ExplorerAction::preemptCB, this));
 
-    _as.start();
+    _as->start();
     std::cerr << "Running ExplorerActionServer" << std::endl;
   }
 
@@ -154,6 +166,7 @@ public:
     delete _ac;
     delete _costMap;
     delete _occupancyMap;
+    delete _as;
   }
 
   // called when the action starts
@@ -205,7 +218,7 @@ public:
         if (numSampledPoses == 0) {
             //mc the goal is unreachable
           std::cout << "NO POSE AVAILABLE FOR GOAL" << std::endl;
-          // _as.setAborted();
+          // _as->setAborted();
           _result.state = "ABORTED [no pose available for goal]";
           break;
         }
@@ -214,7 +227,7 @@ public:
 
         _goalPlanner->publishGoal(goal, _mapFrame); 
         
-        if (_as.isNewGoalAvailable()) {
+        if (_as->isNewGoalAvailable()) {
           _result.state = "PREEMPTED";
           break;
         }
@@ -233,7 +246,7 @@ public:
         _targets.push_back({goal->goal.target_pose.position.x,goal->goal.target_pose.position.y});
         if (!_pathsRollout->computeTargetSampledPlans(_targets, _mapFrame)){
           std::cout<<"NO TRAJECTORY TOWARD GOAL... CONTINUE EXPLORATION"<<std::endl;
-          _as.setAborted();
+          _as->setAborted();
         } else {
           PoseWithInfo target = _pathsRollout->extractTargetPose();
 
@@ -251,23 +264,23 @@ public:
       if ("wait" == goal->goal.action) {
         std::cerr << "WAITING" << std::endl;
         _feedback.action = "wait";
-        // if (_as.isNewGoalAvailable()){
-        //   _as.acceptNewGoal();
+        // if (_as->isNewGoalAvailable()){
+        //   _as->acceptNewGoal();
         // }
-        // _as.setSucceeded();
+        // _as->setSucceeded();
         break;
       }
     }
 
     // Set final outcome
-    if (_as.isActive()){
+    if (_as->isActive()){
       if (_result.state=="SUCCEEDED") {
-        _as.setSucceeded();
-      } else if (_as.isPreemptRequested()) {
-        _as.setAborted();
+        _as->setSucceeded();
+      } else if (_as->isPreemptRequested()) {
+        _as->setAborted();
         _result.state = "PREEMPTED";
       } else {
-        _as.setAborted();
+        _as->setAborted();
       }
 
       ROS_INFO("Action finished with result: %s",_result.state.c_str());
@@ -281,7 +294,7 @@ public:
   {
     ROS_INFO("%s: Preempted ", _actionname.c_str());
     // set the action state to preempted
-    _as.setPreempted();
+    _as->setPreempted();
 
   }
 
@@ -291,7 +304,7 @@ public:
 
 int main(int argc, char** argv) {
 
-  ros::init(argc, argv, ACTIONNAME);
+  ros::init(argc, argv, "explorer_server");
 
   ExplorerAction a(argc, argv);
   ros::spin();

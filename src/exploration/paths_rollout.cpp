@@ -30,7 +30,11 @@ PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, FakeProjector *
 
   _lambda = lambdaDecay;
 
-  _planClient = _nh.serviceClient<nav_msgs::GetPlan>("move_base_node/make_plan");
+  std::cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << std::endl;
+  std::cerr << _nh.resolveName("move_base_node/make_plan", true) << std::endl;
+  std::cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << std::endl;
+  
+  _planClient = _nh.serviceClient<nav_msgs::GetPlan>(_nh.resolveName("move_base_node/make_plan", true));
 
 
 }
