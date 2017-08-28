@@ -2,13 +2,16 @@
 
   <arg name="worldfile" default="$(find exploration_ros)/stagefiles/hospital.world"/>
   <arg name="action" default="explore"/>
+  <arg name="robotname" default="my_robot"/>
+  <arg name="laser_topic" default="scan"/>
+  <arg name="laser_frame" default="base_laser_link"/>
+  <arg name="base_frame" default="base_link"/>
   <master auto="start"/>
   <param name="/use_sim_time" value="true"/>
 
-  <remap from="scan" to="base_scan"/>
-
-
   <node pkg="exploration_ros" name="slam" type="slam_node" output="screen">
+
+    <remap from="scan" to="$(arg robotname)/$(arg laser_topic)" />
 
     <param name="resolution" value="0.025" /> <!-- doc="resolution of the matching grid"  -->
     <param name="maxScore" value="0.15" /> <!-- doc="score of the matcher, the higher the less matches" /> -->
@@ -21,9 +24,9 @@
     <param name="timeUpdate"  value="0" /> <!-- doc="interval in time for updating the robot pose in the map, in seconds" default="0" /> -->
     <param name="type" value="0" /> <!-- doc="0 if stage simulation or 1 if real robot experiment"  default="0"  /> -->
     <param name="laserFrame" value="base_laser_link" /> <!-- doc="name of the laser TF frame"/> -->
-    <param name="odometryFrame" value="odom" /> <!-- doc="odometry ROS frame"/> -->
-    <param name="scanTopic" value="scan" /> <!-- value="scan" doc="scan ROS topic"/> -->
-    <param name="occupancyTopic" value="map" /> <!-- doc="occupancy grid ROS topic"/> -->
+    <param name="odometryFrame" value="$(arg robotname)/odom" /> <!-- doc="odometry ROS frame"/> -->
+    <param name="scanTopic" value="$(arg robotname)/$(arg laser_topic)" /> <!-- value="scan" doc="scan ROS topic"/> -->
+    <param name="occupancyTopic" value="/map" /> <!-- doc="occupancy grid ROS topic"/> -->
 
   </node>
 
@@ -61,9 +64,30 @@
   <node pkg="rviz" type="rviz" name="visualizer" output="screen" args="-d $(find exploration_ros)/config.rviz"/>
 
 
-  <include file="$(find exploration_ros)/move_base_config/move_base.xml"/>
+  <!-- <include file="$(find exploration_ros)/move_base_config/move_base.xml"/> -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+    <remap from="map" to="/map" />
+    <remap from="odom" to="odom" />
+    <remap from="cmd_vel" to="cmd_vel" />
 
+    <rosparam file="$(find exploration_ros)/move_base_config/move_base_params.yaml" command="load" />
+    <rosparam file="$(find exploration_ros)/move_base_config/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find exploration_ros)/move_base_config/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find exploration_ros)/move_base_config/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find exploration_ros)/move_base_config/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find exploration_ros)/move_base_config/base_local_planner_params.yaml" command="load" />
+    <rosparam file="$(find exploration_ros)/move_base_config/base_global_planner_params.yaml" command="load" />
+    <rosparam file="$(find exploration_ros)/move_base_config/dwa_local_planner_params.yaml" command="load" />
+    
+    <!-- Override MOVE_BASE Frame Params to include prefix -->
+    <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname)/$(arg laser_frame)"/>
+    <param name="global_costmap/laser_scan_sensor/topic" value="/$(arg robotname)/$(arg laser_topic)"/>
+    <param name="global_costmap/robot_base_frame" value="/$(arg robotname)/$(arg base_frame)"/>   
+    <param name="local_costmap/global_frame" value="/$(arg robotname)/odom"/>
+    <param name="local_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname)/$(arg laser_frame)"/>
+    <param name="local_costmap/laser_scan_sensor/topic" value="/$(arg robotname)/$(arg laser_topic)"/>
+    <param name="local_costmap/robot_base_frame" value="/$(arg robotname)/$(arg base_frame)"/> 
+  </node>
 
 
 </launch>
-

@@ -26,13 +26,13 @@ using namespace srrg_core;
 typedef std::vector<Vector2iVector> regionVector;
 
 struct coordWithScore {
-	Vector2i coord;
-	float score;
+  Vector2i coord;
+  float score;
 
-	bool operator <(const coordWithScore& cws)const
-      {
-         return score > cws.score;
-      }
+  bool operator <(const coordWithScore& cws)const
+  {
+   return score > cws.score;
+ }
 };
 
 
@@ -40,110 +40,120 @@ struct coordWithScore {
 class FrontierDetector {
 
 public:
-	void costMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
-	void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-	void occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
-	void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
-	void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
+  void costMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
+  void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+  void occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
+  void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
+  void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-	FrontierDetector(cv::Mat *occupancy, cv::Mat *cost, int thresholdSize = 30, int minNeighborsThreshold = 4, std::string namePoints = "points", std::string nameMarkers = "markers", std::string nameMap = "map", std::string nameMapMetadata = "");
+  FrontierDetector( cv::Mat *occupancy,
+                    cv::Mat *cost, 
+                    int thresholdSize = 30, 
+                    int minNeighborsThreshold = 4, 
+                    std::string namePoints = "points", 
+                    std::string nameMarkers = "markers", 
+                    std::string nameMap = "map", 
+                    std::string baseFrame = "base_link",
+                    std::string nameMapMetadata = "");
 
-	bool requestOccupancyMap();
 
-	void computeFrontiers(int distance = -1, Vector2f centerCoord = {FLT_MAX,FLT_MAX});
-		
+  bool requestOccupancyMap();
 
-	void rankRegions();
-	
-	void computeCentroids();
+  void computeFrontiers(int distance = -1, Vector2f centerCoord = {FLT_MAX,FLT_MAX});
 
-	void updateClouds();
 
-	Vector2iVector getFrontierPoints();
-	regionVector getFrontierRegions();
-	Vector2iVector getFrontierCentroids();
-	Vector2iVector getUnknownCells();
-	Vector2iVector getOccupiedCells();
+  void rankRegions();
 
-	Vector2fVector* getUnknownCloud();
-	Vector2fVector* getOccupiedCloud();
+  void computeCentroids();
 
-	nav_msgs::MapMetaData getMapMetaData();
+  void updateClouds();
 
-	void publishFrontierPoints();
-	void publishCentroidMarkers();
-	void publishCentroidMarkers(Vector2iVector target_);
+  Vector2iVector getFrontierPoints();
+  regionVector getFrontierRegions();
+  Vector2iVector getFrontierCentroids();
+  Vector2iVector getUnknownCells();
+  Vector2iVector getOccupiedCells();
+
+  Vector2fVector* getUnknownCloud();
+  Vector2fVector* getOccupiedCloud();
+
+  nav_msgs::MapMetaData getMapMetaData();
+
+  void publishFrontierPoints();
+  void publishCentroidMarkers();
+  void publishCentroidMarkers(Vector2iVector target_);
 
 protected:
-	Vector2iVector get4Neighbors(Vector2i cell);
-	void computeFrontierPoints(int startR, int startC, int endR, int endC);
-	void computeFrontierRegions();
-	void computeFrontierCentroids();
-	void rankFrontierRegions(float mapX, float mapY);
+  Vector2iVector get4Neighbors(Vector2i cell);
+  void computeFrontierPoints(int startR, int startC, int endR, int endC);
+  void computeFrontierRegions();
+  void computeFrontierCentroids();
+  void rankFrontierRegions(float mapX, float mapY);
 
 
-	bool isNeighbor(Vector2i coordI, Vector2i coordJ);
-	Vector2iVector getColoredNeighbors(Vector2i coord, int color);
-	void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector2iVector points, const bool expansion);
-
-
-
-	template<class V, class E> inline bool contains(V vector, E element){
-		if (std::find(vector.begin(), vector.end(), element) != vector.end())
-			return true;
-		else 
-			return false;
-	}
-
-
-	cv::Mat  *_occupancyMap;
-	cv::Mat *_costMap;
-
-
-	int _minNeighborsThreshold;
-	int _sizeThreshold;
-	float _mixtureParam = 1;
-
-	nav_msgs::MapMetaData _mapMetaData;
-
-	unsigned char _freeColor = 0;
-	unsigned char _unknownColor = -1;
-	unsigned char _occupiedColor = 100;
-
-	int _circumscribedThreshold = 99;
-
-	Vector2iVector _frontiers;
-	regionVector _regions;
-	Vector2iVector _centroids;
-	Vector2iVector _targets;
-
-	Vector2fVector _unknownCellsCloud;
-	Vector2fVector _occupiedCellsCloud;
-
-	Vector3f _robotPose;
-
-	std::string _topicPointsName;
-	std::string _topicMarkersName;
-	std::string _topicMapName;
-	std::string _topicMapMetadataName;
-
-	nav_msgs::OccupancyGrid _costMapMsg;
-
-	ros::NodeHandle _nh;
-	ros::Publisher _pubFrontierPoints;
-	ros::Publisher _pubCentroidMarkers;
-	ros::Subscriber _subCostMap;
-	ros::Subscriber _subCostMapUpdate;
-	ros::Subscriber _subOccupancyMap;
-	ros::Subscriber _subOccupancyMapUpdate;
-	ros::Subscriber _subActualPose;
-	ros::Subscriber _subMapMetaData;
-	ros::ServiceClient _mapClient;
+  bool isNeighbor(Vector2i coordI, Vector2i coordJ);
+  Vector2iVector getColoredNeighbors(Vector2i coord, int color);
+  void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector2iVector points, const bool expansion);
 
 
 
-	tf::TransformListener _tfListener;
-	tf::StampedTransform _tfMapToBase;
+    template<class V, class E> inline bool contains(V vector, E element){
+  if (std::find(vector.begin(), vector.end(), element) != vector.end())
+    return true;
+  else 
+    return false;
+}
+
+
+cv::Mat  *_occupancyMap;
+cv::Mat *_costMap;
+
+
+int _minNeighborsThreshold;
+int _sizeThreshold;
+float _mixtureParam = 1;
+
+nav_msgs::MapMetaData _mapMetaData;
+
+unsigned char _freeColor = 0;
+unsigned char _unknownColor = -1;
+unsigned char _occupiedColor = 100;
+
+int _circumscribedThreshold = 99;
+
+Vector2iVector _frontiers;
+regionVector _regions;
+Vector2iVector _centroids;
+Vector2iVector _targets;
+
+Vector2fVector _unknownCellsCloud;
+Vector2fVector _occupiedCellsCloud;
+
+Vector3f _robotPose;
+
+std::string _topicPointsName;
+std::string _topicMarkersName;
+std::string _topicMapName;
+std::string _topicMapMetadataName;
+std::string _baseFrame;
+
+nav_msgs::OccupancyGrid _costMapMsg;
+
+ros::NodeHandle _nh;
+ros::Publisher _pubFrontierPoints;
+ros::Publisher _pubCentroidMarkers;
+ros::Subscriber _subCostMap;
+ros::Subscriber _subCostMapUpdate;
+ros::Subscriber _subOccupancyMap;
+ros::Subscriber _subOccupancyMapUpdate;
+ros::Subscriber _subActualPose;
+ros::Subscriber _subMapMetaData;
+ros::ServiceClient _mapClient;
+
+
+
+tf::TransformListener _tfListener;
+tf::StampedTransform _tfMapToBase;
 
 
 };

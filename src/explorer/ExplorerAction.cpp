@@ -82,12 +82,6 @@ public:
     // TODO adjust this
     std::string prefix(ros::this_node::getName()+"/");
 
-    std::cerr << "**********************************" << std::endl;
-    std::cerr << "ns: " << _nh.getNamespace() << std::endl;
-    std::cerr << "ns_unres: " << _nh.getUnresolvedNamespace() << std::endl;
-    std::cerr << "resolved: " << _nh.resolveName(prefix+"iter", true) << std::endl;
-    std::cerr << "**********************************" << std::endl;
-
     _nh.getParam(_nh.resolveName(prefix+"action", true),       _actionname);
     _nh.getParam(_nh.resolveName(prefix+"mapFrame", true),     _mapFrame);
     _nh.getParam(_nh.resolveName(prefix+"baseFrame", true),    _baseFrame);
@@ -112,13 +106,11 @@ public:
 
     _as = new ExplorerActionServer(_nh, _actionname, boost::bind(&ExplorerAction::executeCB, this, _1), false);
     _ac = new MoveBaseClient("move_base", true);
-
     //wait for the action server to come up
     while(!_ac->waitForServer(ros::Duration(5.0))){
       std::cerr << "Waiting for the move_base action server to come up" << std::endl;
     }
 
-    std::cerr << "MOVE BASE CLIENT CREATED!!!" << std::endl;
 
 
     tf::TransformListener tfListener;
@@ -135,12 +127,12 @@ public:
 
     _occupancyMap = new cv::Mat();
     _costMap = new cv::Mat();
-    _frontiersDetector = new FrontierDetector(_occupancyMap, _costMap, _thresholdRegionSize);
+    _frontiersDetector = new FrontierDetector(_occupancyMap, _costMap, _thresholdRegionSize, 4, _frontierPointsTopic, _markersTopic, _mapFrame, _baseFrame);
 
     _unknownCellsCloud = _frontiersDetector->getUnknownCloud();
     _occupiedCellsCloud = _frontiersDetector->getOccupiedCloud();
 
-    _pathsRollout = new PathsRollout(_costMap, _ac, _projector, _laserOffset, _maxCentroidsNumber, _thresholdExploredArea, _nearCentroidsThreshold, _farCentroidsThreshold, 1, 8, _lambdaDecay);
+    _pathsRollout = new PathsRollout(_costMap, _ac, _projector, _laserOffset, _maxCentroidsNumber, _thresholdExploredArea, _nearCentroidsThreshold, _farCentroidsThreshold, 1, 8, _lambdaDecay, _mapFrame, _baseFrame);
 
     _pathsRollout->setUnknownCellsCloud(_unknownCellsCloud);
     _pathsRollout->setOccupiedCellsCloud(_occupiedCellsCloud);
@@ -153,9 +145,7 @@ public:
     //register the goal and feeback callbacks
     // _as->registerGoalCallback(boost::bind(&ExplorerAction::goalCB, this));
     _as->registerPreemptCallback(boost::bind(&ExplorerAction::preemptCB, this));
-
     _as->start();
-    std::cerr << "Running ExplorerActionServer" << std::endl;
   }
 
   ~ExplorerAction() {

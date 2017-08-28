@@ -39,7 +39,15 @@ public:
 	  void velCallback(const geometry_msgs::Twist::ConstPtr& msg);
 
 
-	GoalPlanner(MoveBaseClient *ac, FakeProjector *projector, FrontierDetector *frontierDetector, cv::Mat *costImage, Vector2f laserOffset = {0.0, 0.5}, int minThresholdSize = 10, std::string mapFrame = "map", std::string baseFrame = "base_link", std::string laserTopicName = "base_scan");
+	GoalPlanner(MoveBaseClient *ac, 
+				FakeProjector *projector, 
+				FrontierDetector *frontierDetector, 
+				cv::Mat *costImage, 
+				Vector2f laserOffset = {0.0, 0.5}, 
+				int minThresholdSize = 10, 
+				std::string mapFrame = "map", 
+				std::string baseFrame = "base_link", 
+				std::string laserTopicName = "scan");
 
 	bool requestOccupancyMap();
 	bool requestCloudsUpdate();

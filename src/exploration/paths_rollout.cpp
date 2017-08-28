@@ -7,7 +7,19 @@ using namespace Eigen;
 
 
 
-PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, FakeProjector *projector, Vector2f laserOffset, int maxCentroidsNumber, int regionSize, float nearCentroidsThreshold, float farCentroidsThreshold, float sampleThreshold, int sampleOrientation, float lambdaDecay){
+PathsRollout::PathsRollout( cv::Mat* costMap, 
+                            MoveBaseClient *ac, 
+                            FakeProjector *projector, 
+                            Vector2f laserOffset, 
+                            int maxCentroidsNumber, 
+                            int regionSize, 
+                            float nearCentroidsThreshold, 
+                            float farCentroidsThreshold, 
+                            float sampleThreshold, 
+                            int sampleOrientation,
+                            float lambdaDecay,
+                            std::string mapFrame_, 
+                            std::string baseFrame_) : _mapFrame(mapFrame_), _baseFrame(baseFrame_) {
 
   _nearCentroidsThreshold = nearCentroidsThreshold;
   _farCentroidsThreshold = farCentroidsThreshold;
@@ -29,10 +41,6 @@ PathsRollout::PathsRollout(cv::Mat* costMap, MoveBaseClient *ac, FakeProjector *
   _ac = ac;
 
   _lambda = lambdaDecay;
-
-  std::cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << std::endl;
-  std::cerr << _nh.resolveName("move_base_node/make_plan", true) << std::endl;
-  std::cerr << "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" << std::endl;
   
   _planClient = _nh.serviceClient<nav_msgs::GetPlan>(_nh.resolveName("move_base_node/make_plan", true));
 
@@ -50,8 +58,8 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
   }
 
   try{
-    _tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(1.0));
-    _tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
+    _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(1.0));
+    _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
   } catch (tf::TransformException ex) {
     std::cout<<"exception: "<< ex.what() <<std::endl;
   }
@@ -149,8 +157,8 @@ bool PathsRollout::computeTargetSampledPlans(Vector2iVector targets, std::string
   }
 
   try{
-    _tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(1.0));
-    _tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
+    _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(1.0));
+    _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
   } catch (tf::TransformException ex) {
     std::cout<<"exception: "<< ex.what() <<std::endl;
   }

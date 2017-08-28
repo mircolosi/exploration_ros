@@ -1,3 +1,3 @@
-add_subdirectory(nodes)
 add_subdirectory(explorer)
+add_subdirectory(nodes)
 

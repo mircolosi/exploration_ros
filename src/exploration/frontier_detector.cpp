@@ -75,7 +75,15 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
 
 
 
-FrontierDetector::FrontierDetector(cv::Mat *occupancyImage, cv::Mat *costImage, int thresholdSize, int minNeighborsThreshold, std::string namePoints, std::string nameMarkers, std::string nameMap, std::string nameMapMetadata){
+FrontierDetector::FrontierDetector( cv::Mat *occupancyImage, 
+                                    cv::Mat *costImage, 
+                                    int thresholdSize,
+                                    int minNeighborsThreshold, 
+                                    std::string namePoints, 
+                                    std::string nameMarkers, 
+                                    std::string nameMap, 
+                                    std::string baseFrame, 
+                                    std::string nameMapMetadata){
 
 
   _occupancyMap = occupancyImage;
@@ -88,11 +96,14 @@ FrontierDetector::FrontierDetector(cv::Mat *occupancyImage, cv::Mat *costImage, 
   _topicMarkersName = nameMarkers;
   _topicMapName = nameMap;
   _topicMapMetadataName = nameMapMetadata;
+  _baseFrame = baseFrame;
 
   _pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
   _pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
 
   std::string costMapTopic = "/move_base_node/global_costmap/costmap";
+
+  costMapTopic = ros::this_node::getNamespace()+costMapTopic;
 
   _subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>(costMapTopic,1, &FrontierDetector::costMapCallback, this);
   _subCostMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( costMapTopic + "_updates", 2, &FrontierDetector::costMapUpdateCallback, this );
@@ -109,12 +120,10 @@ FrontierDetector::FrontierDetector(cv::Mat *occupancyImage, cv::Mat *costImage, 
 
   }
 
-
   ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic);
   ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(_topicMapName);
-  _tfListener.waitForTransform(_topicMapName, "base_link", ros::Time(0), ros::Duration(5.0));
 
-
+  _tfListener.waitForTransform(_topicMapName, _baseFrame, ros::Time(0), ros::Duration(5.0));
 
 }
 
@@ -162,8 +171,8 @@ void FrontierDetector::computeFrontiers(int distance, Vector2f centerCoord){
   ros::spinOnce();  
 
   try{
-    _tfListener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
-    _tfListener.lookupTransform("map", "base_link", ros::Time(0), _tfMapToBase);
+    _tfListener.waitForTransform(_topicMapName, _baseFrame, ros::Time(0), ros::Duration(5.0));
+    _tfListener.lookupTransform(_topicMapName, _baseFrame, ros::Time(0), _tfMapToBase);
 
   }
   catch (tf::TransformException ex)

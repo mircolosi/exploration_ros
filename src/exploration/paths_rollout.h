@@ -46,7 +46,19 @@ class PathsRollout {
 public: 
 
 
-  PathsRollout(cv::Mat* _costMap, MoveBaseClient *ac, FakeProjector *projector,Vector2f laserOffset = {0.05, 0.0}, int maxCentroidsNumber = 10, int thresholdRegionSize = 10, float nearCentroidsThreshold = 0.5, float farCentroidsThreshold = 8.0, float samplesThreshold = 1, int sampleOrientation = 8, float lambdaDecay = 0.2);
+  PathsRollout( cv::Mat* _costMap, 
+                MoveBaseClient *ac, 
+                FakeProjector *projector,
+                Vector2f laserOffset = {0.05, 0.0}, 
+                int maxCentroidsNumber = 10, 
+                int thresholdRegionSize = 10, 
+                float nearCentroidsThreshold = 0.5, 
+                float farCentroidsThreshold = 8.0, 
+                float samplesThreshold = 1, 
+                int sampleOrientation = 8, 
+                float lambdaDecay = 0.2,
+                std::string mapFrame_ = "map", 
+                std::string baseFrame_ = "base_link");
 
 
   int computeAllSampledPlans(Vector2iVector centroids, std::string frame);
@@ -116,7 +128,8 @@ protected:
   ros::ServiceClient _planClient;
   MoveBaseClient *_ac;
 
-
+  std::string _baseFrame;
+  std::string _mapFrame;
 
   tf::TransformListener _tfListener;
   tf::StampedTransform _tfMapToBase;
