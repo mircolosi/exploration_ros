@@ -76,14 +76,14 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
 
 
 FrontierDetector::FrontierDetector( cv::Mat *occupancyImage, 
-                                    cv::Mat *costImage, 
-                                    int thresholdSize,
-                                    int minNeighborsThreshold, 
-                                    std::string namePoints, 
-                                    std::string nameMarkers, 
-                                    std::string nameMap, 
-                                    std::string baseFrame, 
-                                    std::string nameMapMetadata){
+  cv::Mat *costImage, 
+  int thresholdSize,
+  int minNeighborsThreshold, 
+  std::string namePoints, 
+  std::string nameMarkers, 
+  std::string nameMap, 
+  std::string baseFrame, 
+  std::string nameMapMetadata){
 
 
   _occupancyMap = occupancyImage;
@@ -109,7 +109,7 @@ FrontierDetector::FrontierDetector( cv::Mat *occupancyImage,
   _subCostMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( costMapTopic + "_updates", 2, &FrontierDetector::costMapUpdateCallback, this );
   
   _subOccupancyMap =  _nh.subscribe<nav_msgs::OccupancyGrid>(_topicMapName,1, &FrontierDetector::occupancyMapCallback, this);
-  _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( "map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
+  _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( "/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
 
 
   _mapClient = _nh.serviceClient<nav_msgs::GetMap>(_topicMapName);
@@ -182,22 +182,18 @@ void FrontierDetector::computeFrontiers(int distance, Vector2f centerCoord){
   float mapX = (_tfMapToBase.getOrigin().y() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
   float mapY = (_tfMapToBase.getOrigin().x() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
 
-
   if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
     startRow = 0;
     startCol = 0;
     endRow = _occupancyMap->rows;
     endCol = _occupancyMap->cols;
-  }
-
-  else{
+  } else {
     int originX;
     int originY;
     if (centerCoord != Vector2f{FLT_MAX, FLT_MAX}){
       originX = (centerCoord[1]- _mapMetaData.origin.position.x) /_mapMetaData.resolution;
       originY = (centerCoord[0]- _mapMetaData.origin.position.y)/_mapMetaData.resolution;
-    }
-    else{
+    } else {
       originX = mapX;
       originY = mapY;
     }
@@ -210,6 +206,8 @@ void FrontierDetector::computeFrontiers(int distance, Vector2f centerCoord){
     endCol = std::min(_occupancyMap->cols, originY + mapDistance +1);
   }
 
+  cv::imshow("OccupancyGrid", *_occupancyMap);
+  cv::waitKey(1);
 
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
