@@ -1,0 +1,25 @@
+# circular-like
+footprint: [[0.15, 0.3],
+            [0.3,  0.15],
+            [0.3, -0.15],
+            [0.15, -0.3],
+            [-0.15, -0.3],
+            [-0.3, -0.15],
+            [-0.3, 0.15],
+            [-0.15, 0.3]]
+
+#simplified
+#footprint: [[ 0.25,  0.25],
+#            [-0.25,  0.25],
+#            [-0.25, -0.25],
+#            [ 0.25, -0.25]]
+
+controller_frequency:  5.0
+controller_patience:  60.0
+planner_patience:  60.0
+clearing_radius: 0.2
+footprint_padding: 0.01
+#oscillation_timeout: 30.0
+#oscillation_distance: 0.5
+
+
