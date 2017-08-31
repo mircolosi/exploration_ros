@@ -37,24 +37,24 @@
     <param name="robotname" value="$(arg robotname)" />
     <!-- <param name="tf_prefix" value="$(arg robotname)" /> -->
     
-  <node pkg="exploration_ros" name="slam" type="slam_node" output="screen">
+    <node pkg="exploration_ros" name="slam" type="slam_node" output="screen">
 
-    <param name="resolution" value="0.025" /> <!-- doc="resolution of the matching grid"  -->
-    <param name="maxScore" value="0.15" /> <!-- doc="score of the matcher, the higher the less matches" /> -->
-    <param name="kernelRadius" value="0.2" /> <!-- doc="radius of the convolution kernel" /> -->
-    <param name="minInliers" value="5" /><!--  doc="min inliers"/> -->
-    <param name="windowLoopClosure" value="10" /> <!-- doc="sliding window for loop closures"  /> -->
-    <param name="inlierThreshold" value="2" /> <!-- doc="inlier threshold" /> -->
-    <param name="angularUpdate" value="0.5" /> <!-- doc="angular rotation interval for updating the graph, in radians" default="0.7853975"/> -->
-    <param name="linearUpdate"  value="0.5" /> <!-- doc="linear translation interval for updating the graph, in meters" default="0.25" /> -->
-    <param name="timeUpdate"  value="0" /> <!-- doc="interval in time for updating the robot pose in the map, in seconds" default="0" /> -->
-    <param name="type" value="0" /> <!-- doc="0 if stage simulation or 1 if real robot experiment"  default="0"  /> -->
-    <param name="laserFrame" value="/$(arg robotname)/$(arg laser_frame)" /> <!-- doc="name of the laser TF frame"/> -->
-    <param name="odometryFrame" value="/$(arg robotname)/odom" /> <!-- doc="odometry ROS frame"/> -->
-    <param name="scanTopic" value="/$(arg robotname)/$(arg laser_topic)" /> <!-- value="scan" doc="scan ROS topic"/> -->
-    <param name="occupancyTopic" value="/map" /> <!-- doc="occupancy grid ROS topic"/> -->
+      <param name="resolution" value="0.025" /> <!-- doc="resolution of the matching grid"  -->
+      <param name="maxScore" value="0.15" /> <!-- doc="score of the matcher, the higher the less matches" /> -->
+      <param name="kernelRadius" value="0.2" /> <!-- doc="radius of the convolution kernel" /> -->
+      <param name="minInliers" value="5" /><!--  doc="min inliers"/> -->
+      <param name="windowLoopClosure" value="10" /> <!-- doc="sliding window for loop closures"  /> -->
+      <param name="inlierThreshold" value="2" /> <!-- doc="inlier threshold" /> -->
+      <param name="angularUpdate" value="0.5" /> <!-- doc="angular rotation interval for updating the graph, in radians" default="0.7853975"/> -->
+      <param name="linearUpdate"  value="0.5" /> <!-- doc="linear translation interval for updating the graph, in meters" default="0.25" /> -->
+      <param name="timeUpdate"  value="0" /> <!-- doc="interval in time for updating the robot pose in the map, in seconds" default="0" /> -->
+      <param name="type" value="0" /> <!-- doc="0 if stage simulation or 1 if real robot experiment"  default="0"  /> -->
+      <param name="laserFrame" value="/$(arg robotname)/$(arg laser_frame)" /> <!-- doc="name of the laser TF frame"/> -->
+      <param name="odometryFrame" value="/$(arg robotname)/odom" /> <!-- doc="odometry ROS frame"/> -->
+      <param name="scanTopic" value="/$(arg robotname)/$(arg laser_topic)" /> <!-- value="scan" doc="scan ROS topic"/> -->
+      <param name="occupancyTopic" value="/map" /> <!-- doc="occupancy grid ROS topic"/> -->
 
-  </node>
+    </node>
 
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">

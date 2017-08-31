@@ -23,7 +23,6 @@ using namespace Eigen;
 #define GREEN  "\x1B[32m"
 
 #endif 
-#define ACTIONNAME "explorer"
 
 typedef actionlib::SimpleActionServer<exploration_ros::ExplorerAction> ExplorerActionServer;
 class ExplorerAction
@@ -32,9 +31,9 @@ protected:
 
   ros::NodeHandle _nh;
   std::string _actionname;
-  bool _isActive;
+  bool _isActive = true;
 
-  ExplorerActionServer* _as; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
+  ExplorerActionServer* _as = nullptr; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
 
   // create messages that are used to published feedback/result
   exploration_ros::ExplorerFeedback _feedback;
@@ -58,11 +57,13 @@ protected:
   Vector2iVector _frontierPoints;
   Vector2fVector _abortedGoals;
   regionVector _regions;
-  Vector2fVector *_unknownCellsCloud, *_occupiedCellsCloud;
+  Vector2fVector* _unknownCellsCloud = nullptr;
+  Vector2fVector* _occupiedCellsCloud = nullptr;
 
   std::string _mapFrame, _baseFrame, _laserFrame, _laserTopicName;
 
-  cv::Mat *_occupancyMap, *_costMap;
+  cv::Mat* _occupancyMap;
+  cv::Mat* _costMap;
 
   Vector2f _laserOffset;
 
@@ -75,11 +76,11 @@ protected:
   float _fov = M_PI;
   Vector2f _rangesLimits = {_minRange, _maxRange};
 
-  FakeProjector* _projector;
-  FrontierDetector* _frontiersDetector;
-  PathsRollout* _pathsRollout;
-  GoalPlanner* _goalPlanner;
-  MoveBaseClient* _ac;
+  FakeProjector* _projector = nullptr;
+  FrontierDetector* _frontiersDetector = nullptr;
+  PathsRollout* _pathsRollout = nullptr;
+  GoalPlanner* _goalPlanner = nullptr;
+  MoveBaseClient* _ac = nullptr;
 public:
 
   ExplorerAction(int argc_, char** argv_) {
@@ -112,15 +113,12 @@ public:
     _projector->setFov(_fov);
     _projector->setNumRanges(_numRanges);
 
-    _as = new ExplorerActionServer(_nh, _actionname, boost::bind(&ExplorerAction::executeCB, this, _1), false);
     _ac = new MoveBaseClient("move_base", true);
     //wait for the action server to come up
     while(!_ac->waitForServer(ros::Duration(5.0))){
       std::cerr << RED << "Waiting for the move_base action server to come up" << std::endl;
       std::cerr << RESET;
     }
-
-
 
     tf::TransformListener tfListener;
     tf::StampedTransform tfBase2Laser;
@@ -151,6 +149,7 @@ public:
     _goalPlanner->setUnknownCellsCloud(_unknownCellsCloud);
     _goalPlanner->setOccupiedCellsCloud(_occupiedCellsCloud);
 
+    _as = new ExplorerActionServer(_nh, _actionname, boost::bind(&ExplorerAction::executeCB, this, _1), false);
     //register the goal and feeback callbacks
     // _as->registerGoalCallback(boost::bind(&ExplorerAction::goalCB, this));
     _as->registerPreemptCallback(boost::bind(&ExplorerAction::preemptCB, this));
@@ -169,7 +168,7 @@ public:
   }
 
   // called when the action starts
-  void executeCB(const exploration_ros::ExplorerGoalConstPtr &goal) {
+  void executeCB(const exploration_ros::ExplorerGoalConstPtr &goal_) {
     std::cerr << RED << "EXECUTION CALLBACK" << std::endl;
     std::cerr << RESET;
 
@@ -213,7 +212,7 @@ public:
       _pathsRollout->setAbortedGoals(_abortedGoals);
 
       // EXPLORE ACTION
-      if ("exploration" == goal->goal.action) {
+      if ("exploration" == goal_->goal.action) {
         _feedback.action = "exploration";
         std::cerr << RED << "EXPLORAITON" << std::endl;
         std::cerr << RESET;
@@ -250,13 +249,13 @@ public:
       }
 
       // GO TO TARGET ACTION
-      if ("target" == goal->goal.action || _targets.size() > 0) {
+      if ("target" == goal_->goal.action || _targets.size() > 0) {
         std::cerr << RED << "_targets.size(): " << _targets.size() << std::endl;
         std::cerr << RESET;
         _feedback.action = "target";
         std::cerr << RED << "TARGET APPROACH" << std::endl;
         std::cerr << RESET;
-        _targets.push_back({goal->goal.target_pose.position.x,goal->goal.target_pose.position.y});
+        _targets.push_back({goal_->goal.target_pose.position.x,goal_->goal.target_pose.position.y});
         if (!_pathsRollout->computeTargetSampledPlans(_targets, _mapFrame)){
           std::cout << RED << "NO TRAJECTORY TOWARD GOAL... CONTINUE EXPLORATION"<<std::endl;
           std::cerr << RESET;
@@ -278,7 +277,7 @@ public:
         }
         break;
       }
-      if ("wait" == goal->goal.action) {
+      if ("wait" == goal_->goal.action) {
         std::cerr << RED << "WAITING" << std::endl;
         std::cerr << RESET;
         _feedback.action = "wait";

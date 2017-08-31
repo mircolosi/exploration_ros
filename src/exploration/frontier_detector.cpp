@@ -7,26 +7,29 @@ using namespace srrg_core;
 
 
 void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-  _costMapMsg = *msg;
+  if (msg != nullptr) {
+    _costMapMsg = *msg;
 
-  int currentCell = 0;
-  cv::Mat tmp(msg->info.height, msg->info.width, CV_8UC1);
-  for(int r = 0; r < msg->info.height; r++) {
-    for(int c = 0; c < msg->info.width; c++) {
+    int currentCell = 0;
+    cv::Mat tmp(msg->info.height, msg->info.width, CV_8UC1);
+    for(int r = 0; r < msg->info.height; r++) {
+      for(int c = 0; c < msg->info.width; c++) {
 
-      tmp.at<unsigned char>(r, c) = msg->data[currentCell];
-      currentCell++;
+        tmp.at<unsigned char>(r, c) = msg->data[currentCell];
+        currentCell++;
+      }
     }
+    tmp.copyTo(*_costMap);
   }
-  tmp.copyTo(*_costMap);
 }
 
 void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
-
-  int index = 0;
-  for(int y=msg->y; y< msg->y+msg->height; y++){
-    for(int x=msg->x; x< msg->x+msg->width; x++){
-     _costMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
+  if (msg != nullptr) {
+    int index = 0;
+    for(int y=msg->y; y< msg->y+msg->height; y++){
+      for(int x=msg->x; x< msg->x+msg->width; x++){
+       _costMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
+     }
    }
  }
 }
@@ -35,37 +38,41 @@ void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdate
 
 void FrontierDetector::mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg){
 
-  _mapMetaData = *msg;
+  if (msg != nullptr) {
+    _mapMetaData = *msg;
+  }
 
 }
 
 void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
+  if (msg != nullptr) {
+    int currentCell = 0;
+    cv::Mat tmp(msg->info.height, msg->info.width, CV_8UC1);
+    for(int r = 0; r < msg->info.height; r++) {
+      for(int c = 0; c < msg->info.width; c++) {
 
-  int currentCell = 0;
-  cv::Mat tmp(msg->info.height, msg->info.width, CV_8UC1);
-  for(int r = 0; r < msg->info.height; r++) {
-    for(int c = 0; c < msg->info.width; c++) {
-
-      tmp.at<unsigned char>(r, c) = msg->data[currentCell];
-      currentCell++;
+        tmp.at<unsigned char>(r, c) = msg->data[currentCell];
+        currentCell++;
+      }
     }
-  }
 
-  tmp.copyTo(*_occupancyMap);
+    tmp.copyTo(*_occupancyMap);
 
-  if (_topicMapMetadataName == ""){
+    if (_topicMapMetadataName == ""){
 
-    _mapMetaData = msg->info;
+      _mapMetaData = msg->info;
 
+    }
   }
 }
 
 void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
-
-  int index = 0;
-  for(int y=msg->y; y< msg->y+msg->height; y++){
-    for(int x=msg->x; x< msg->x+msg->width; x++){
-     _occupancyMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
+  if (msg != nullptr) {
+    int index = 0;
+    for(int y=msg->y; y< msg->y+msg->height; y++){
+      for(int x=msg->x; x< msg->x+msg->width; x++){
+       _occupancyMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
+     }
    }
  }
 }
@@ -206,9 +213,6 @@ void FrontierDetector::computeFrontiers(int distance, Vector2f centerCoord){
     endCol = std::min(_occupancyMap->cols, originY + mapDistance +1);
   }
 
-  cv::imshow("OccupancyGrid", *_occupancyMap);
-  cv::waitKey(1);
-
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
@@ -221,36 +225,47 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
 
   _frontiers.clear();
   _occupiedCellsCloud.clear();
-
-  for(int r = startRow; r < endRow; r++) {
-    for(int c = startCol; c < endCol; c++) {
-
-      if ((_occupancyMap->at<unsigned char>(r,c) == _freeColor)){ //If the current cell is free consider it
-        Vector2i coord = {r,c};
-        if (_costMap->at<unsigned char>(r, c) == _circumscribedThreshold){//If the current free cell is too close to an obstacle skip
-          continue;
-        }
-
-        Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
-        if (neighbors.empty()){ //If the current free cell has no unknown cells around skip
-          continue;
-        }
-        for (int i = 0; i < neighbors.size(); i++){
-          Vector2iVector neighborsOfNeighbor = getColoredNeighbors(neighbors[i], _unknownColor);
-          if (neighborsOfNeighbor.size() >= _minNeighborsThreshold){ //If the neighbor unknown cell is not sourrounded by free cells -> I have a frontier
-            _frontiers.push_back(coord);  
-            break;
-          }
-        }
-      }
-
-      else if (_costMap->at<unsigned char>(r, c) == _occupiedColor ){
-        float x = c*_mapMetaData.resolution + _mapMetaData.origin.position.x;
-        float y = r*_mapMetaData.resolution + _mapMetaData.origin.position.y;
-        _occupiedCellsCloud.push_back({x,y}); 
-      }
+  try {
+    if (_occupancyMap->size() != _costMap->size()) {
+      std::cerr << "_occupancyMap size: " << _occupancyMap->rows << "x" << _occupancyMap->cols << std::endl;
+      std::cerr << "_costMap size:      " << _costMap->rows << "x" << _costMap->cols << std::endl;
+      std::cerr << "bounds:             " << startRow << " " << startCol << " " << endRow << " " << endCol << std::endl;
+      endRow = std::min(_occupancyMap->rows, _costMap->rows);
+      endCol = std::min(_occupancyMap->cols, _costMap->cols);
 
     }
+    for(int r = startRow; r < endRow; r++) {
+      for(int c = startCol; c < endCol; c++) {
+
+        if ((_occupancyMap->at<unsigned char>(r,c) == _freeColor)){ //If the current cell is free consider it
+          Vector2i coord = {r,c};
+          if (_costMap->at<unsigned char>(r, c) == _circumscribedThreshold){//If the current free cell is too close to an obstacle skip
+            continue;
+          }
+
+          Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
+          if (neighbors.empty()){ //If the current free cell has no unknown cells around skip
+            continue;
+          }
+          for (int i = 0; i < neighbors.size(); i++){
+            Vector2iVector neighborsOfNeighbor = getColoredNeighbors(neighbors[i], _unknownColor);
+            if (neighborsOfNeighbor.size() >= _minNeighborsThreshold){ //If the neighbor unknown cell is not sourrounded by free cells -> I have a frontier
+              _frontiers.push_back(coord);  
+              break;
+            }
+          }
+        }
+
+        else if (_costMap->at<unsigned char>(r, c) == _occupiedColor ){
+          float x = c*_mapMetaData.resolution + _mapMetaData.origin.position.x;
+          float y = r*_mapMetaData.resolution + _mapMetaData.origin.position.y;
+          _occupiedCellsCloud.push_back({x,y}); 
+        }
+
+      }
+    }
+  } catch (...) {
+    std::cerr << "Something went wrong in ComputeFrontierPoints" << std::endl;
   }
 
 }
