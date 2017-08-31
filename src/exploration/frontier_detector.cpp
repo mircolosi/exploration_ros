@@ -227,12 +227,8 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
   _occupiedCellsCloud.clear();
   try {
     if (_occupancyMap->size() != _costMap->size()) {
-      std::cerr << "_occupancyMap size: " << _occupancyMap->rows << "x" << _occupancyMap->cols << std::endl;
-      std::cerr << "_costMap size:      " << _costMap->rows << "x" << _costMap->cols << std::endl;
-      std::cerr << "bounds:             " << startRow << " " << startCol << " " << endRow << " " << endCol << std::endl;
       endRow = std::min(_occupancyMap->rows, _costMap->rows);
       endCol = std::min(_occupancyMap->cols, _costMap->cols);
-
     }
     for(int r = startRow; r < endRow; r++) {
       for(int c = startCol; c < endCol; c++) {

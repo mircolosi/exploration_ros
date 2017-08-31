@@ -10,14 +10,14 @@
   <arg name="base_frame" default="base_frame" />
   <arg name="laser_topic" default="scan" />
   <arg name="laser_frame" default="laser_frame" />
-  <!-- <arg name="world_file" default="AUTOGEN_DISB1_diago.world" /> -->
+  <arg name="world_file" default="my_AUTOGEN_DISB1_diago.world" />
 
-  <arg name="world_file" default="hospital.world"/>
+  <!-- <arg name="world_file" default="hospital.world"/> -->
 
   <master auto="start"/>
   <param name="/use_sim_time" value="true"/>
 
-  <node pkg="stage_environments" type="stageros_experimental" name="stageros" args="-u $(find exploration_ros)/maps/$(arg world_file)" respawn="false" required="true" output="screen">
+  <node pkg="stage_environments" type="stageros_experimental" name="stageros" args="-u $(find stage_environments)/maps/$(arg world_file)" respawn="false" required="true" output="screen">
     <param name="base_watchdog_timeout" value="0.2"/>
     <param name="base_frame"            value="$(arg base_frame)"/>
     <param name="laser_topic"           value="$(arg laser_topic)"/>
@@ -44,7 +44,7 @@
       <param name="occupancyTopic"    value="/$(arg robot_map1)" /> 
     </node>
 
-     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
       <remap from="map"     to="/$(arg robot_map1)" />
       <remap from="odom"    to="/$(arg robotname1)/odom" />
       <remap from="cmd_vel" to="/$(arg robotname1)/cmd_vel" />
@@ -57,6 +57,7 @@
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/base_local_planner_params.yaml"  command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/base_global_planner_params.yaml" command="load" />
 
+      <param name="global_costmap/global_frame"                   value="/$(arg robot_map1)"  />
       <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname1)/$(arg laser_frame)"/>
       <param name="global_costmap/laser_scan_sensor/topic"        value="/$(arg robotname1)/$(arg laser_topic)"/>
       <param name="global_costmap/robot_base_frame"               value="/$(arg robotname1)/$(arg base_frame)"/>   
@@ -109,7 +110,7 @@
       <param name="occupancyTopic"    value="/$(arg robot_map2)" /> 
     </node>
 
-     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
       <remap from="map"     to="/$(arg robot_map2)" />
       <remap from="odom"    to="/$(arg robotname2)/odom" />
       <remap from="cmd_vel" to="/$(arg robotname2)/cmd_vel" />
@@ -122,6 +123,7 @@
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/base_local_planner_params.yaml"  command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/base_global_planner_params.yaml" command="load" />
 
+      <param name="global_costmap/global_frame"                   value="/$(arg robot_map2)"  />
       <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname2)/$(arg laser_frame)"/>
       <param name="global_costmap/laser_scan_sensor/topic"        value="/$(arg robotname2)/$(arg laser_topic)"/>
       <param name="global_costmap/robot_base_frame"               value="/$(arg robotname2)/$(arg base_frame)"/>   
@@ -154,7 +156,7 @@
 
   </group>
 
-  
+
   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
   <node pkg="rviz" type="rviz" name="visualizer2" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname2)/rviz/diago.rviz"/>
 </launch>
