@@ -11,13 +11,14 @@
   <arg name="laser_topic" default="scan" />
   <arg name="laser_frame" default="laser_frame" />
   <!-- <arg name="world_file" default="my_AUTOGEN_DISB1_diago.world" /> -->
-  <arg name="world_file" default="hospital.world"/>
+  <!-- <arg name="world_file" default="hospital.world"/> -->
+  <arg name="world_file" default="saman.world"/>
 
 
   <master auto="start"/>
   <param name="/use_sim_time" value="true"/>
 
-  <node pkg="stage_environments" type="stageros_experimental" name="stageros" args="-u $(find stage_environments)/maps/$(arg world_file)" respawn="false" required="true" output="screen">
+  <node pkg="stage_environments" type="stageros_experimental" name="stageros" args="-u $(find exploration_ros)/maps/$(arg world_file)" respawn="false" required="true" output="screen">
     <param name="base_watchdog_timeout" value="0.2"/>
     <param name="base_frame"            value="$(arg base_frame)"/>
     <param name="laser_topic"           value="$(arg laser_topic)"/>
@@ -61,6 +62,7 @@
 
       <param name="global_costmap/global_frame"                   value="/$(arg robot_map1)"  />
       <param name="global_costmap/update_frequency"               value="1.0"  />
+      <param name="global_costmap/transform_tolerance"            value="0.5"  />
       <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname1)/$(arg laser_frame)"/>
       <param name="global_costmap/laser_scan_sensor/topic"        value="/$(arg robotname1)/$(arg laser_topic)"/>
       <param name="global_costmap/robot_base_frame"               value="/$(arg robotname1)/$(arg base_frame)"/>   
@@ -75,7 +77,7 @@
       <param name="action" value="$(arg action)" />
     </node> 
 
-    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
+<!--     <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
       <param name="action"        value="$(arg action)" />
       <param name="mapFrame"      value="/$(arg robot_map1)" /> 
       <param name="baseFrame"     value="/$(arg robotname1)/$(arg base_frame)" />  
@@ -91,80 +93,9 @@
       <param name="nc"            value="10" /> 
       <param name="iter"          value="-1" /> 
     </node> 
-
-  </group>
-
-  <group ns="$(arg robotname2)">
-
-    <node pkg="cg_mrslam" type="real_mrslam" name="slam" output="screen" args="-initialPose 0,0,0 -publishTransform -mapFrame /$(arg robot_map2) -odomFrame /$(arg robotname2)/odom -baseFrame /$(arg robotname2)/$(arg base_frame) -odometryTopic /$(arg robotname2)/odom -scanTopic /$(arg robotname2)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
-<!--     <node pkg="exploration_ros" name="slam" type="slam_node" output="screen">
-
-      <param name="resolution"        value="0.025" />
-      <param name="maxScore"          value="0.15" /> 
-      <param name="kernelRadius"      value="0.2" /> 
-      <param name="minInliers"        value="5" />
-      <param name="windowLoopClosure" value="10" /> 
-      <param name="inlierThreshold"   value="2" /> 
-      <param name="angularUpdate"     value="0.5" /> 
-      <param name="linearUpdate"      value="0.5" /> 
-      <param name="timeUpdate"        value="0" /> 
-      <param name="type"              value="0" /> 
-      <param name="laserFrame"        value="/$(arg robotname2)/$(arg laser_frame)" />
-      <param name="odometryFrame"     value="/$(arg robotname2)/odom" /> 
-      <param name="scanTopic"         value="/$(arg robotname2)/$(arg laser_topic)" />
-      <param name="occupancyTopic"    value="/$(arg robot_map2)" /> 
-    </node>
  -->
-    <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
-      <remap from="map"     to="/$(arg robot_map2)" />
-      <remap from="odom"    to="/$(arg robotname2)/odom" />
-      <remap from="cmd_vel" to="/$(arg robotname2)/cmd_vel" />
-
-      <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/move_base_params.yaml"           command="load" />
-      <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/costmap_common_params.yaml"      command="load" ns="global_costmap" />
-      <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/costmap_common_params.yaml"      command="load" ns="local_costmap" />
-      <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/local_costmap_params.yaml"       command="load" />
-      <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/global_costmap_params.yaml"      command="load" />
-      <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/base_local_planner_params.yaml"  command="load" />
-      <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/base_global_planner_params.yaml" command="load" />
-
-      <param name="global_costmap/global_frame"                   value="/$(arg robot_map2)"  />
-      <param name="global_costmap/update_frequency"               value="1.0"  />
-      <!-- <param name="global_costmap/transform_tolerance"            value="1.0"  /> -->
-      <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname2)/$(arg laser_frame)"/>
-      <param name="global_costmap/laser_scan_sensor/topic"        value="/$(arg robotname2)/$(arg laser_topic)"/>
-      <param name="global_costmap/robot_base_frame"               value="/$(arg robotname2)/$(arg base_frame)"/>   
-      <param name="local_costmap/global_frame"                    value="/$(arg robotname2)/odom"/>
-      <param name="local_costmap/update_frequency"                value="1.0"  />
-      <param name="local_costmap/laser_scan_sensor/sensor_frame"  value="/$(arg robotname2)/$(arg laser_frame)"/>
-      <param name="local_costmap/laser_scan_sensor/topic"         value="/$(arg robotname2)/$(arg laser_topic)"/>
-      <param name="local_costmap/robot_base_frame"                value="/$(arg robotname2)/$(arg base_frame)"/> 
-    </node>
-
-    <node pkg="exploration_ros" name="explorer_client" type="exploration_action_client" output="screen">
-      <param name="action" value="$(arg action)" />
-    </node> 
-
-    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
-      <param name="action"        value="$(arg action)" />
-      <param name="mapFrame"      value="/$(arg robot_map2)" /> 
-      <param name="baseFrame"     value="/$(arg robotname2)/$(arg base_frame)" />  
-      <param name="laserFrame"    value="/$(arg robotname2)/$(arg laser_frame)" />
-      <param name="scanTopic"     value="/$(arg robotname2)/$(arg laser_topic)" /> 
-      <param name="pointsTopic"   value="/$(arg robotname2)/points" /> 
-      <param name="markersTopic"  value="/$(arg robotname2)/markers" /> 
-      <param name="regionSize"    value="15" /> 
-      <param name="exploredArea"  value="10" />
-      <param name="lambda"        value="1.25" /> 
-      <param name="mc"            value="0.5" /> 
-      <param name="Mc"            value="5.0" />
-      <param name="nc"            value="10" /> 
-      <param name="iter"          value="-1" /> 
-    </node> 
-
   </group>
-
 
   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
-  <node pkg="rviz" type="rviz" name="visualizer2" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname2)/rviz/diago.rviz"/>
+
 </launch>

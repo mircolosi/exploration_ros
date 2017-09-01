@@ -115,11 +115,11 @@ float _mixtureParam = 1;
 
 nav_msgs::MapMetaData _mapMetaData;
 
-unsigned char _freeColor = 0;
-unsigned char _unknownColor = -1;
-unsigned char _occupiedColor = 100;
+const unsigned char _freeColor = 0;
+const unsigned char _unknownColor = -1;
+const unsigned char _occupiedColor = 100;
 
-int _circumscribedThreshold = 99;
+const int _circumscribedThreshold = 99;
 
 Vector2iVector _frontiers;
 regionVector _regions;

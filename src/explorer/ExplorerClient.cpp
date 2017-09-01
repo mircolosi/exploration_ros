@@ -135,7 +135,7 @@ int main (int argc, char **argv)
   callbackObject* cb = new callbackObject();
 
   ros::Timer timer1 = timers_handler.createTimer(ros::Duration(0.1), &callbackObject::explorationCB, cb);
-  ros::Timer timer2 = timers_handler.createTimer(ros::Duration(20.0), &callbackObject::targetCB, cb, true);
+  // ros::Timer timer2 = timers_handler.createTimer(ros::Duration(20.0), &callbackObject::targetCB, cb, true);
 
   ros::spin();
 

@@ -26,22 +26,18 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
 void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
   if (msg != nullptr) {
     int index = 0;
-    for(int y=msg->y; y< msg->y+msg->height; y++){
-      for(int x=msg->x; x< msg->x+msg->width; x++){
+    for(int y = msg->y; y < msg->y+msg->height; y++){
+      for(int x = msg->x; x < msg->x+msg->width; x++){
        _costMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
      }
    }
  }
 }
 
-
-
 void FrontierDetector::mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg){
-
   if (msg != nullptr) {
     _mapMetaData = *msg;
   }
-
 }
 
 void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
@@ -50,18 +46,14 @@ void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::Const
     cv::Mat tmp(msg->info.height, msg->info.width, CV_8UC1);
     for(int r = 0; r < msg->info.height; r++) {
       for(int c = 0; c < msg->info.width; c++) {
-
         tmp.at<unsigned char>(r, c) = msg->data[currentCell];
         currentCell++;
       }
     }
-
     tmp.copyTo(*_occupancyMap);
 
     if (_topicMapMetadataName == ""){
-
       _mapMetaData = msg->info;
-
     }
   }
 }
@@ -69,29 +61,23 @@ void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::Const
 void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
   if (msg != nullptr) {
     int index = 0;
-    for(int y=msg->y; y< msg->y+msg->height; y++){
-      for(int x=msg->x; x< msg->x+msg->width; x++){
+    for(int y = msg->y; y < msg->y+msg->height; y++){
+      for(int x = msg->x; x < msg->x+msg->width; x++){
        _occupancyMap->at<unsigned char>(y, x) = msg->data[ index++ ]; 
      }
    }
  }
 }
 
-
-
-
-
-
 FrontierDetector::FrontierDetector( cv::Mat *occupancyImage, 
-  cv::Mat *costImage, 
-  int thresholdSize,
-  int minNeighborsThreshold, 
-  std::string namePoints, 
-  std::string nameMarkers, 
-  std::string nameMap, 
-  std::string baseFrame, 
-  std::string nameMapMetadata){
-
+                                    cv::Mat *costImage, 
+                                    int thresholdSize,
+                                    int minNeighborsThreshold, 
+                                    std::string namePoints, 
+                                    std::string nameMarkers, 
+                                    std::string nameMap, 
+                                    std::string baseFrame, 
+                                    std::string nameMapMetadata) {
 
   _occupancyMap = occupancyImage;
   _costMap = costImage;
@@ -108,23 +94,19 @@ FrontierDetector::FrontierDetector( cv::Mat *occupancyImage,
   _pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
   _pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
 
-  std::string costMapTopic = "/move_base_node/global_costmap/costmap";
-
-  costMapTopic = ros::this_node::getNamespace()+costMapTopic;
+  std::string costMapTopic = ros::this_node::getNamespace()+"/move_base_node/global_costmap/costmap";
 
   _subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>(costMapTopic,1, &FrontierDetector::costMapCallback, this);
   _subCostMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( costMapTopic + "_updates", 2, &FrontierDetector::costMapUpdateCallback, this );
   
   _subOccupancyMap =  _nh.subscribe<nav_msgs::OccupancyGrid>(_topicMapName,1, &FrontierDetector::occupancyMapCallback, this);
-  _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( "/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
-
+  _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>(ros::this_node::getNamespace()+"/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
 
   _mapClient = _nh.serviceClient<nav_msgs::GetMap>(_topicMapName);
 
   if (_topicMapMetadataName != ""){
     _subMapMetaData = _nh.subscribe<nav_msgs::MapMetaData>(_topicMapMetadataName, 1, &FrontierDetector::mapMetaDataCallback, this);
     ros::topic::waitForMessage<nav_msgs::MapMetaData>(_topicMapMetadataName);
-
   }
 
   ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic);
@@ -140,30 +122,23 @@ bool FrontierDetector::requestOccupancyMap(){
   nav_msgs::GetMap::Request req;
   nav_msgs::GetMap::Response res;
 
-
   if (_mapClient.call(req,res)){
     _mapMetaData = res.map.info;
 
     int currentCell = 0;
     *_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
+
     for(int r = 0; r < res.map.info.height; r++) {
       for(int c = 0; c < res.map.info.width; c++) {
-
         _occupancyMap->at<unsigned char>(r, c) = res.map.data[currentCell];
         currentCell++;
       }
     }
-
-
     return true;
-  }
-
-  else {
+  } else {
     ROS_ERROR("Failed to call service map");
     return false;
   }
-
-
 } 
 
 
@@ -180,90 +155,71 @@ void FrontierDetector::computeFrontiers(int distance, Vector2f centerCoord){
   try{
     _tfListener.waitForTransform(_topicMapName, _baseFrame, ros::Time(0), ros::Duration(5.0));
     _tfListener.lookupTransform(_topicMapName, _baseFrame, ros::Time(0), _tfMapToBase);
-
   }
   catch (tf::TransformException ex)
   {
     std::cout<<"exception: "<<ex.what() <<std::endl;
   }
-  float mapX = (_tfMapToBase.getOrigin().y() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
-  float mapY = (_tfMapToBase.getOrigin().x() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
+  //TODO mc erano al contrario... c'era un motivo?
+  float mapX = (_tfMapToBase.getOrigin().x() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
+  float mapY = (_tfMapToBase.getOrigin().y() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
 
   if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
     startRow = 0;
     startCol = 0;
     endRow = _occupancyMap->rows;
     endCol = _occupancyMap->cols;
-  } else {
-    int originX;
-    int originY;
-    if (centerCoord != Vector2f{FLT_MAX, FLT_MAX}){
-      originX = (centerCoord[1]- _mapMetaData.origin.position.x) /_mapMetaData.resolution;
-      originY = (centerCoord[0]- _mapMetaData.origin.position.y)/_mapMetaData.resolution;
-    } else {
-      originX = mapX;
-      originY = mapY;
-    }
-
-    int mapDistance = round(distance/_mapMetaData.resolution);
-
-    startRow = std::max(0,originX - mapDistance);
-    startCol = std::max(0,originY - mapDistance);
-    endRow = std::min(_occupancyMap->rows, originX + mapDistance + 1);
-    endCol = std::min(_occupancyMap->cols, originY + mapDistance +1);
   }
 
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
   rankFrontierRegions(mapX, mapY);
-
 }
 
-void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int endRow, int endCol){
-
-
+void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int endRow, int endCol) {
   _frontiers.clear();
   _occupiedCellsCloud.clear();
-  try {
-    if (_occupancyMap->size() != _costMap->size()) {
-      endRow = std::min(_occupancyMap->rows, _costMap->rows);
-      endCol = std::min(_occupancyMap->cols, _costMap->cols);
-    }
-    for(int r = startRow; r < endRow; r++) {
-      for(int c = startCol; c < endCol; c++) {
 
-        if ((_occupancyMap->at<unsigned char>(r,c) == _freeColor)){ //If the current cell is free consider it
-          Vector2i coord = {r,c};
-          if (_costMap->at<unsigned char>(r, c) == _circumscribedThreshold){//If the current free cell is too close to an obstacle skip
-            continue;
-          }
-
-          Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
-          if (neighbors.empty()){ //If the current free cell has no unknown cells around skip
-            continue;
-          }
-          for (int i = 0; i < neighbors.size(); i++){
-            Vector2iVector neighborsOfNeighbor = getColoredNeighbors(neighbors[i], _unknownColor);
-            if (neighborsOfNeighbor.size() >= _minNeighborsThreshold){ //If the neighbor unknown cell is not sourrounded by free cells -> I have a frontier
-              _frontiers.push_back(coord);  
-              break;
-            }
-          }
-        }
-
-        else if (_costMap->at<unsigned char>(r, c) == _occupiedColor ){
-          float x = c*_mapMetaData.resolution + _mapMetaData.origin.position.x;
-          float y = r*_mapMetaData.resolution + _mapMetaData.origin.position.y;
-          _occupiedCellsCloud.push_back({x,y}); 
-        }
-
-      }
-    }
-  } catch (...) {
-    std::cerr << "Something went wrong in ComputeFrontierPoints" << std::endl;
+  if ((_occupancyMap->rows != _costMap->rows) || (_occupancyMap->cols != _costMap->cols)) {
+    endRow = std::min(_occupancyMap->rows, _costMap->rows);
+    endCol = std::min(_occupancyMap->cols, _costMap->cols);
   }
 
+  for(int r = startRow; r < endRow; ++r) {
+    for(int c = startCol; c < endCol; ++c) {
+
+      if ((_occupancyMap->at<unsigned char>(r,c) == _freeColor)) { //If the current cell is free consider it
+        Vector2i coord = {r,c};
+        if (_costMap->at<unsigned char>(r,c) == _circumscribedThreshold) {//If the current free cell is too close to an obstacle skip
+          continue;
+        }
+        std::cerr << "_occupancyMap [" << _occupancyMap->rows << "x" << _occupancyMap->cols << "]" << std::endl;
+        std::cerr << "neighbors: " << coord[0] << " " << coord[1] << std::endl;
+        Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
+        std::cerr << "end neighbors" << std::endl;
+
+        if (neighbors.empty()) { //If the current free cell has no unknown cells around skip
+          std::cerr << "NO neighbors" << std::endl;
+          continue;
+        }
+
+        for (int i = 0; i < neighbors.size(); i++){
+          std::cerr << "neighborsOfNeighbor: " << coord[0] << " " << coord[1] << std::endl;
+          Vector2iVector neighborsOfNeighbor = getColoredNeighbors(neighbors[i], _unknownColor);
+          std::cerr << "end neighborsOfNeighbor" << std::endl;
+          if (neighborsOfNeighbor.size() >= _minNeighborsThreshold) { //If the neighbor unknown cell is not sourrounded by free cells -> I have a frontier
+            _frontiers.push_back(coord);  
+            break;
+          }
+        }
+      } else if (_costMap->at<unsigned char>(r, c) == _occupiedColor) {          
+        float x = c*_mapMetaData.resolution + _mapMetaData.origin.position.x;
+        float y = r*_mapMetaData.resolution + _mapMetaData.origin.position.y;
+        _occupiedCellsCloud.push_back({x,y}); 
+      }
+    }
+  }
 }
 
 
@@ -322,13 +278,7 @@ void FrontierDetector::computeFrontierRegions(){
     }
 
   }
-
-
-
-
 }
-
-
 
 void FrontierDetector::computeFrontierCentroids(){
 
@@ -382,12 +332,7 @@ void FrontierDetector::computeFrontierCentroids(){
     }
 
   }
-
 }
-
-
-
-
 
 void FrontierDetector::rankFrontierRegions(float mapX, float mapY){
 
@@ -428,10 +373,6 @@ void FrontierDetector::rankFrontierRegions(float mapX, float mapY){
   for (int i = 0; i < _centroids.size(); i ++){
     _centroids[i] = vecCentroidScore[i].coord;
   }
-
-
-
-
 }
 
 
@@ -471,8 +412,6 @@ void FrontierDetector::publishFrontierPoints(){
 
   
   _pubFrontierPoints.publish(pointsMsg);
-
-
 }
 
 
@@ -515,7 +454,6 @@ void FrontierDetector::publishCentroidMarkers(){
     markersMsg.markers.push_back(marker);
   }
   _pubCentroidMarkers.publish(markersMsg);
-
 }
 
 void FrontierDetector::publishCentroidMarkers(Vector2iVector target_) {
@@ -558,11 +496,7 @@ void FrontierDetector::publishCentroidMarkers(Vector2iVector target_) {
     markersMsg.markers.push_back(marker);
   }
   _pubCentroidMarkers.publish(markersMsg);
-
 }
-
-
-
 
 Vector2fVector* FrontierDetector::getUnknownCloud(){
   return &_unknownCellsCloud;
@@ -606,50 +540,31 @@ bool FrontierDetector::isNeighbor(Vector2i coordI, Vector2i coordJ){
 
 Vector2iVector FrontierDetector::getColoredNeighbors (Vector2i coord, int color){
 
-
   Vector2iVector neighbors;
   Vector2i coordN;
+  for (int r = -1; r <= 1; ++r) {
+    for (int c = -1; c <= 1; ++c) {
+      
+      if (r == 0 && c == 0) {
+        continue;
+      }
 
-  if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1]) == color ){
-    coordN = {coord[0] + 1, coord[1]};
-    neighbors.push_back(coordN);
+      if (coord[0]+r < 0 || coord[0]+r > _occupancyMap->rows||
+          coord[1]+c < 0 || coord[1]+c > _occupancyMap->cols) {
+        continue;
+      }
+      // std::cerr << "getColoredNeighbors: _occupancyMap [" << _occupancyMap->rows << "x" << _occupancyMap->cols << "]" << std::endl;
+      // std::cerr << "                            coords  " << coord[0]+r << " " << coord[1]+c << std::endl;
+      if (_occupancyMap->at<unsigned char>(coord[0]+r, coord[1]+c) == color) {
+        std::cerr << "te lo metto dentro" << std::endl;
+        coordN = {coord[0]+r, coord[1]+c};
+        neighbors.push_back(coordN);
+      }
+
+    }
   }
 
-  if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1]) == color ){
-    coordN = {coord[0] - 1, coord[1]};
-    neighbors.push_back(coordN);
-  }
-
-  if (_occupancyMap->at<unsigned char>(coord[0], coord[1] + 1) == color ){
-    coordN = {coord[0], coord[1] + 1};
-    neighbors.push_back(coordN);
-  }
-
-  if (_occupancyMap->at<unsigned char>(coord[0], coord[1] - 1) == color ){
-    coordN = {coord[0], coord[1] - 1};
-    neighbors.push_back(coordN);
-  }
-
-  if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] + 1) == color ){
-    coordN = {coord[0] + 1, coord[1] + 1};
-    neighbors.push_back(coordN);
-  }
-
-  if (_occupancyMap->at<unsigned char>(coord[0] + 1, coord[1] - 1) == color ){
-    coordN = {coord[0] + 1, coord[1] - 1};
-    neighbors.push_back(coordN);
-  }
-
-  if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] + 1) == color ){
-    coordN = {coord[0] - 1, coord[1] + 1};
-    neighbors.push_back(coordN);
-  }
-
-  if (_occupancyMap->at<unsigned char>(coord[0] - 1, coord[1] - 1) == color ){
-    coordN = {coord[0] - 1, coord[1] - 1};
-    neighbors.push_back(coordN);
-  }  
-
+  // std::cerr << "RITORNO" << std::endl;
 
   return neighbors;
 

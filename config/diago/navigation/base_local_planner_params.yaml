@@ -25,3 +25,5 @@ TrajectoryPlannerROS:
   occdist_scale: 0.5
 
   oscillation_reset_dist: 0.3
+
+  meter_scoring: true

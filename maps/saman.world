@@ -1,0 +1,3 @@
+include "saman_base.inc"
+
+segway( pose [ 2 2 0 90.0 ] name "my_diago1" color "blue")

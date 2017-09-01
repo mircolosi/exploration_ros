@@ -40,7 +40,7 @@ GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, Frontier
 
   if (_laserTopicName != ""){
     _subLaserScan = _nh.subscribe<sensor_msgs::LaserScan>(_laserTopicName, 1,  &GoalPlanner::scanCallback, this);
-    _subVel = _nh.subscribe<geometry_msgs::Twist>("cmd_vel", 1,  &GoalPlanner::velCallback, this);
+    _subVel = _nh.subscribe<geometry_msgs::Twist>(ros::this_node::getNamespace()+"/cmd_vel", 1,  &GoalPlanner::velCallback, this);
   }
 
 
