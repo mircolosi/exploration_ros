@@ -47,38 +47,6 @@ GoalPlanner::GoalPlanner(MoveBaseClient* ac,  FakeProjector *projector, Frontier
 
 }
 
-bool GoalPlanner::requestOccupancyMap(){
-
-  nav_msgs::GetMap::Request req;
-  nav_msgs::GetMap::Response res;
-
-
-  if (_mapClient.call(req,res)){
-
-    _mapMetaData = res.map.info;
-
-    int currentCell = 0;
-    *_occupancyMap = cv::Mat(res.map.info.height, res.map.info.width, CV_8UC1);
-    for(int r = 0; r < res.map.info.height; r++) {
-      for(int c = 0; c < res.map.info.width; c++) {
-        _occupancyMap->at<unsigned char>(r, c) = res.map.data[currentCell];
-        currentCell++;
-      }
-    }
-
-
-    return true;
-  }
-
-  else {
-    ROS_ERROR("Failed to call service map");
-    return false;
-  }
-
-
-} 
-
-
 void GoalPlanner::publishGoal(PoseWithInfo goalPose, std::string frame){
 
   _goal = goalPose;

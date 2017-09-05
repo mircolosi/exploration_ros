@@ -48,8 +48,7 @@ public:
   void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-  FrontierDetector( cv::Mat *occupancy,
-                    cv::Mat *cost, 
+  FrontierDetector( cv::Mat *cost, 
                     int thresholdSize = 30, 
                     int minNeighborsThreshold = 4, 
                     std::string namePoints = "points", 
@@ -61,8 +60,7 @@ public:
 
   bool requestOccupancyMap();
 
-  void computeFrontiers(int distance = -1, Vector2f centerCoord = {FLT_MAX,FLT_MAX});
-
+  void computeFrontiers(int distance = -1, const Vector2f& centerCoord = Vector2f(FLT_MAX,FLT_MAX));
 
   void rankRegions();
 
@@ -83,10 +81,8 @@ public:
 
   void publishFrontierPoints();
   void publishCentroidMarkers();
-  void publishCentroidMarkers(Vector2iVector target_);
 
 protected:
-  Vector2iVector get4Neighbors(Vector2i cell);
   void computeFrontierPoints(int startR, int startC, int endR, int endC);
   void computeFrontierRegions();
   void computeFrontierCentroids();
@@ -94,20 +90,20 @@ protected:
 
 
   bool isNeighbor(Vector2i coordI, Vector2i coordJ);
-  Vector2iVector getColoredNeighbors(Vector2i coord, int color);
+  void getColoredNeighbors(Vector2i coord, int color, Vector2iVector& neighbors);
   void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector2iVector points, const bool expansion);
 
 
 
-    template<class V, class E> inline bool contains(V vector, E element){
-  if (std::find(vector.begin(), vector.end(), element) != vector.end())
-    return true;
-  else 
-    return false;
-}
+  template<class V, class E> inline bool contains(V vector, E element) {
+    if (std::find(vector.begin(), vector.end(), element) != vector.end())
+      return true;
+    else 
+      return false;
+  }
 
 
-cv::Mat  *_occupancyMap;
+cv::Mat _occupancyMap;
 cv::Mat *_costMap;
 
 
@@ -117,9 +113,9 @@ float _mixtureParam = 1;
 
 nav_msgs::MapMetaData _mapMetaData;
 
-const unsigned char _freeColor = 0;
-const unsigned char _unknownColor = -1;
-const unsigned char _occupiedColor = 100;
+const int8_t _freeColor = 0;
+const int8_t _unknownColor = -1;
+const int8_t _occupiedColor = 100;
 
 const int _circumscribedThreshold = 99;
 

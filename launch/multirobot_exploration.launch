@@ -131,6 +131,7 @@
   </group>
 
 
-  <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
+<!--   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
   <node pkg="rviz" type="rviz" name="visualizer2" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname2)/rviz/diago.rviz"/>
+ -->
 </launch>

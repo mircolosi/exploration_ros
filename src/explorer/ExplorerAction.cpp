@@ -61,7 +61,6 @@ protected:
 
   std::string _mapFrame, _baseFrame, _laserFrame, _laserTopicName;
 
-  cv::Mat* _occupancyMap;
   cv::Mat* _costMap;
 
   Vector2f _laserOffset;
@@ -131,9 +130,8 @@ public:
       std::cout << RED << "Catch exception: " << _laserFrame << " not exists. Using default values." << std::endl;
     }
 
-    _occupancyMap = new cv::Mat();
     _costMap = new cv::Mat();
-    _frontiersDetector = new FrontierDetector(_occupancyMap, _costMap, _thresholdRegionSize, 4, _frontierPointsTopic, _markersTopic, _mapFrame, _baseFrame);
+    _frontiersDetector = new FrontierDetector(_costMap, _thresholdRegionSize, 4, _frontierPointsTopic, _markersTopic, _mapFrame, _baseFrame);
 
     _unknownCellsCloud = _frontiersDetector->getUnknownCloud();
     _occupiedCellsCloud = _frontiersDetector->getOccupiedCloud();
@@ -162,7 +160,6 @@ public:
     delete _projector;
     delete _ac;
     delete _costMap;
-    delete _occupancyMap;
     delete _as;
   }
 
