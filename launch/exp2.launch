@@ -1,0 +1,33 @@
+<launch>
+  <arg name="action" default="explore" />
+
+  <arg name="robotname1" default="robot_0" />
+  <arg name="robot_map1" default="map0" />
+  <arg name="robotname2" default="robot_1" />
+  <arg name="robot_map2" default="map1" />
+
+  <arg name="base_frame" default="base_frame" />
+  <arg name="laser_topic" default="scan" />
+  <arg name="laser_frame" default="laser_frame" />
+
+
+<group ns="$(arg robotname2)">
+    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
+      <param name="action"        value="$(arg action)" />
+      <param name="mapFrame"      value="/$(arg robot_map2)" /> 
+      <param name="baseFrame"     value="/$(arg robotname2)/$(arg base_frame)" />  
+      <param name="laserFrame"    value="/$(arg robotname2)/$(arg laser_frame)" />
+      <param name="scanTopic"     value="/$(arg robotname2)/$(arg laser_topic)" /> 
+      <param name="pointsTopic"   value="/$(arg robotname2)/points" /> 
+      <param name="markersTopic"  value="/$(arg robotname2)/markers" /> 
+      <param name="regionSize"    value="15" /> 
+      <param name="exploredArea"  value="10" />
+      <param name="lambda"        value="1.25" /> 
+      <param name="mc"            value="0.5" /> 
+      <param name="Mc"            value="5.0" />
+      <param name="nc"            value="10" /> 
+      <param name="iter"          value="-1" /> 
+    </node> 
+</group>
+
+</launch>

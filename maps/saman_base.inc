@@ -24,8 +24,8 @@ floorplan (
 )
 
 # boxes
-box( pose [ 2.5 10.0 0.1 0 ] color "blue")
+box( pose [ 7.02 21.34 0.1 0 ] color "blue")
 box( pose [ 7.0 3.3 0 45 ] color "red")
-box( pose [ 10.2 9.0 0.1 0 ] color "green")
+box( pose [ 6.62 17.52 0.1 0 ] color "green")
 
-door( pose [ 8.6 4.9 0.1 45 ] color "red")
+door( pose [ 7.04 19.36 0.1 45 ] color "red")

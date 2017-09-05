@@ -194,20 +194,15 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
         if (_costMap->at<unsigned char>(r,c) == _circumscribedThreshold) {//If the current free cell is too close to an obstacle skip
           continue;
         }
-        std::cerr << "_occupancyMap [" << _occupancyMap->rows << "x" << _occupancyMap->cols << "]" << std::endl;
-        std::cerr << "neighbors: " << coord[0] << " " << coord[1] << std::endl;
+
         Vector2iVector neighbors = getColoredNeighbors(coord, _unknownColor); 
-        std::cerr << "end neighbors" << std::endl;
 
         if (neighbors.empty()) { //If the current free cell has no unknown cells around skip
-          std::cerr << "NO neighbors" << std::endl;
           continue;
         }
 
         for (int i = 0; i < neighbors.size(); i++){
-          std::cerr << "neighborsOfNeighbor: " << coord[0] << " " << coord[1] << std::endl;
           Vector2iVector neighborsOfNeighbor = getColoredNeighbors(neighbors[i], _unknownColor);
-          std::cerr << "end neighborsOfNeighbor" << std::endl;
           if (neighborsOfNeighbor.size() >= _minNeighborsThreshold) { //If the neighbor unknown cell is not sourrounded by free cells -> I have a frontier
             _frontiers.push_back(coord);  
             break;
@@ -339,7 +334,7 @@ void FrontierDetector::rankFrontierRegions(float mapX, float mapY){
 
   Vector2f mapCoord(mapX, mapY);
 
-  std::vector<coordWithScore> vecCentroidScore;
+  coordWithScoreVector vecCentroidScore;
 
   float maxSize = 0;
 
@@ -525,19 +520,6 @@ nav_msgs::MapMetaData FrontierDetector::getMapMetaData(){
 }
 
 
-
-
-bool FrontierDetector::isNeighbor(Vector2i coordI, Vector2i coordJ){
-  if (coordI == coordJ)
-    return false;
-
-  if ((abs(coordI[0] - coordJ[0]) <= 1)&&(abs(coordI[1] - coordJ[1]) <= 1))
-    return true;                
-
-  return false;
-}
-
-
 Vector2iVector FrontierDetector::getColoredNeighbors (Vector2i coord, int color){
 
   Vector2iVector neighbors;
@@ -553,33 +535,14 @@ Vector2iVector FrontierDetector::getColoredNeighbors (Vector2i coord, int color)
           coord[1]+c < 0 || coord[1]+c > _occupancyMap->cols) {
         continue;
       }
-      // std::cerr << "getColoredNeighbors: _occupancyMap [" << _occupancyMap->rows << "x" << _occupancyMap->cols << "]" << std::endl;
-      // std::cerr << "                            coords  " << coord[0]+r << " " << coord[1]+c << std::endl;
       if (_occupancyMap->at<unsigned char>(coord[0]+r, coord[1]+c) == color) {
-        std::cerr << "te lo metto dentro" << std::endl;
         coordN = {coord[0]+r, coord[1]+c};
         neighbors.push_back(coordN);
       }
 
     }
   }
-
-  // std::cerr << "RITORNO" << std::endl;
-
   return neighbors;
 
 }
-
-
-Vector2iVector FrontierDetector::get4Neighbors(Vector2i cell){
-  Vector2iVector neighbors;
-
-  neighbors.push_back({cell[0] + 1, cell[1]});
-  neighbors.push_back({cell[0] - 1, cell[1]});
-  neighbors.push_back({cell[0], cell[1] + 1});
-  neighbors.push_back({cell[0], cell[1] - 1});
-
-  return neighbors;
-}
-
 

@@ -15,7 +15,7 @@ class FakeProjector {
 
 
 public:
-
+EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 FakeProjector();
 
 void simpleProjection(FloatVector& ranges, IntVector& indices, const Eigen::Isometry2f& T, const Vector2fVector& model) const;

@@ -95,7 +95,7 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
       break;
     }
 
-    std::vector<PoseWithInfo> sampledPlan = makeSampledPlan(frame, startPose, goalPose);
+    PoseWithInfoVector sampledPlan = makeSampledPlan(frame, startPose, goalPose);
 
     if (sampledPlan.size()>0){
       successPlans++;
@@ -193,7 +193,7 @@ bool PathsRollout::computeTargetSampledPlans(Vector2iVector targets, std::string
       break;
     }
 
-    std::vector<PoseWithInfo> sampledPlan = makeSampledPlan(frame, startPose, goalPose);
+    PoseWithInfoVector sampledPlan = makeSampledPlan(frame, startPose, goalPose);
 
     if (sampledPlan.size()>0) {
       _vectorSampledPoses.resize(sampledPlan.size());
@@ -220,7 +220,7 @@ bool PathsRollout::computeTargetSampledPlans(Vector2iVector targets, std::string
 
 
 
-std::vector<PoseWithInfo> PathsRollout::makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
+PoseWithInfoVector PathsRollout::makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
 
 
   nav_msgs::GetPlan::Request req;
@@ -230,7 +230,7 @@ std::vector<PoseWithInfo> PathsRollout::makeSampledPlan( std::string frame, geom
   req.start.pose = startPose;
   req.goal.header.frame_id = frame;
   req.goal.pose = goalPose;
-  std::vector<PoseWithInfo> sampledPlan;
+  PoseWithInfoVector sampledPlan;
 
   if (_planClient.call(req,res)){
     if (!res.plan.poses.empty()) {
@@ -245,9 +245,9 @@ std::vector<PoseWithInfo> PathsRollout::makeSampledPlan( std::string frame, geom
 
 }
 
-std::vector<PoseWithInfo> PathsRollout::sampleTrajectory(nav_msgs::Path path){
+PoseWithInfoVector PathsRollout::sampleTrajectory(nav_msgs::Path path){
 
-  std::vector<PoseWithInfo> vecSampledPoses;
+  PoseWithInfoVector vecSampledPoses;
 
   if (!path.poses.empty()){
 

@@ -23,9 +23,10 @@
 using namespace Eigen;
 using namespace srrg_core;
 
-typedef std::vector<Vector2iVector> regionVector;
+typedef std::vector<Vector2iVector, Eigen::aligned_allocator<Vector2iVector> > regionVector;
 
 struct coordWithScore {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Vector2i coord;
   float score;
 
@@ -34,12 +35,13 @@ struct coordWithScore {
    return score > cws.score;
  }
 };
-
+typedef std::vector<coordWithScore, Eigen::aligned_allocator<coordWithScore> > coordWithScoreVector;
 
 
 class FrontierDetector {
 
 public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   void costMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
   void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);

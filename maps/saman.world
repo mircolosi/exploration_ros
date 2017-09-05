@@ -1,3 +1,4 @@
 include "saman_base.inc"
 
-segway( pose [ 2 2 0 90.0 ] name "my_diago1" color "blue")
+segway( pose [ 10 20 0 0.0 ] name "robot_0" color "red")
+segway( pose [ 22 10 0 90.0 ] name "robot_1" color "blue")

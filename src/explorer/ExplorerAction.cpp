@@ -25,8 +25,7 @@ using namespace Eigen;
 #endif 
 
 typedef actionlib::SimpleActionServer<exploration_ros::ExplorerAction> ExplorerActionServer;
-class ExplorerAction
-{
+class ExplorerAction {
 protected:
 
   ros::NodeHandle _nh;
@@ -82,7 +81,7 @@ protected:
   GoalPlanner* _goalPlanner = nullptr;
   MoveBaseClient* _ac = nullptr;
 public:
-
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ExplorerAction(int argc_, char** argv_) {
 
 

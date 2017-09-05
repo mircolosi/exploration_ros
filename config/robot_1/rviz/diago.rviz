@@ -84,7 +84,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.200000003
       Style: Flat Squares
-      Topic: /my_diago1/scan
+      Topic: /robot_1/scan
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -102,7 +102,7 @@ Visualization Manager:
       Shaft Length: 0.230000004
       Shaft Radius: 0.00999999978
       Shape: Arrow (Flat)
-      Topic: /my_diago1/particlecloud
+      Topic: /robot_1/particlecloud
       Unreliable: false
       Value: true
     - Class: rviz/TF
@@ -110,13 +110,13 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        my_diago1/base_footprint_frame:
+        robot_1/base_footprint_frame:
           Value: true
-        my_diago1/base_frame:
+        robot_1/base_frame:
           Value: true
-        my_diago1/laser_frame:
+        robot_1/laser_frame:
           Value: true
-        my_diago1/odom:
+        robot_1/odom:
           Value: true
         map:
           Value: true
@@ -127,10 +127,10 @@ Visualization Manager:
       Show Names: false
       Tree:
         map:
-          my_diago1/odom:
-            my_diago1/base_footprint_frame:
-              my_diago1/base_frame:
-                my_diago1/laser_frame:
+          robot_1/odom:
+            robot_1/base_footprint_frame:
+              robot_1/base_frame:
+                robot_1/laser_frame:
                   {}
       Update Interval: 0
       Value: true
@@ -140,7 +140,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: Local Map
-      Topic: /my_diago1/move_base_node/local_costmap/costmap
+      Topic: /robot_1/move_base_node/local_costmap/costmap
       Unreliable: false
       Value: true
     - Alpha: 0.699999988
@@ -149,7 +149,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: Global Map
-      Topic: /my_diago1/move_base_node/global_costmap/costmap
+      Topic: /robot_1/move_base_node/global_costmap/costmap
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -171,7 +171,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /my_diago1/move_base_node/TrajectoryPlannerROS/global_plan
+      Topic: /robot_1/move_base_node/TrajectoryPlannerROS/global_plan
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -193,7 +193,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /my_diago1/move_base_node/NavfnROS/plan
+      Topic: /robot_1/move_base_node/NavfnROS/plan
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -201,7 +201,7 @@ Visualization Manager:
       Color: 0; 0; 0
       Enabled: true
       Name: Polygon
-      Topic: /my_diago1/move_base_node/local_costmap/obstacle_layer_footprint/footprint_stamped
+      Topic: /robot_1/move_base_node/local_costmap/obstacle_layer_footprint/footprint_stamped
       Unreliable: false
       Value: true
   Enabled: true
@@ -218,9 +218,9 @@ Visualization Manager:
     - Class: rviz/FocusCamera
     - Class: rviz/Measure
     - Class: rviz/SetInitialPose
-      Topic: /my_diago1/initialpose
+      Topic: /robot_1/initialpose
     - Class: rviz/SetGoal
-      Topic: /my_diago1/move_base_simple/goal
+      Topic: /robot_1/move_base_simple/goal
     - Class: rviz/PublishPoint
       Single click: true
       Topic: /clicked_point

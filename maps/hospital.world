@@ -78,7 +78,7 @@ floorplan
 )
 
 # robots simulation
-erratic( pose [ -19.000   -3.000   0.000   0.000 ] name "my_diago1" color "red")
-#erratic( pose [   7.000   -3.000   0.000   0.000 ] name "my_diago2" color "blue")
+erratic( pose [ -19.000   -3.000   0.000   0.000 ] name "robot_0" color "red")
+erratic( pose [   7.000   -3.000   0.000   0.000 ] name "robot_1" color "blue")
 
 

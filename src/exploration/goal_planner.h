@@ -34,7 +34,7 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseCl
 class GoalPlanner {
 
 public:
-
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	  void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
 	  void velCallback(const geometry_msgs::Twist::ConstPtr& msg);
 

@@ -29,6 +29,7 @@ using namespace Eigen;
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 struct PoseWithInfo {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Vector3f pose;
   int index;
   int planLenght;
@@ -37,15 +38,13 @@ struct PoseWithInfo {
   int predictedVisiblePoints;
 };
 
-
-
+typedef std::vector<PoseWithInfo, Eigen::aligned_allocator<PoseWithInfo> > PoseWithInfoVector;
 
 class PathsRollout {
 
 
 public: 
-
-
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   PathsRollout( cv::Mat* _costMap, 
                 MoveBaseClient *ac, 
                 FakeProjector *projector,
@@ -67,8 +66,8 @@ public:
   PoseWithInfo extractBestPose();
   PoseWithInfo extractTargetPose();
 
-  std::vector<PoseWithInfo> makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
-  std::vector<PoseWithInfo> sampleTrajectory(nav_msgs::Path path);
+  PoseWithInfoVector makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
+  PoseWithInfoVector sampleTrajectory(nav_msgs::Path path);
 
   void setAbortedGoals(Vector2fVector abortedGoals);
 
@@ -106,7 +105,7 @@ protected:
   int _maxCentroidsNumber;
   int _minUnknownRegionSize;
 
-  std::vector<PoseWithInfo> _vectorSampledPoses;
+  PoseWithInfoVector _vectorSampledPoses;
 
   Vector2f _laserOffset;
   int _imageCount = 0;
