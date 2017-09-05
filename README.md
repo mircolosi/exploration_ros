@@ -70,37 +70,18 @@ The code has been tested on Ubuntu 14.04 and 16.04 (64bits).
 Instructions
 ------------
 
-#### Nodes
+#### Node
 
-- **mapper_node:**
-This node simply collects odom and laser messages in order to build a map, without any postprocessing.
+- **exploration_action_client:**
+ This is the action client which send to the action server an Action message in order to make it perform the desired action (exploration).
 
-- **slam_node:**
-This node consists of the slam node developed by M.T. Lazaro with the addition of the creation and management of an occupancy map developed in the mapper_node.
+- **exploration_action_node:**
+ This is the action server which 
 
-- **frontier_planner:**
- This node, given an occupancy map and a pose of the robot, generates and send goals to the move_base action client.
+For the passing parameters give a look to the launch files (e.g. [singlerobot_exploration](https://github.com/mircolosi/exploration_ros/blob/single_robot/launch/singlerobot_exploration.launch))
 
-The default parameters work well in general, anyway for specific program options type:
-
-    $ rosrun exploration_ros nodeName --help
-  
 #### Example of use
 
-It's possible to test the whole system by using a launch file present in the package. IMPORTANT CHECK that the planner node is UNCOMMENTED inside the launch file, otherwise the robot will not move. 
+It is HIGHLY recommended to run the system directly from the present launch file.
 
-    $ roslaunch exploration_ros my_stage_experiment.launch
-
-Otherwise, if you need to run the single components, you can use the following commands:
-    
-    $ rosrun exploration_ros exploration_action_node   
-    $ rosrun exploration_ros exploration_action_client
-
-for running the action server and client. 
-
-#### Integrating the system with other components
-
-The frontier planner node can be used also with different SLAM nodes, in particular it has been already tested with gmapping. The only requirements are the availability of an occupancy grid map and of a map -> robot TF transform.
-
-Similarly someone could use just the SLAM node: it requires the availability of laser scan and odometry measures.
-
+    $ roslaunch exploration_ros singlerobot_exploration.launch

@@ -29,24 +29,6 @@
 
     <node pkg="cg_mrslam" type="real_mrslam" name="slam" output="screen" args="-initialPose 0,0,0 -publishTransform -mapFrame /$(arg robot_map1) -odomFrame /$(arg robotname1)/odom -baseFrame /$(arg robotname1)/$(arg base_frame) -odometryTopic /$(arg robotname1)/odom -scanTopic /$(arg robotname1)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
 
-<!--     <node pkg="exploration_ros" name="slam" type="slam_node" output="screen">
-
-      <param name="resolution"        value="0.025" />
-      <param name="maxScore"          value="0.15" /> 
-      <param name="kernelRadius"      value="0.2" /> 
-      <param name="minInliers"        value="5" />
-      <param name="windowLoopClosure" value="10" /> 
-      <param name="inlierThreshold"   value="2" /> 
-      <param name="angularUpdate"     value="0.5" /> 
-      <param name="linearUpdate"      value="0.5" /> 
-      <param name="timeUpdate"        value="0" /> 
-      <param name="type"              value="0" /> 
-      <param name="laserFrame"        value="/$(arg robotname1)/$(arg laser_frame)" />
-      <param name="odometryFrame"     value="/$(arg robotname1)/odom" /> 
-      <param name="scanTopic"         value="/$(arg robotname1)/$(arg laser_topic)" />
-      <param name="occupancyTopic"    value="/$(arg robot_map1)" /> 
-    </node> -->
-
     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
       <remap from="map"     to="/$(arg robot_map1)" />
       <remap from="odom"    to="/$(arg robotname1)/odom" />
@@ -77,7 +59,7 @@
       <param name="action" value="$(arg action)" />
     </node> 
 
-<!--     <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
+    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
       <param name="action"        value="$(arg action)" />
       <param name="mapFrame"      value="/$(arg robot_map1)" /> 
       <param name="baseFrame"     value="/$(arg robotname1)/$(arg base_frame)" />  
@@ -93,7 +75,7 @@
       <param name="nc"            value="10" /> 
       <param name="iter"          value="-1" /> 
     </node> 
- -->
+
   </group>
 
   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
