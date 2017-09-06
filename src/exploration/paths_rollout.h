@@ -41,14 +41,12 @@ struct PoseWithInfo {
 typedef std::vector<PoseWithInfo, Eigen::aligned_allocator<PoseWithInfo> > PoseWithInfoVector;
 
 class PathsRollout {
-
-
 public: 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   PathsRollout( cv::Mat* _costMap, 
                 MoveBaseClient *ac, 
                 FakeProjector *projector,
-                Vector2f laserOffset = {0.05, 0.0}, 
+                Vector2f laserOffset = Vector2f(0.05, 0.0), 
                 int maxCentroidsNumber = 10, 
                 int thresholdRegionSize = 10, 
                 float nearCentroidsThreshold = 0.5, 
@@ -56,79 +54,75 @@ public:
                 float samplesThreshold = 1, 
                 int sampleOrientation = 8, 
                 float lambdaDecay = 0.2,
-                std::string mapFrame_ = "map", 
-                std::string baseFrame_ = "base_link");
+                const std::string& mapFrame_ = "map", 
+                const std::string& baseFrame_ = "base_link");
 
 
-  int computeAllSampledPlans(Vector2iVector centroids, std::string frame);
-  bool computeTargetSampledPlans(Vector2iVector targets, std::string frame);
+  int computeAllSampledPlans(const Vector2iVector& centroids, const std::string& frame);
+  bool computeTargetSampledPlans(const Vector2iVector& targets, const std::string& frame);
 
-  PoseWithInfo extractBestPose();
-  PoseWithInfo extractTargetPose();
+  void extractBestPose(PoseWithInfo& goalPose);
+  void extractTargetPose(PoseWithInfo& goalPose);
 
-  PoseWithInfoVector makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose);
-  PoseWithInfoVector sampleTrajectory(nav_msgs::Path path);
+  void makeSampledPlan(const std::string& frame, const geometry_msgs::Pose& startPose, const geometry_msgs::Pose& goalPose, PoseWithInfoVector& sampledPlan);
+  void sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVector& vecSampledPoses);
 
-  void setAbortedGoals(Vector2fVector abortedGoals);
+  void setAbortedGoals(const Vector2fVector& abortedGoals);
 
   void setUnknownCellsCloud(Vector2fVector* cloud);
   void setOccupiedCellsCloud(Vector2fVector* cloud);
-  void setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg);
+  void setMapMetaData(const nav_msgs::MapMetaData& mapMetaDataMsg);
 
 
 protected: 
 
-  float predictAngle(Vector3f currentPose, Vector3f nextPosition);
-  bool isActionDone(MoveBaseClient* ac);
-  float computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints);
-  int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset);
+  float predictAngle(const Vector3f& currentPose, const Vector3f& nextPosition);
+  bool isActionDone(const MoveBaseClient* ac);
+  float computePoseScore(const PoseWithInfo& pose, float orientation, int numVisiblePoints);
+  int computeVisiblePoints(const Vector3f& robotPose, const Vector2f& laserOffset);
 
 
-  FakeProjector * _projector;
+  FakeProjector* _projector;
 
   nav_msgs::MapMetaData _mapMetaData;
 
-  float _xyThreshold = 0.25;
+  const float _xyThreshold = 0.25;
 
-  Vector3f _robotPose;
-
-  cv::Mat *_costMap;
-  unsigned char _freeColor = 0;
-  unsigned char _circumscribedThreshold = 99;
+  const cv::Mat* _costMap;
+  const int8_t _freeColor = 0;
+  const int8_t _circumscribedThreshold = 99;
 
 
-  float _sampledPathThreshold;
-  int _sampleOrientation;
-  float _intervalOrientation;
-  float _lastSampleThreshold;
+  const float _sampledPathThreshold;
+  const int _sampleOrientation;
+  const float _intervalOrientation;
+  const float _lastSampleThreshold;
 
-  int _maxCentroidsNumber;
-  int _minUnknownRegionSize;
+  const int _maxCentroidsNumber;
+  const int _minUnknownRegionSize;
 
   PoseWithInfoVector _vectorSampledPoses;
 
-  Vector2f _laserOffset;
-  int _imageCount = 0;
+  const Vector2f _laserOffset;
 
   Vector2fVector _abortedGoals;
-  float _nearCentroidsThreshold;
-  float _farCentroidsThreshold;
+  const float _nearCentroidsThreshold;
+  const float _farCentroidsThreshold;
 
   Vector2fVector* _unknownCellsCloud;
   Vector2fVector* _occupiedCellsCloud;
 
-  float _lambda;
+  const float _lambda;
 
   int _longestPlan;
 
 
   ros::NodeHandle _nh;
-  ros::Subscriber _subActualPose;
   ros::ServiceClient _planClient;
-  MoveBaseClient *_ac;
+  const MoveBaseClient *_ac;
 
-  std::string _baseFrame;
-  std::string _mapFrame;
+  const std::string _baseFrame;
+  const std::string _mapFrame;
 
   tf::TransformListener _tfListener;
   tf::StampedTransform _tfMapToBase;

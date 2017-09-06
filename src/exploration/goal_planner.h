@@ -73,7 +73,6 @@ protected:
 	void displayStringWithTime(std::string text);
 	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset);
 
-
 	FakeProjector *_projector;
 	Vector2f _laserOffset;
 	FrontierDetector *_frontierDetector;

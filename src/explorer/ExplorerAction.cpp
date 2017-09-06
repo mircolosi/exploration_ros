@@ -182,25 +182,22 @@ public:
       _frontiersDetector->publishFrontierPoints();
       _frontiersDetector->publishCentroidMarkers();
 
-      _frontierPoints = _frontiersDetector->getFrontierPoints();
-      _regions = _frontiersDetector->getFrontierRegions();
-      _centroids = _frontiersDetector->getFrontierCentroids();
+      _frontiersDetector->getFrontierPoints(_frontierPoints);
+      _frontiersDetector->getFrontierRegions(_regions);
+      _frontiersDetector->getFrontierCentroids(_centroids);
 
       std::cerr << RED << "_frontierPoints " << _frontierPoints.size() << RESET << std::endl ;
       std::cerr << RED << "_regions " << _regions.size() << RESET << std::endl ;
       std::cerr << RED << "_centroids " << _centroids.size() << RESET << std::endl ;
 
         //mc the map is fully explored
-      if (_centroids.size() == 0) {
-        //mc TODO check for the whole map
-
-        //mc if _centroids.size() == 0
+      if (_centroids.size() == 0 ) { //add no centroid reachable
         std::cout << "MAP FULLY EXPLORED" << std::endl;
         _exploration_completed = true;
         break;
       }
 
-      _occupancyMapInfo = _frontiersDetector->getMapMetaData();
+      _frontiersDetector->getMapMetaData(_occupancyMapInfo);
       _pathsRollout->setMapMetaData(_occupancyMapInfo);
       _goalPlanner->setMapMetaData(_occupancyMapInfo);
 
@@ -222,14 +219,15 @@ public:
         int numSampledPoses = _pathsRollout->computeAllSampledPlans(_centroids, _mapFrame);
         if (numSampledPoses == 0) {
             //mc the goal is unreachable
+          //maybe _isActive = false;
           std::cout << RED << "NO POSE AVAILABLE FOR GOAL" << std::endl;
           std::cerr << RESET;
-          // _as->setAborted();
           _result.state = "ABORTED [no pose available for goal]";
           break;
         }
 
-        PoseWithInfo goal = _pathsRollout->extractBestPose();
+        PoseWithInfo goal;
+        _pathsRollout->extractBestPose(goal);
 
         _goalPlanner->publishGoal(goal, _mapFrame); 
         
@@ -257,7 +255,8 @@ public:
           std::cerr << RESET;
           _as->setAborted();
         } else {
-          PoseWithInfo target = _pathsRollout->extractTargetPose();
+          PoseWithInfo target;
+          _pathsRollout->extractTargetPose(target);
 
           std::cerr << RED << "Goal: " << target.pose.transpose() << std::endl;
           std::cerr << RESET;

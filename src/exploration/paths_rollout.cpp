@@ -18,43 +18,34 @@ PathsRollout::PathsRollout( cv::Mat* costMap,
                             float sampleThreshold, 
                             int sampleOrientation,
                             float lambdaDecay,
-                            std::string mapFrame_, 
-                            std::string baseFrame_) : _mapFrame(mapFrame_), _baseFrame(baseFrame_) {
-
-  _nearCentroidsThreshold = nearCentroidsThreshold;
-  _farCentroidsThreshold = farCentroidsThreshold;
-
-  _laserOffset = laserOffset;
-
-  _costMap = costMap;
-
-  _sampledPathThreshold = sampleThreshold;
-  _lastSampleThreshold = sampleThreshold/4;
-  _sampleOrientation = sampleOrientation;
-  _intervalOrientation = 2*M_PI/sampleOrientation;
-
-  _maxCentroidsNumber = maxCentroidsNumber;
-  _minUnknownRegionSize = regionSize;
-  
-  _projector = projector;
-
-  _ac = ac;
-
-  _lambda = lambdaDecay;
-  
+                            const std::string& mapFrame_, 
+                            const std::string& baseFrame_) :  _mapFrame(mapFrame_),
+                                                              _baseFrame(baseFrame_),
+                                                              _nearCentroidsThreshold(nearCentroidsThreshold),
+                                                              _farCentroidsThreshold(farCentroidsThreshold),
+                                                              _laserOffset(laserOffset),
+                                                              _sampledPathThreshold(sampleThreshold),
+                                                              _lastSampleThreshold(_sampledPathThreshold*0.25),
+                                                              _sampleOrientation(sampleOrientation),
+                                                              _intervalOrientation(2*M_PI/(float)_sampleOrientation),
+                                                              _maxCentroidsNumber(maxCentroidsNumber),
+                                                              _minUnknownRegionSize(regionSize),
+                                                              _lambda(lambdaDecay),
+                                                              _ac(ac),
+                                                              _projector(projector),
+                                                              _costMap(costMap) {
   _planClient = _nh.serviceClient<nav_msgs::GetPlan>(_nh.resolveName("move_base_node/make_plan", true));
-
-
 }
 
-int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string frame){
+int PathsRollout::computeAllSampledPlans(const Vector2iVector& centroids, const std::string& frame){
 
   _vectorSampledPoses.clear();
   Vector2fVector meterCentroids;
 
-  for (int i = 0; i < centroids.size(); i ++){
-    Vector2f meterCentroid = {centroids[i][1]* _mapMetaData.resolution + _mapMetaData.origin.position.x, centroids[i][0]* _mapMetaData.resolution + _mapMetaData.origin.position.y};//Inverted because computed in map (row col -> y x)
-    meterCentroids.push_back(meterCentroid);
+  for (const Vector2i& centroid: centroids) {
+    float meter_x = centroid[1] * _mapMetaData.resolution + _mapMetaData.origin.position.x;
+    float meter_y = centroid[0] * _mapMetaData.resolution + _mapMetaData.origin.position.y;
+    meterCentroids.push_back(Vector2f(meter_x, meter_y));
   }
 
   try{
@@ -82,20 +73,24 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
   _longestPlan = 0;
   int failedPlans = 0;
   int successPlans = 0;
-  
-  for (int i = 0; i < meterCentroids.size(); i++){
 
+  for (const Vector2f& meter_centroid: meterCentroids) {
     geometry_msgs::Pose goalPose;
-    goalPose.position.x = meterCentroids[i][0];  
-    goalPose.position.y = meterCentroids[i][1];
+    goalPose.position.x = meter_centroid.x();
+    goalPose.position.y = meter_centroid.y();
 
-    float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
+    float dx = meter_centroid.x()- startPose.position.x;
+    float dy = meter_centroid.y()- startPose.position.y;
 
-    if ((successPlans > (round(_maxCentroidsNumber/2)))&&(distanceActualPose > _farCentroidsThreshold)){ //If I have already some plans and this is quite far, break.
+    float actual_distance = sqrt(dx*dx + dy*dy);
+
+    //mc break if I have already some plans and are closer than the current one
+    if ((successPlans > _maxCentroidsNumber/2) && (actual_distance > _farCentroidsThreshold)) {
       break;
     }
 
-    PoseWithInfoVector sampledPlan = makeSampledPlan(frame, startPose, goalPose);
+    PoseWithInfoVector sampledPlan;
+    makeSampledPlan(frame, startPose, goalPose, sampledPlan);
 
     if (sampledPlan.size()>0){
       successPlans++;
@@ -105,38 +100,37 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
       continue;
     }
 
+    //mc che è sta cosa?
     if (sampledPlan[0].planLenght > _longestPlan){
       _longestPlan = sampledPlan[0].planLenght;
     }
 
-    //Loop through sampled poses to check if I am already considering them from previous sampled plans
-    for (int j = 0; j < sampledPlan.size(); j++){
+    for (const PoseWithInfo& pose_new: sampledPlan) {
+      bool already_sampled_pose = true;
+      for (const PoseWithInfo& pose: _vectorSampledPoses) {
+        float dist_x = fabs(pose.pose.x() - pose_new.pose.x());
+        float dist_y = fabs(pose.pose.y() - pose_new.pose.y());
 
-      bool farAlreadySampledPoses = true;
-
-      for (int k = 0; k < _vectorSampledPoses.size(); k++){
-        float distanceX = fabs(_vectorSampledPoses[k].pose[0] - sampledPlan[j].pose[0]);
-        float distanceY = fabs(_vectorSampledPoses[k].pose[1] - sampledPlan[j].pose[1]);
-
-        if ((distanceX <= _xyThreshold) &&(distanceY <= _xyThreshold)){
-          farAlreadySampledPoses = false;
+        if ((dist_x <= _xyThreshold) && (dist_y <= _xyThreshold)) {
+          already_sampled_pose = false;
           break;
         }
       }
 
-      if (farAlreadySampledPoses){
-        _vectorSampledPoses.push_back(sampledPlan[j]);
+      if (already_sampled_pose) {
+        _vectorSampledPoses.push_back(pose_new);
       }
     }
 
-    if (successPlans == _maxCentroidsNumber){ //When I reach the limit I stop computing plans
-      break;   
+    if (successPlans == _maxCentroidsNumber) {
+      break;
     }
-  }
 
+  }
+  
 
   if (failedPlans > 0){
-    std::cout<<"Failed "<<failedPlans<<"/"<<centroids.size()<<" plans"<<std::endl;
+    std::cerr << "Failed " << failedPlans << "/" << centroids.size() << " plans" << std::endl;
   }
 
   return _vectorSampledPoses.size();
@@ -144,84 +138,80 @@ int PathsRollout::computeAllSampledPlans(Vector2iVector centroids, std::string f
 }
 
 
-bool PathsRollout::computeTargetSampledPlans(Vector2iVector targets, std::string frame) {
+bool PathsRollout::computeTargetSampledPlans(const Vector2iVector& targets, const std::string& frame) {
 
   _vectorSampledPoses.clear();
-  Vector2fVector meterCentroids;
+  // Vector2fVector meterCentroids;
 
+  // bool found = false;
+
+  // for (int i = 0; i < targets.size(); i ++) {
+  //   Vector2f meterCentroid = {targets[i][1]* _mapMetaData.resolution + _mapMetaData.origin.position.x, targets[i][0]* _mapMetaData.resolution + _mapMetaData.origin.position.y};//Inverted because computed in map (row col -> y x)
+  //   meterCentroids.push_back(meterCentroid);
+  // }
+
+  // try {
+  //   _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(1.0));
+  //   _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
+  // } catch (tf::TransformException ex) {
+  //   std::cout<<"exception: "<< ex.what() <<std::endl;
+  // }
+
+  // geometry_msgs::Pose startPose;
+  // startPose.position.x = _tfMapToBase.getOrigin().x(); 
+  // startPose.position.y = _tfMapToBase.getOrigin().y();
+
+  // geometry_msgs::Quaternion qMsg;
+  // tf::quaternionTFToMsg(_tfMapToBase.getRotation(),qMsg);
+
+  // startPose.orientation = qMsg;  
+
+  // //Wait for robot to stop moving (moveBaseClient can't do 2 things at same time, like moving and planning)
+  // ros::Rate checkReadyRate(100);
+  // while(!isActionDone(_ac)){
+  //   checkReadyRate.sleep();
+  // }
+
+  // _longestPlan = 0;
+  // int failedPlans = 0;
+  // int successPlans = 0;
+
+  // for (int i = 0; i < meterCentroids.size(); i++){
+  //   geometry_msgs::Pose goalPose;
+  //   goalPose.position.x = meterCentroids[i][0];  
+  //   goalPose.position.y = meterCentroids[i][1];
+
+  //   float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
+
+  //   if ((successPlans > (round(_maxCentroidsNumber/2)))&&(distanceActualPose > _farCentroidsThreshold)){ //If I have already some plans and this is quite far, break.
+  //     break;
+  //   }
+
+  //   PoseWithInfoVector sampledPlan;
+  //   makeSampledPlan(frame, startPose, goalPose, sampledPlan);
+
+  //   if (sampledPlan.size()>0) {
+  //     _vectorSampledPoses.resize(sampledPlan.size());
+  //     for (int i = 0; i < sampledPlan.size(); ++i) {
+  //       _vectorSampledPoses[i] = sampledPlan[i];
+  //     }
+  //     successPlans++;
+  //     found = true;
+  //     break;
+  //   }
+  //   else {
+  //     failedPlans++;
+  //     found = false;
+  //     continue;
+  //   }
+
+
+  // }
   bool found = false;
-
-  for (int i = 0; i < targets.size(); i ++){
-    Vector2f meterCentroid = {targets[i][1]* _mapMetaData.resolution + _mapMetaData.origin.position.x, targets[i][0]* _mapMetaData.resolution + _mapMetaData.origin.position.y};//Inverted because computed in map (row col -> y x)
-    meterCentroids.push_back(meterCentroid);
-  }
-
-  try{
-    _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(1.0));
-    _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
-  } catch (tf::TransformException ex) {
-    std::cout<<"exception: "<< ex.what() <<std::endl;
-  }
-
-  geometry_msgs::Pose startPose;
-  startPose.position.x = _tfMapToBase.getOrigin().x(); 
-  startPose.position.y = _tfMapToBase.getOrigin().y();
-
-  geometry_msgs::Quaternion qMsg;
-  tf::quaternionTFToMsg(_tfMapToBase.getRotation(),qMsg);
-
-  startPose.orientation = qMsg;  
-
-//Wait for robot to stop moving (moveBaseClient can't do 2 things at same time, like moving and planning)
-  ros::Rate checkReadyRate(100);
-  while(!isActionDone(_ac)){
-    checkReadyRate.sleep();
-  }
-
-  _longestPlan = 0;
-  int failedPlans = 0;
-  int successPlans = 0;
-
-  for (int i = 0; i < meterCentroids.size(); i++){
-    geometry_msgs::Pose goalPose;
-    goalPose.position.x = meterCentroids[i][0];  
-    goalPose.position.y = meterCentroids[i][1];
-
-    float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
-
-    if ((successPlans > (round(_maxCentroidsNumber/2)))&&(distanceActualPose > _farCentroidsThreshold)){ //If I have already some plans and this is quite far, break.
-      break;
-    }
-
-    PoseWithInfoVector sampledPlan = makeSampledPlan(frame, startPose, goalPose);
-
-    if (sampledPlan.size()>0) {
-      _vectorSampledPoses.resize(sampledPlan.size());
-      for (int i = 0; i < sampledPlan.size(); ++i) {
-        _vectorSampledPoses[i] = sampledPlan[i];
-      }
-      successPlans++;
-      found = true;
-      break;
-    }
-    else {
-      failedPlans++;
-      found = false;
-      continue;
-    }
-
-
-  }
-
   return found;
-
 }
 
-
-
-
-PoseWithInfoVector PathsRollout::makeSampledPlan( std::string frame, geometry_msgs::Pose startPose, geometry_msgs::Pose goalPose){
-
+void PathsRollout::makeSampledPlan(const std::string& frame, const geometry_msgs::Pose& startPose, const geometry_msgs::Pose& goalPose, PoseWithInfoVector& sampledPlan) {
 
   nav_msgs::GetPlan::Request req;
   nav_msgs::GetPlan::Response res;
@@ -230,24 +220,19 @@ PoseWithInfoVector PathsRollout::makeSampledPlan( std::string frame, geometry_ms
   req.start.pose = startPose;
   req.goal.header.frame_id = frame;
   req.goal.pose = goalPose;
-  PoseWithInfoVector sampledPlan;
 
   if (_planClient.call(req,res)){
     if (!res.plan.poses.empty()) {
-      sampledPlan = sampleTrajectory(res.plan);
+      sampleTrajectory(res.plan, sampledPlan);
     }
   }
   else {
     ROS_ERROR("Failed to call service %s - is the robot moving?", _planClient.getService().c_str());
   }
 
-  return sampledPlan;
-
 }
 
-PoseWithInfoVector PathsRollout::sampleTrajectory(nav_msgs::Path path){
-
-  PoseWithInfoVector vecSampledPoses;
+void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVector& sampledPoses){
 
   if (!path.poses.empty()){
 
@@ -268,7 +253,7 @@ PoseWithInfoVector PathsRollout::sampleTrajectory(nav_msgs::Path path){
       }
     }
     if (!nearToAborted){
-      vecSampledPoses.push_back(lastPose);
+      sampledPoses.push_back(lastPose);
     }
 
     //Given a non empty path, I sample it (first pose already sampled, last pose will be treated differently later)
@@ -281,7 +266,7 @@ PoseWithInfoVector PathsRollout::sampleTrajectory(nav_msgs::Path path){
       Vector2i newPoseMap = {round((newPose.pose[1] - _mapMetaData.origin.position.y)/_mapMetaData.resolution), round((newPose.pose[0] - _mapMetaData.origin.position.x)/_mapMetaData.resolution)};
       float distancePreviousPose = sqrt(pow((lastPose.pose[0] - newPose.pose[0]),2) + pow((lastPose.pose[1] - newPose.pose[1]),2));
       //If the pose I'm considering is quite far from the lastPose sampled and it's not too close to an obstacle I proceed
-      if ((distancePreviousPose >= _sampledPathThreshold)&&(_costMap->at<unsigned char>(newPoseMap[0], newPoseMap[1]) < _circumscribedThreshold)){
+      if ((distancePreviousPose >= _sampledPathThreshold)&&(_costMap->at<int8_t>(newPoseMap[0], newPoseMap[1]) < _circumscribedThreshold)){
         bool nearToAborted = false;
         //Check if the newPose is too close to a previously aborted goal.
         for (int j = 0; j < _abortedGoals.size(); j ++){
@@ -302,7 +287,7 @@ PoseWithInfoVector PathsRollout::sampleTrajectory(nav_msgs::Path path){
           newPose.index = i;
           newPose.planLenght = path.poses.size() - 1;
           //Sample the NewPose
-          vecSampledPoses.push_back(newPose);
+          sampledPoses.push_back(newPose);
           //Update the lastPose sampled
           lastPose = newPose;
         }
@@ -337,26 +322,19 @@ PoseWithInfoVector PathsRollout::sampleTrajectory(nav_msgs::Path path){
         newPose.planLenght = path.poses.size() - 1;
 
         //Sample the NewPose
-        vecSampledPoses.push_back(newPose);
+        sampledPoses.push_back(newPose);
         //Update the lastPose sampled
         lastPose = newPose;
 
       }
       
-    }
-
-    
+    }    
   }
-
-
-  return vecSampledPoses;
-
 }
 
 
-PoseWithInfo PathsRollout::extractBestPose(){
+void PathsRollout::extractBestPose(PoseWithInfo& goalPose){
 
-  PoseWithInfo goalPose;
   Isometry2f transform;
   Vector3f pose;
   Vector3f laserPose;
@@ -411,16 +389,11 @@ PoseWithInfo PathsRollout::extractBestPose(){
       }
 
     }
-
-    
   }
-  
-  return goalPose;
 }
 
-PoseWithInfo PathsRollout::extractTargetPose(){
+void PathsRollout::extractTargetPose(PoseWithInfo& goalPose){
 
-  PoseWithInfo goalPose;
   Isometry2f transform;
   Vector3f pose;
   Vector3f laserPose;
@@ -463,9 +436,6 @@ PoseWithInfo PathsRollout::extractTargetPose(){
 
       float score = computePoseScore(_vectorSampledPoses[i], yawAngle, numVisiblePoints);
 
-      //std::cout<<i<<"-"<<j<<" "<<laserPose[0]<<" "<<laserPose[1]<<" "<<laserPose[2]<<" points: "<<countFrontier<<" score: "<<score <<std::endl;
-
-
       if (score > goalPose.score){
         std::cout<<"GOAL: "<< _vectorSampledPoses.back().pose[0]<<" "<<_vectorSampledPoses.back().pose[1]<<" "<<_vectorSampledPoses.back().pose[2]<<" SCORE: "<<score<<std::endl;
         goalPose.pose = _vectorSampledPoses.back().pose;
@@ -473,16 +443,11 @@ PoseWithInfo PathsRollout::extractTargetPose(){
         goalPose.predictedAngle = _vectorSampledPoses[i].pose[2]; 
         goalPose.predictedVisiblePoints = numVisiblePoints;
       }
-
     }
-
-    
   }
-
-  return goalPose;
 }
 
-int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset){
+int PathsRollout::computeVisiblePoints(const Vector3f& robotPose, const Vector2f& laserOffset){
 
   int visiblePoints = 0;
 
@@ -500,11 +465,7 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset)
 
   Isometry2f pointsToLaserTransform = transform.inverse();
 
-  //visiblePoints = _projector->areaProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
-
-  visiblePoints =  _projector ->countVisiblePointsFromSparseProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
-
-  //std::cout<<"Pose: "<<robotPose.transpose()<<" "<< visiblePoints<<std::endl;
+  visiblePoints =  _projector->countVisiblePointsFromSparseProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
 
   return visiblePoints;
 
@@ -512,12 +473,11 @@ int PathsRollout::computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset)
 
 
 
-bool PathsRollout::isActionDone(MoveBaseClient *ac){
+bool PathsRollout::isActionDone(const MoveBaseClient *ac){
 
   actionlib::SimpleClientGoalState state = ac->getState();
 
-  if ((state == actionlib::SimpleClientGoalState::ABORTED)||(state == actionlib::SimpleClientGoalState::SUCCEEDED)||(state == actionlib::SimpleClientGoalState::PREEMPTED)||(state == actionlib::SimpleClientGoalState::REJECTED)||(state == actionlib::SimpleClientGoalState::LOST))
-  {
+  if ((state == actionlib::SimpleClientGoalState::ABORTED)||(state == actionlib::SimpleClientGoalState::SUCCEEDED)||(state == actionlib::SimpleClientGoalState::PREEMPTED)||(state == actionlib::SimpleClientGoalState::REJECTED)||(state == actionlib::SimpleClientGoalState::LOST)) {
     return true;
   }
   return false;
@@ -525,7 +485,7 @@ bool PathsRollout::isActionDone(MoveBaseClient *ac){
 }
 
 
-float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int numVisiblePoints){
+float PathsRollout::computePoseScore(const PoseWithInfo& pose, float orientation, int numVisiblePoints){
 
   //mc weight more score which are closer to the target 
 
@@ -562,7 +522,7 @@ float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int n
   }
 
 
-  float PathsRollout::predictAngle(Vector3f currentPose, Vector3f nextPosition){
+  float PathsRollout::predictAngle(const Vector3f& currentPose, const Vector3f& nextPosition){
 
     Vector2f previousVersor = {cos(currentPose[2]), sin(currentPose[2])};
     Vector2f newVersor = {nextPosition[0] - currentPose[0], nextPosition[1] - currentPose[1]};
@@ -583,19 +543,18 @@ float PathsRollout::computePoseScore(PoseWithInfo pose, float orientation, int n
 
 
 
-  void PathsRollout::setAbortedGoals(Vector2fVector abortedGoals){
+  void PathsRollout::setAbortedGoals(const Vector2fVector& abortedGoals) {
     _abortedGoals = abortedGoals;
   }
 
-  void PathsRollout::setUnknownCellsCloud(Vector2fVector* cloud){
+  void PathsRollout::setUnknownCellsCloud(Vector2fVector* cloud) {
     _unknownCellsCloud = cloud;
   }
 
-  void PathsRollout::setOccupiedCellsCloud(Vector2fVector* cloud){
+  void PathsRollout::setOccupiedCellsCloud(Vector2fVector* cloud) {
     _occupiedCellsCloud = cloud;
   }
 
-  void PathsRollout::setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg){
+  void PathsRollout::setMapMetaData(const nav_msgs::MapMetaData& mapMetaDataMsg) {
     _mapMetaData = mapMetaDataMsg;
-
   }

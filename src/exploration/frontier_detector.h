@@ -29,14 +29,11 @@ struct coordWithScore {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Vector2i coord;
   float score;
-
-  bool operator <(const coordWithScore& cws)const
-  {
+  bool operator<(const coordWithScore& cws) const {
    return score > cws.score;
  }
 };
 typedef std::vector<coordWithScore, Eigen::aligned_allocator<coordWithScore> > coordWithScoreVector;
-
 
 class FrontierDetector {
 
@@ -48,36 +45,25 @@ public:
   void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-  FrontierDetector( cv::Mat *cost, 
+  FrontierDetector( cv::Mat* cost, 
                     int thresholdSize = 30, 
                     int minNeighborsThreshold = 4, 
-                    std::string namePoints = "points", 
-                    std::string nameMarkers = "markers", 
-                    std::string nameMap = "map", 
-                    std::string baseFrame = "base_link",
-                    std::string nameMapMetadata = "");
-
-
-  bool requestOccupancyMap();
+                    const std::string& namePoints = "points", 
+                    const std::string& nameMarkers = "markers", 
+                    const std::string& nameMap = "map", 
+                    const std::string& baseFrame = "base_link",
+                    const std::string& nameMapMetadata = "");
 
   void computeFrontiers(int distance = -1, const Vector2f& centerCoord = Vector2f(FLT_MAX,FLT_MAX));
 
-  void rankRegions();
-
-  void computeCentroids();
-
-  void updateClouds();
-
-  Vector2iVector getFrontierPoints();
-  regionVector getFrontierRegions();
-  Vector2iVector getFrontierCentroids();
-  Vector2iVector getUnknownCells();
-  Vector2iVector getOccupiedCells();
+  void getFrontierPoints(Vector2iVector& frontiers_);
+  void getFrontierRegions(regionVector& regions_);
+  void getFrontierCentroids(Vector2iVector& centorids_);
 
   Vector2fVector* getUnknownCloud();
   Vector2fVector* getOccupiedCloud();
 
-  nav_msgs::MapMetaData getMapMetaData();
+  void getMapMetaData(nav_msgs::MapMetaData& mapMetaData_);
 
   void publishFrontierPoints();
   void publishCentroidMarkers();
@@ -88,12 +74,7 @@ protected:
   void computeFrontierCentroids();
   void rankFrontierRegions(float mapX, float mapY);
 
-
-  bool isNeighbor(Vector2i coordI, Vector2i coordJ);
   void getColoredNeighbors(Vector2i coord, int color, Vector2iVector& neighbors);
-  void createDensePointsCloud(srrg_scan_matcher::Cloud2D *pointCloud, const Vector2iVector points, const bool expansion);
-
-
 
   template<class V, class E> inline bool contains(V vector, E element) {
     if (std::find(vector.begin(), vector.end(), element) != vector.end())
@@ -104,12 +85,12 @@ protected:
 
 
 cv::Mat _occupancyMap;
-cv::Mat *_costMap;
+cv::Mat* _costMap;
 
 
-int _minNeighborsThreshold;
-int _sizeThreshold;
-float _mixtureParam = 1;
+const int _minNeighborsThreshold;
+const int _sizeThreshold;
+const float _mixtureParam = 1;
 
 nav_msgs::MapMetaData _mapMetaData;
 
@@ -117,25 +98,20 @@ const int8_t _freeColor = 0;
 const int8_t _unknownColor = -1;
 const int8_t _occupiedColor = 100;
 
-const int _circumscribedThreshold = 99;
+const int8_t _circumscribedThreshold = 99;
 
 Vector2iVector _frontiers;
 regionVector _regions;
 Vector2iVector _centroids;
-Vector2iVector _targets;
 
 Vector2fVector _unknownCellsCloud;
 Vector2fVector _occupiedCellsCloud;
 
-Vector3f _robotPose;
-
-std::string _topicPointsName;
-std::string _topicMarkersName;
-std::string _topicMapName;
-std::string _topicMapMetadataName;
-std::string _baseFrame;
-
-nav_msgs::OccupancyGrid _costMapMsg;
+const std::string _topicPointsName;
+const std::string _topicMarkersName;
+const std::string _topicMapName;
+const std::string _topicMapMetadataName;
+const std::string _baseFrame;
 
 ros::NodeHandle _nh;
 ros::Publisher _pubFrontierPoints;
@@ -144,14 +120,9 @@ ros::Subscriber _subCostMap;
 ros::Subscriber _subCostMapUpdate;
 ros::Subscriber _subOccupancyMap;
 ros::Subscriber _subOccupancyMapUpdate;
-ros::Subscriber _subActualPose;
 ros::Subscriber _subMapMetaData;
 ros::ServiceClient _mapClient;
 
-
-
 tf::TransformListener _tfListener;
 tf::StampedTransform _tfMapToBase;
-
-
 };

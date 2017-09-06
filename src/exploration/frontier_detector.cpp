@@ -7,8 +7,6 @@ using namespace srrg_core;
 
 void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
   if (msg != nullptr) {
-    _costMapMsg = *msg;
-
     int currentCell = 0;
     _costMap->create(msg->info.height, msg->info.width, CV_8SC1);
     for(int r = 0; r < msg->info.height; r++) {
@@ -65,25 +63,21 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
  }
 }
 
-FrontierDetector::FrontierDetector( cv::Mat *costImage, 
+FrontierDetector::FrontierDetector( cv::Mat* costImage, 
                                     int thresholdSize,
                                     int minNeighborsThreshold, 
-                                    std::string namePoints, 
-                                    std::string nameMarkers, 
-                                    std::string nameMap, 
-                                    std::string baseFrame, 
-                                    std::string nameMapMetadata) {
-
-  _costMap = costImage;
-  
-  _sizeThreshold = thresholdSize;
-  _minNeighborsThreshold = minNeighborsThreshold;
-
-  _topicPointsName = namePoints;
-  _topicMarkersName = nameMarkers;
-  _topicMapName = nameMap;
-  _topicMapMetadataName = nameMapMetadata;
-  _baseFrame = baseFrame;
+                                    const std::string& namePoints, 
+                                    const std::string& nameMarkers, 
+                                    const std::string& nameMap, 
+                                    const std::string& baseFrame, 
+                                    const std::string& nameMapMetadata) : _costMap(costImage),
+                                                                          _sizeThreshold(),
+                                                                          _minNeighborsThreshold(minNeighborsThreshold),
+                                                                          _topicPointsName(namePoints),
+                                                                          _topicMarkersName(nameMarkers),
+                                                                          _topicMapName(nameMap),
+                                                                          _topicMapMetadataName(nameMapMetadata),
+                                                                          _baseFrame(baseFrame) {  
 
   _pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
   _pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
@@ -271,10 +265,10 @@ void FrontierDetector::computeFrontierCentroids(){
 
   //Make all the centroids reachable
   for (int i = 0; i < _centroids.size(); i++) {
-    int centroid_row = _centroids[i][1];
-    int centroid_col = _centroids[i][0];
+    int centroid_row = _centroids[i].y();
+    int centroid_col = _centroids[i].x();
 
-    if (_costMap->at<int8_t>(centroid_row, centroid_col) > _circumscribedThreshold ){  //If the centroid is in a non-free cell
+    if (_costMap->at<int8_t>(centroid_row, centroid_col) > _circumscribedThreshold){  //If the centroid is in a non-free cell
       float distance = std::numeric_limits<float>::max();
       Vector2i closestPoint;
 
@@ -303,13 +297,13 @@ void FrontierDetector::rankFrontierRegions(float mapX, float mapY){
 
   float maxSize = 0;
 
-  for (int i = 0; i < _centroids.size(); i++){
+  for (int i = 0; i < _centroids.size(); ++i){
     if (_regions[i].size() > maxSize){
       maxSize = _regions[i].size();
     }
   }
 
-  for (int i = 0; i < _centroids.size(); i++){
+  for (int i = 0; i < _centroids.size(); ++i){
 
     int dx = mapX - _centroids[i].x();
     int dy = mapY - _centroids[i].y();
@@ -423,21 +417,21 @@ Vector2fVector* FrontierDetector::getOccupiedCloud(){
 }
 
 
-Vector2iVector FrontierDetector::getFrontierPoints(){
-  return _frontiers;  
+void FrontierDetector::getFrontierPoints(Vector2iVector& frontiers_){
+  frontiers_ = _frontiers;  
 }
 
-regionVector FrontierDetector::getFrontierRegions(){
-  return _regions;
+void FrontierDetector::getFrontierRegions(regionVector& regions_){
+  regions_ = _regions;
 }
 
-Vector2iVector FrontierDetector::getFrontierCentroids(){
-  return _centroids;
+void FrontierDetector::getFrontierCentroids(Vector2iVector& centorids_){
+  centorids_ = _centroids;
 }
 
 
-nav_msgs::MapMetaData FrontierDetector::getMapMetaData(){
-  return _mapMetaData;
+void FrontierDetector::getMapMetaData(nav_msgs::MapMetaData& mapMetaData_){
+  mapMetaData_ = _mapMetaData;
 }
 
 
