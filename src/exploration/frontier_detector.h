@@ -1,5 +1,4 @@
 #include <iostream>
-#include <opencv2/highgui/highgui.hpp>
 #include <stdlib.h> 
 #include <algorithm>
 
@@ -18,7 +17,6 @@
 #include <Eigen/Dense>
 
 #include "srrg_types/defs.h"
-
 
 using namespace Eigen;
 using namespace srrg_core;
@@ -88,6 +86,11 @@ protected:
 cv::Mat _occupancyMap;
 cv::Mat _costMap;
 
+std::vector<signed char> raw_cost;
+std::vector<signed char> raw_occupancy;
+
+int costmap_width;
+int occupancy_width;
 
 const int _minNeighborsThreshold;
 const int _sizeThreshold;
