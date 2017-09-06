@@ -235,23 +235,27 @@ void PathsRollout::makeSampledPlan(const std::string& frame, const geometry_msgs
 void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVector& sampledPoses){
 
   if (!path.poses.empty()){
-
     PoseWithInfo lastPose;
     //This is the starting pose
     double initialAngle = tf::getYaw(_tfMapToBase.getRotation());
-    lastPose.pose = {(float) _tfMapToBase.getOrigin().x(), (float) _tfMapToBase.getOrigin().y(), (float)  initialAngle};
+    lastPose.pose = Vector3f((float) _tfMapToBase.getOrigin().x(), (float) _tfMapToBase.getOrigin().y(), (float)  initialAngle);
     lastPose.predictedAngle = initialAngle;
     lastPose.index = 0;
     lastPose.planLenght = path.poses.size() - 1;
 
     bool nearToAborted = false;
-    for (int j = 0; j < _abortedGoals.size(); j ++){
-      float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - lastPose.pose[0]),2) + pow((_abortedGoals[j][1] - lastPose.pose[1]),2));
-      if (distanceAbortedGoal < _nearCentroidsThreshold){
+
+    for (const Vector2f& aborted_goal: _abortedGoals) {
+      float dx = aborted_goal.x() - lastPose.pose.x();
+      float dy = aborted_goal.y() - lastPose.pose.y();
+
+      float dist_to_aborted = sqrt(dx*dx + dy*dy);
+      if (dist_to_aborted < _nearCentroidsThreshold) {
         nearToAborted = true;
         break;
-      }
+      } 
     }
+
     if (!nearToAborted){
       sampledPoses.push_back(lastPose);
     }
@@ -262,15 +266,22 @@ void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVect
       PoseWithInfo newPose;
 
       //NOTE: The orientation of this pose will be eventually computed if the pose will be sampled
-      newPose.pose = {(float) path.poses[i].pose.position.x, (float) path.poses[i].pose.position.y, 0.0};
-      Vector2i newPoseMap = {round((newPose.pose[1] - _mapMetaData.origin.position.y)/_mapMetaData.resolution), round((newPose.pose[0] - _mapMetaData.origin.position.x)/_mapMetaData.resolution)};
-      float distancePreviousPose = sqrt(pow((lastPose.pose[0] - newPose.pose[0]),2) + pow((lastPose.pose[1] - newPose.pose[1]),2));
+      newPose.pose = Vector3f((float) path.poses[i].pose.position.x, (float) path.poses[i].pose.position.y, 0.0);
+      int new_pose_r = round((newPose.pose[1] - _mapMetaData.origin.position.y)/_mapMetaData.resolution);
+      int new_pose_c = round((newPose.pose[0] - _mapMetaData.origin.position.x)/_mapMetaData.resolution);
+
+      float dx = lastPose.pose.x() - newPose.pose.x();
+      float dy = lastPose.pose.y() - newPose.pose.y();
+      float distancePreviousPose =  sqrt(dx*dx + dy*dy);
+
       //If the pose I'm considering is quite far from the lastPose sampled and it's not too close to an obstacle I proceed
-      if ((distancePreviousPose >= _sampledPathThreshold)&&(_costMap->at<int8_t>(newPoseMap[0], newPoseMap[1]) < _circumscribedThreshold)){
+      if ((distancePreviousPose >= _sampledPathThreshold) && (_costMap->at<int8_t>(new_pose_r, new_pose_c) < _circumscribedThreshold)){
         bool nearToAborted = false;
         //Check if the newPose is too close to a previously aborted goal.
-        for (int j = 0; j < _abortedGoals.size(); j ++){
-          float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - newPose.pose[0]),2) + pow((_abortedGoals[j][1] - newPose.pose[1]),2));
+        for (const Vector2f aborted_goal: _abortedGoals) {
+          float dx = aborted_goal.x() - newPose.pose.x();
+          float dy = aborted_goal.y() - newPose.pose.y();
+          float distanceAbortedGoal =  sqrt(dx*dx + dy*dy);
           if (distanceAbortedGoal < _nearCentroidsThreshold){
             nearToAborted = true;
             break;
@@ -282,7 +293,7 @@ void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVect
           float predictedAngle = predictAngle(lastPose.pose, newPose.pose);
 
           //Fill some fields of PoseWithInfo
-          newPose.pose[2] = predictedAngle;
+          newPose.pose.z() = predictedAngle;
           newPose.predictedAngle = predictedAngle;
           newPose.index = i;
           newPose.planLenght = path.poses.size() - 1;
@@ -297,26 +308,30 @@ void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVect
 
 
     PoseWithInfo newPose; 
-    newPose.pose = {(float) path.poses.back().pose.position.x, (float) path.poses.back().pose.position.y, 0.0};
+    newPose.pose = Vector3f((float) path.poses.back().pose.position.x, (float) path.poses.back().pose.position.y, 0.0);
 
-    float distancePreviousPose = sqrt(pow((lastPose.pose[0] - newPose.pose[0]),2) + pow((lastPose.pose[1] - newPose.pose[1]),2));
+    float dx = lastPose.pose.x() - newPose.pose.x();
+    float dy = lastPose.pose.y() - newPose.pose.y();
+    float distancePreviousPose =  sqrt(dx*dx + dy*dy);
 
     if (distancePreviousPose >= _lastSampleThreshold){ //This should be the xy_threshold set in the local planner
       bool nearToAborted = false;
-      for (int j = 0; j < _abortedGoals.size(); j ++){
-        float distanceAbortedGoal = sqrt(pow((_abortedGoals[j][0] - newPose.pose[0]),2) + pow((_abortedGoals[j][1] - newPose.pose[1]),2));
-        if (distanceAbortedGoal < _nearCentroidsThreshold){
-          nearToAborted = true;
-          break;
+        for (const Vector2f aborted_goal: _abortedGoals) {
+          float dx = aborted_goal.x() - newPose.pose.x();
+          float dy = aborted_goal.y() - newPose.pose.y();
+          float distanceAbortedGoal =  sqrt(dx*dx + dy*dy);
+          if (distanceAbortedGoal < _nearCentroidsThreshold){
+            nearToAborted = true;
+            break;
+          }
         }
-      }
       
       if (!nearToAborted){
 
         float predictedAngle = predictAngle(lastPose.pose, newPose.pose);
 
         //Fill some fields of PoseWithInfo
-        newPose.pose[2] = predictedAngle;
+        newPose.pose.z() = predictedAngle;
         newPose.predictedAngle = predictedAngle;
         newPose.index = path.poses.size() - 1;
         newPose.planLenght = path.poses.size() - 1;
@@ -339,28 +354,27 @@ void PathsRollout::extractBestPose(PoseWithInfo& goalPose){
   Vector3f pose;
   Vector3f laserPose;
 
-  for (int i = 0; i < _vectorSampledPoses.size(); i ++){
+  for (const Vector3f& sampled_pose: _vectorSampledPoses) {
 
-    pose[0] = _vectorSampledPoses[i].pose[0]; 
-    pose[1] = _vectorSampledPoses[i].pose[1];
+    pose.x() = sampled_pose.pose.x(); 
+    pose.y() = sampled_pose.pose.y();
 
     bool isSamePosition = false;
-    float distanceX = fabs(pose[0] - _tfMapToBase.getOrigin().x());
-    float distanceY = fabs(pose[1] - _tfMapToBase.getOrigin().y());
-    if ((distanceX < _xyThreshold) &&(distanceY < _xyThreshold)){
+    float distanceX = fabs(pose.x() - _tfMapToBase.getOrigin().x());
+    float distanceY = fabs(pose.y() - _tfMapToBase.getOrigin().y());
+    if ((distanceX < _xyThreshold) && (distanceY < _xyThreshold)){
       isSamePosition = true;
     }
-
 
     for (int j = 0; j < _sampleOrientation; j++){
 
       float yawAngle = _intervalOrientation*j;
       Rotation2D<float> rot(yawAngle);
 
-      pose[2] = yawAngle;
+      pose.z() = yawAngle;
 
       //If I'm considering a pose too close to the current one, discard rotations too similar to the current one.
-      //Errors in the prediction function could make the robot to always remain in the same place.
+      //Errors in the prediction function could make the robot to remain always in the same place.
       if (isSamePosition){
         Rotation2D<float> currentRot(tf::getYaw(_tfMapToBase.getRotation()));
         Rotation2D<float> differenceRot = currentRot.inverse()*rot;
@@ -372,19 +386,15 @@ void PathsRollout::extractBestPose(PoseWithInfo& goalPose){
         }
       }
 
-      int numVisiblePoints = computeVisiblePoints(pose, _laserOffset);  
-      
+      int numVisiblePoints = computeVisiblePoints(pose, _laserOffset);
 
-      float score = computePoseScore(_vectorSampledPoses[i], yawAngle, numVisiblePoints);
-
-      //std::cout<<i<<"-"<<j<<" "<<laserPose[0]<<" "<<laserPose[1]<<" "<<laserPose[2]<<" points: "<<countFrontier<<" score: "<<score <<std::endl;
-
+      float score = computePoseScore(sampled_pose, yawAngle, numVisiblePoints);
 
       if (score > goalPose.score){
         // std::cout<<"GOAL: "<< pose[0]<<" "<<pose[1]<<" "<<pose[2]<<" SCORE: "<<score<<std::endl;
         goalPose.pose = pose;
         goalPose.score = score;
-        goalPose.predictedAngle = _vectorSampledPoses[i].pose[2]; 
+        goalPose.predictedAngle = sampled_pose.pose.z(); 
         goalPose.predictedVisiblePoints = numVisiblePoints;
       }
 
@@ -453,22 +463,21 @@ int PathsRollout::computeVisiblePoints(const Vector3f& robotPose, const Vector2f
 
   Vector3f laserPose;
 
-  float yawAngle = robotPose[2];
+  float yawAngle = robotPose.z();
   Rotation2D<float> rot(yawAngle);
   Vector2f laserOffsetRotated = rot*laserOffset;
 
-  laserPose[0] = robotPose[0] + laserOffsetRotated[0];
-  laserPose[1] = robotPose[1] + laserOffsetRotated[1];
-  laserPose[2] = yawAngle;
+  laserPose.x() = robotPose.x() + laserOffsetRotated.x();
+  laserPose.y() = robotPose.y() + laserOffsetRotated.y();
+  laserPose.z() = yawAngle;
 
   Isometry2f transform = v2t(laserPose);
 
   Isometry2f pointsToLaserTransform = transform.inverse();
 
-  visiblePoints =  _projector->countVisiblePointsFromSparseProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
+  visiblePoints = _projector->countVisiblePointsFromSparseProjection(pointsToLaserTransform, *_unknownCellsCloud, *_occupiedCellsCloud);
 
   return visiblePoints;
-
 }
 
 
@@ -477,11 +486,14 @@ bool PathsRollout::isActionDone(const MoveBaseClient *ac){
 
   actionlib::SimpleClientGoalState state = ac->getState();
 
-  if ((state == actionlib::SimpleClientGoalState::ABORTED)||(state == actionlib::SimpleClientGoalState::SUCCEEDED)||(state == actionlib::SimpleClientGoalState::PREEMPTED)||(state == actionlib::SimpleClientGoalState::REJECTED)||(state == actionlib::SimpleClientGoalState::LOST)) {
+  if ((state == actionlib::SimpleClientGoalState::ABORTED)   ||
+      (state == actionlib::SimpleClientGoalState::SUCCEEDED) ||
+      (state == actionlib::SimpleClientGoalState::PREEMPTED) ||
+      (state == actionlib::SimpleClientGoalState::REJECTED)  ||
+      (state == actionlib::SimpleClientGoalState::LOST)) {
     return true;
   }
   return false;
-
 }
 
 
@@ -490,15 +502,15 @@ float PathsRollout::computePoseScore(const PoseWithInfo& pose, float orientation
   //mc weight more score which are closer to the target 
 
   float distanceFromStartWeight = 1.85;
-  float distanceFromGoalWeight = - 0.5;
+  float distanceFromGoalWeight = -0.5;
   float angleDistanceWeight = 0.25;
 
   if (numVisiblePoints < _minUnknownRegionSize){ //I prefer to move toward goals rather than toward poses with very few visible points.
     distanceFromStartWeight = 2.5;
   }
 
-  float distanceFromStart = float(pose.index)/_longestPlan;
-  float distanceFromGoal = float(pose.index)/pose.planLenght;
+  float distanceFromStart = pose.index/(float)_longestPlan;
+  float distanceFromGoal = pose.index/(float)pose.planLenght;
 
   Rotation2D<float> predictedRot(pose.predictedAngle);
   Rotation2D<float> desiredRot(orientation);
@@ -510,13 +522,11 @@ float PathsRollout::computePoseScore(const PoseWithInfo& pose, float orientation
   if (fabs(angleDifference) > _intervalOrientation){
     angularCost = fabs(angleDifference)/M_PI; }
     
-    float cost = distanceFromStartWeight * distanceFromStart + distanceFromGoalWeight * distanceFromGoal + angleDistanceWeight*angularCost;
+    float cost = distanceFromStartWeight * distanceFromStart + distanceFromGoalWeight * distanceFromGoal + angleDistanceWeight * angularCost;
 
-    float decay = - cost * _lambda;
+    float decay = -cost * _lambda;
     
     float score = numVisiblePoints * exp(decay);
-
-  //std::cout<<"Pose "<<pose.pose.transpose() <<" "<<pose.index<<"/"<<pose.planLenght <<" preferred angle-> "<<pose.predictedAngle<< " angle-> "<<orientation<<"("<<angleDifference<<") visiblePoints-> "<<numVisiblePoints<<" ---> cost:"<<cost<<" score: "<<score<<std::endl;
 
     return score;
   }
@@ -524,13 +534,13 @@ float PathsRollout::computePoseScore(const PoseWithInfo& pose, float orientation
 
   float PathsRollout::predictAngle(const Vector3f& currentPose, const Vector3f& nextPosition){
 
-    Vector2f previousVersor = {cos(currentPose[2]), sin(currentPose[2])};
-    Vector2f newVersor = {nextPosition[0] - currentPose[0], nextPosition[1] - currentPose[1]};
+    Vector2f previousVersor(cos(currentPose.z()), sin(currentPose.z()));
+    Vector2f newVersor(nextPosition.x() - currentPose.x(), nextPosition.y() - currentPose.y());
     float predictedAngleDifference = acos(newVersor.normalized().dot(previousVersor.normalized()));
 
 
 
-    Rotation2D<float> oldRot(currentPose[2]);
+    Rotation2D<float> oldRot(currentPose.z());
     Rotation2D<float> newRot(predictedAngleDifference);
 
     float predictedAngle = (oldRot*newRot).smallestPositiveAngle();
