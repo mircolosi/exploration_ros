@@ -43,7 +43,7 @@ typedef std::vector<PoseWithInfo, Eigen::aligned_allocator<PoseWithInfo> > PoseW
 class PathsRollout {
 public: 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  PathsRollout( cv::Mat* _costMap, 
+  PathsRollout( const cv::Mat* _costMap, 
                 MoveBaseClient *ac, 
                 FakeProjector *projector,
                 Vector2f laserOffset = Vector2f(0.05, 0.0), 
@@ -89,8 +89,8 @@ protected:
   const float _xyThreshold = 0.25;
 
   const cv::Mat* _costMap;
-  const int8_t _freeColor = 0;
-  const int8_t _circumscribedThreshold = 99;
+  const signed char _freeColor = 0;
+  const signed char _circumscribedThreshold = 99;
 
 
   const float _sampledPathThreshold;

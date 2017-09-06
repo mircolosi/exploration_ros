@@ -7,7 +7,7 @@ using namespace Eigen;
 
 
 
-PathsRollout::PathsRollout( cv::Mat* costMap, 
+PathsRollout::PathsRollout( const cv::Mat* costMap, 
                             MoveBaseClient *ac, 
                             FakeProjector *projector, 
                             Vector2f laserOffset, 
@@ -275,7 +275,7 @@ void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVect
       float distancePreviousPose =  sqrt(dx*dx + dy*dy);
 
       //If the pose I'm considering is quite far from the lastPose sampled and it's not too close to an obstacle I proceed
-      if ((distancePreviousPose >= _sampledPathThreshold) && (_costMap->at<int8_t>(new_pose_r, new_pose_c) < _circumscribedThreshold)){
+      if ((distancePreviousPose >= _sampledPathThreshold) && (_costMap->at<signed char>(new_pose_r, new_pose_c) < _circumscribedThreshold)){
         bool nearToAborted = false;
         //Check if the newPose is too close to a previously aborted goal.
         for (const Vector2f aborted_goal: _abortedGoals) {
@@ -354,7 +354,7 @@ void PathsRollout::extractBestPose(PoseWithInfo& goalPose){
   Vector3f pose;
   Vector3f laserPose;
 
-  for (const Vector3f& sampled_pose: _vectorSampledPoses) {
+  for (const PoseWithInfo& sampled_pose: _vectorSampledPoses) {
 
     pose.x() = sampled_pose.pose.x(); 
     pose.y() = sampled_pose.pose.y();
@@ -461,11 +461,11 @@ int PathsRollout::computeVisiblePoints(const Vector3f& robotPose, const Vector2f
 
   int visiblePoints = 0;
 
-  Vector3f laserPose;
-
   float yawAngle = robotPose.z();
   Rotation2D<float> rot(yawAngle);
   Vector2f laserOffsetRotated = rot*laserOffset;
+
+  Vector3f laserPose;
 
   laserPose.x() = robotPose.x() + laserOffsetRotated.x();
   laserPose.y() = robotPose.y() + laserOffsetRotated.y();

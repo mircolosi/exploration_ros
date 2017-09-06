@@ -45,8 +45,7 @@ public:
   void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-  FrontierDetector( cv::Mat* cost, 
-                    int thresholdSize = 30, 
+  FrontierDetector( int thresholdSize = 30, 
                     int minNeighborsThreshold = 4, 
                     const std::string& namePoints = "points", 
                     const std::string& nameMarkers = "markers", 
@@ -59,6 +58,8 @@ public:
   void getFrontierPoints(Vector2iVector& frontiers_);
   void getFrontierRegions(regionVector& regions_);
   void getFrontierCentroids(Vector2iVector& centorids_);
+
+  const cv::Mat* costMap() const {return &_costMap;}
 
   Vector2fVector* getUnknownCloud();
   Vector2fVector* getOccupiedCloud();
@@ -74,7 +75,7 @@ protected:
   void computeFrontierCentroids();
   void rankFrontierRegions(float mapX, float mapY);
 
-  void getColoredNeighbors(Vector2i coord, int color, Vector2iVector& neighbors);
+  void getColoredNeighbors(Vector2i coord, signed char color, Vector2iVector& neighbors);
 
   template<class V, class E> inline bool contains(V vector, E element) {
     if (std::find(vector.begin(), vector.end(), element) != vector.end())
@@ -85,7 +86,7 @@ protected:
 
 
 cv::Mat _occupancyMap;
-cv::Mat* _costMap;
+cv::Mat _costMap;
 
 
 const int _minNeighborsThreshold;
@@ -94,11 +95,11 @@ const float _mixtureParam = 1;
 
 nav_msgs::MapMetaData _mapMetaData;
 
-const int8_t _freeColor = 0;
-const int8_t _unknownColor = -1;
-const int8_t _occupiedColor = 100;
+const signed char _freeColor = 0;
+const signed char _unknownColor = -1;
+const signed char _occupiedColor = 100;
 
-const int8_t _circumscribedThreshold = 99;
+const signed char _circumscribedThreshold = 99;
 
 Vector2iVector _frontiers;
 regionVector _regions;

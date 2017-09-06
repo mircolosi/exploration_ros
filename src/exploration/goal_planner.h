@@ -32,85 +32,71 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseCl
 
 
 class GoalPlanner {
-
 public:
-	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-	  void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
-	  void velCallback(const geometry_msgs::Twist::ConstPtr& msg);
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
+    void velCallback(const geometry_msgs::Twist::ConstPtr& msg);
 
+  GoalPlanner(MoveBaseClient* ac, 
+              FakeProjector* projector, 
+              FrontierDetector* frontierDetector, 
+              const cv::Mat *costImage, 
+              const Vector2f& laserOffset = Vector2f(0.0, 0.5), 
+              int minThresholdSize = 10, 
+              const std::string& mapFrame = "map", 
+              const std::string& baseFrame = "base_link", 
+              const std::string& laserTopicName = "scan");
 
-	GoalPlanner(MoveBaseClient *ac, 
-				FakeProjector *projector, 
-				FrontierDetector *frontierDetector, 
-				cv::Mat *costImage, 
-				Vector2f laserOffset = {0.0, 0.5}, 
-				int minThresholdSize = 10, 
-				std::string mapFrame = "map", 
-				std::string baseFrame = "base_link", 
-				std::string laserTopicName = "scan");
+  void publishGoal(const PoseWithInfo& goalPose, const std::string& frame);
 
-	bool requestOccupancyMap();
-	bool requestCloudsUpdate();
+  void waitForGoal();
 
-	void publishGoal(PoseWithInfo goalPose, std::string frame);
+  std::string getActionServerStatus();
 
-	void waitForGoal();
+  void getAbortedGoals(Vector2fVector& aborted_goals_);
 
-	std::string getActionServerStatus();
-
-	cv::Mat getImageMap();
-
-	Vector2fVector getAbortedGoals();
-
-	void setUnknownCellsCloud(Vector2fVector* cloud);
-	void setOccupiedCellsCloud(Vector2fVector* cloud);
-	void setMapMetaData(nav_msgs::MapMetaData mapMetaDataMsg);
+  void setUnknownCellsCloud(Vector2fVector* cloud);
+  void setOccupiedCellsCloud(Vector2fVector* cloud);
+  void setMapMetaData(const nav_msgs::MapMetaData& mapMetaDataMsg);
 
 
 protected:
 
-	bool isGoalReached();
-	void displayStringWithTime(std::string text);
-	int computeVisiblePoints(Vector3f robotPose, Vector2f laserOffset);
+  bool isGoalReached();
+  void displayStringWithTime(std::string text);
+  int computeVisiblePoints(const Vector3f& robotPose, const Vector2f& laserOffset);
 
-	FakeProjector *_projector;
-	Vector2f _laserOffset;
-	FrontierDetector *_frontierDetector;
+  MoveBaseClient* _ac;
+  FakeProjector* _projector;
+  FrontierDetector* _frontierDetector;
 
-	nav_msgs::MapMetaData _mapMetaData;
+  nav_msgs::MapMetaData _mapMetaData;
+  PoseWithInfo _goal;
 
-	float _xyThreshold = 0.25;
+  const Vector2f _laserOffset;
+  const float _xyThreshold = 0.25;
 
-	PoseWithInfo _goal;
-	int _minUnknownRegionSize;
+  const int _minUnknownRegionSize;
 
+  Vector2fVector* _unknownCellsCloud;
+  Vector2fVector* _occupiedCellsCloud;
 
-	Vector2fVector* _unknownCellsCloud;
-	Vector2fVector* _occupiedCellsCloud;
+  Vector2fVector _abortedGoals;
 
-	Vector2fVector _abortedGoals;
+  const std::string _mapFrame;
+  const std::string _baseFrame;
+  const std::string _laserTopicName;
 
-	std::string _mapFrame;
-	std::string _baseFrame;
-	std::string _laserTopicName;
+  const cv::Mat* _costMap;
+  
+  ros::NodeHandle _nh;
+  ros::ServiceClient _mapClient;
+  ros::Subscriber _subLaserScan;
+  ros::Subscriber _subVel;
 
-	cv::Mat* _occupancyMap;
-	cv::Mat* _costMap;
-	
-	ros::NodeHandle _nh;
-	ros::ServiceClient _mapClient;
-	ros::Subscriber _subLaserScan;
-	ros::Subscriber _subVel;
+  sensor_msgs::LaserScan _laserscan;
+  geometry_msgs::Twist _twist;
 
-	sensor_msgs::LaserScan _laserscan;
-	geometry_msgs::Twist _twist;
-
-
-	MoveBaseClient* _ac;
-
-	tf::TransformListener _tfListener;
-	tf::StampedTransform _tfMapToBase;
-
-
-
+  tf::TransformListener _tfListener;
+  tf::StampedTransform _tfMapToBase;
 };

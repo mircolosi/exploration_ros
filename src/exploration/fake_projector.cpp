@@ -12,8 +12,15 @@ FakeProjector::FakeProjector() {
   updateParameters();
 }
 
-
-
+FakeProjector::FakeProjector( const float& max_range_,
+                              const float& min_range_,
+                              const float& fov_,
+                              const int& num_ranges_):  _max_range(max_range_),
+                                                        _min_range(min_range_),
+                                                        _num_ranges(num_ranges_) {
+  setFov(fov_);
+  updateParameters();
+}
 
 void FakeProjector::updateParameters() {
   _angle_increment = _fov / _num_ranges;
@@ -24,16 +31,12 @@ void FakeProjector::updateParameters() {
     *_sct = SinCosTable(-_fov * 0.5, _angle_increment, _num_ranges);
 }
 
-
-
-
 void FakeProjector::simpleProjection(FloatVector& ranges, IntVector& indices,
   const Eigen::Isometry2f& T,
   const Vector2fVector& model) const {
 
-
-  float middle = _num_ranges * 0.5;
-  float inverse_angle_increment = 1. / _angle_increment;
+  const float middle = _num_ranges * 0.5;
+  const float inverse_angle_increment = 1. / _angle_increment;
   const Eigen::Matrix2f& R = T.linear();
   ranges.resize(_num_ranges);
   indices.resize(_num_ranges);
@@ -67,8 +70,6 @@ void FakeProjector::simpleProjection(FloatVector& ranges, IntVector& indices,
 
 int FakeProjector::countVisiblePointsFromSparseProjection(const Eigen::Isometry2f& T, const Vector2fVector& interestingCloud, const Vector2fVector& obstaclesCloud){
 
-
-
   FloatVector ranges;
   IntVector indices;
   
@@ -76,37 +77,28 @@ int FakeProjector::countVisiblePointsFromSparseProjection(const Eigen::Isometry2
 
   augmentedCloud.insert(augmentedCloud.end(), obstaclesCloud.begin(), obstaclesCloud.end());
 
-
   sparseProjection(ranges, indices, T, augmentedCloud);
-
 
   int visiblePoints = 0;
 
   for (int k = 0; k < indices.size(); k++){
-    if (indices[k] != -1){
-      if (indices[k] < interestingCloud.size()){
-        visiblePoints ++;
-      }
+    if ((indices[k] != -1) && (indices[k] < interestingCloud.size())) {
+      visiblePoints ++;
     }
   }
-
-
   return visiblePoints;
-
-
 }
 
 
 
 
 
-void FakeProjector::sparseProjection(FloatVector& ranges, IntVector& indices,
-  const Eigen::Isometry2f& T,
-  const Vector2fVector& model) const {
+void FakeProjector::sparseProjection( FloatVector& ranges, IntVector& indices,
+                                      const Eigen::Isometry2f& T,
+                                      const Vector2fVector& model) const {
 
-
-  float middle = _num_ranges * 0.5;
-  float inverse_angle_increment = 1. / _angle_increment;
+  const float middle = _num_ranges * 0.5;
+  const float inverse_angle_increment = 1. / _angle_increment;
   const Eigen::Matrix2f& R = T.linear();
   ranges.resize(_num_ranges);
   indices.resize(_num_ranges);

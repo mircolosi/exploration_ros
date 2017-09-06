@@ -61,7 +61,7 @@ protected:
 
   std::string _mapFrame, _baseFrame, _laserFrame, _laserTopicName;
 
-  cv::Mat* _costMap;
+  const cv::Mat* _costMap;
 
   Vector2f _laserOffset;
 
@@ -126,12 +126,12 @@ public:
 
       _laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
     } catch (...) {
-      _laserOffset = {0.05, 0.0};
+      _laserOffset = Vector2f(0.05, 0.0);
       std::cout << RED << "Catch exception: " << _laserFrame << " not exists. Using default values." << std::endl;
     }
 
-    _costMap = new cv::Mat();
-    _frontiersDetector = new FrontierDetector(_costMap, _thresholdRegionSize, 4, _frontierPointsTopic, _markersTopic, _mapFrame, _baseFrame);
+    _frontiersDetector = new FrontierDetector(_thresholdRegionSize, 4, _frontierPointsTopic, _markersTopic, _mapFrame, _baseFrame);
+    _costMap = _frontiersDetector->costMap();
 
     _unknownCellsCloud = _frontiersDetector->getUnknownCloud();
     _occupiedCellsCloud = _frontiersDetector->getOccupiedCloud();
@@ -201,7 +201,7 @@ public:
       _pathsRollout->setMapMetaData(_occupancyMapInfo);
       _goalPlanner->setMapMetaData(_occupancyMapInfo);
 
-      _abortedGoals = _goalPlanner->getAbortedGoals();
+      _goalPlanner->getAbortedGoals(_abortedGoals);
       _pathsRollout->setAbortedGoals(_abortedGoals);
 
       // EXPLORE ACTION
