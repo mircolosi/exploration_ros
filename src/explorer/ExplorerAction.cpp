@@ -61,7 +61,7 @@ protected:
 
   std::string _mapFrame, _baseFrame, _laserFrame, _laserTopicName;
 
-  const cv::Mat* _costMap;
+  const MyMatrix<signed char>* _cost_map;
 
   Vector2f _laserOffset;
 
@@ -72,7 +72,6 @@ protected:
   float _maxRange = 4.0;
   int _numRanges = 181;
   float _fov = M_PI;
-  Vector2f _rangesLimits = {_minRange, _maxRange};
 
   FakeProjector* _projector = nullptr;
   FrontierDetector* _frontiersDetector = nullptr;
@@ -131,17 +130,17 @@ public:
     }
 
     _frontiersDetector = new FrontierDetector(_thresholdRegionSize, 4, _frontierPointsTopic, _markersTopic, _mapFrame, _baseFrame);
-    _costMap = _frontiersDetector->costMap();
+    _cost_map = _frontiersDetector->costMap();
 
     _unknownCellsCloud = _frontiersDetector->getUnknownCloud();
     _occupiedCellsCloud = _frontiersDetector->getOccupiedCloud();
 
-    _pathsRollout = new PathsRollout(_costMap, _ac, _projector, _laserOffset, _maxCentroidsNumber, _thresholdExploredArea, _nearCentroidsThreshold, _farCentroidsThreshold, 1, 8, _lambdaDecay, _mapFrame, _baseFrame);
+    _pathsRollout = new PathsRollout(_cost_map, _ac, _projector, _laserOffset, _maxCentroidsNumber, _thresholdExploredArea, _nearCentroidsThreshold, _farCentroidsThreshold, 1, 8, _lambdaDecay, _mapFrame, _baseFrame);
 
     _pathsRollout->setUnknownCellsCloud(_unknownCellsCloud);
     _pathsRollout->setOccupiedCellsCloud(_occupiedCellsCloud);
 
-    _goalPlanner = new GoalPlanner(_ac, _projector, _frontiersDetector, _costMap, _laserOffset, _thresholdExploredArea, _mapFrame, _baseFrame, _laserTopicName);
+    _goalPlanner = new GoalPlanner(_ac, _projector, _frontiersDetector, _cost_map, _laserOffset, _thresholdExploredArea, _mapFrame, _baseFrame, _laserTopicName);
 
     _goalPlanner->setUnknownCellsCloud(_unknownCellsCloud);
     _goalPlanner->setOccupiedCellsCloud(_occupiedCellsCloud);
@@ -159,7 +158,6 @@ public:
     delete _frontiersDetector;
     delete _projector;
     delete _ac;
-    delete _costMap;
     delete _as;
   }
 

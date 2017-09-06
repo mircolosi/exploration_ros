@@ -27,6 +27,7 @@
 #include "frontier_detector.h"
 #include "paths_rollout.h"
 #include "srrg_types/defs.h"
+#include "utils/my_matrix.h"
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
@@ -40,7 +41,7 @@ public:
   GoalPlanner(MoveBaseClient* ac, 
               FakeProjector* projector, 
               FrontierDetector* frontierDetector, 
-              const cv::Mat *costImage, 
+              const MyMatrix<signed char>* costImage, 
               const Vector2f& laserOffset = Vector2f(0.0, 0.5), 
               int minThresholdSize = 10, 
               const std::string& mapFrame = "map", 
@@ -87,7 +88,7 @@ protected:
   const std::string _baseFrame;
   const std::string _laserTopicName;
 
-  const cv::Mat* _costMap;
+  const MyMatrix<signed char>* _cost_map;
   
   ros::NodeHandle _nh;
   ros::ServiceClient _mapClient;

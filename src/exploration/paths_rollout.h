@@ -21,7 +21,7 @@
 #include "nav_msgs/MapMetaData.h"
 
 #include "exploration/fake_projector.h"
-
+#include "utils/my_matrix.h"
 
 using namespace srrg_core;
 using namespace Eigen;
@@ -43,7 +43,7 @@ typedef std::vector<PoseWithInfo, Eigen::aligned_allocator<PoseWithInfo> > PoseW
 class PathsRollout {
 public: 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  PathsRollout( const cv::Mat* _costMap, 
+  PathsRollout( const MyMatrix<signed char>* _costMap, 
                 MoveBaseClient *ac, 
                 FakeProjector *projector,
                 Vector2f laserOffset = Vector2f(0.05, 0.0), 
@@ -88,7 +88,8 @@ protected:
 
   const float _xyThreshold = 0.25;
 
-  const cv::Mat* _costMap;
+  const MyMatrix<signed char>* _cost_map;
+  
   const signed char _freeColor = 0;
   const signed char _circumscribedThreshold = 99;
 

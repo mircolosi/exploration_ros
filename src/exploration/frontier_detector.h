@@ -17,6 +17,7 @@
 #include <Eigen/Dense>
 
 #include "srrg_types/defs.h"
+#include "utils/my_matrix.h"
 
 using namespace Eigen;
 using namespace srrg_core;
@@ -57,7 +58,7 @@ public:
   void getFrontierRegions(regionVector& regions_);
   void getFrontierCentroids(Vector2iVector& centorids_);
 
-  const cv::Mat* costMap() const {return &_costMap;}
+  const MyMatrix<signed char>* costMap() const {return &_cost_map;}
 
   Vector2fVector* getUnknownCloud();
   Vector2fVector* getOccupiedCloud();
@@ -83,11 +84,10 @@ protected:
   }
 
 
-cv::Mat _occupancyMap;
 cv::Mat _costMap;
 
-std::vector<signed char> raw_cost;
-std::vector<signed char> raw_occupancy;
+MyMatrix<signed char> _cost_map;
+MyMatrix<signed char> _occupancy_map;
 
 int costmap_width;
 int occupancy_width;

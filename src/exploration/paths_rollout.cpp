@@ -7,7 +7,7 @@ using namespace Eigen;
 
 
 
-PathsRollout::PathsRollout( const cv::Mat* costMap, 
+PathsRollout::PathsRollout( const MyMatrix<signed char>* costMap, 
                             MoveBaseClient *ac, 
                             FakeProjector *projector, 
                             Vector2f laserOffset, 
@@ -33,7 +33,7 @@ PathsRollout::PathsRollout( const cv::Mat* costMap,
                                                               _lambda(lambdaDecay),
                                                               _ac(ac),
                                                               _projector(projector),
-                                                              _costMap(costMap) {
+                                                              _cost_map(costMap) {
   _planClient = _nh.serviceClient<nav_msgs::GetPlan>(_nh.resolveName("move_base_node/make_plan", true));
 }
 
@@ -275,7 +275,7 @@ void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVect
       float distancePreviousPose =  sqrt(dx*dx + dy*dy);
 
       //If the pose I'm considering is quite far from the lastPose sampled and it's not too close to an obstacle I proceed
-      if ((distancePreviousPose >= _sampledPathThreshold) && (_costMap->at<signed char>(new_pose_r, new_pose_c) < _circumscribedThreshold)){
+      if ((distancePreviousPose >= _sampledPathThreshold) && (_cost_map->at(new_pose_r, new_pose_c) < _circumscribedThreshold)){
         bool nearToAborted = false;
         //Check if the newPose is too close to a previously aborted goal.
         for (const Vector2f aborted_goal: _abortedGoals) {

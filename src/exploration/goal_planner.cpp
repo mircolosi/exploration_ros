@@ -16,7 +16,7 @@ void GoalPlanner::velCallback(const geometry_msgs::Twist::ConstPtr& msg) {
 GoalPlanner::GoalPlanner( MoveBaseClient* ac,
                           FakeProjector* projector,
                           FrontierDetector* frontierDetector,
-                          const cv::Mat* costImage,
+                          const MyMatrix<signed char>* costImage,
                           const Vector2f& laserOffset,
                           int minThresholdSize,
                           const std::string& mapFrame,
@@ -24,7 +24,7 @@ GoalPlanner::GoalPlanner( MoveBaseClient* ac,
                           const std::string& laserTopicName) :  _ac(ac),
                                                                 _projector(projector),
                                                                 _frontierDetector(frontierDetector),
-                                                                _costMap(costImage),
+                                                                _cost_map(costImage),
                                                                 _laserOffset(laserOffset),
                                                                 _minUnknownRegionSize(minThresholdSize),
                                                                 _mapFrame(mapFrame),
@@ -123,7 +123,7 @@ bool GoalPlanner::isGoalReached(){
   const int goal_cell_r = round((_goal.pose.y() - _mapMetaData.origin.position.y)/_mapMetaData.resolution);
   const int goal_cell_c = round((_goal.pose.x() - _mapMetaData.origin.position.x)/_mapMetaData.resolution);
 
-  const signed char goalCellCost = _costMap->at<signed char>(goal_cell_r, goal_cell_c);
+  const signed char goalCellCost = _cost_map->at(goal_cell_r, goal_cell_c);
 
   if ((goalCellCost == 99 ) || (goalCellCost == 100) || (goalCellCost == 255)){ //If the goal cell is an obstacle or unknown cell
     _abortedGoals.push_back(goal2d); 

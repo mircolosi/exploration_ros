@@ -10,13 +10,11 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
 
   if (msg != nullptr) {
     int idx = 0;
-    _costMap.create(msg->info.height, msg->info.width, CV_8SC1);
-    raw_cost.resize(msg->info.height*msg->info.width);
+    _cost_map.resize(msg->info.height, msg->info.width);
     costmap_width = msg->info.width;
     for(int r = 0; r < msg->info.height; r++) {
       for(int c = 0; c < msg->info.width; c++) {
-        _costMap.at<signed char>(r, c) = msg->data[idx];
-        raw_cost[r*msg->info.width+c] = msg->data[idx];
+        _cost_map(r,c) = msg->data[idx];
         ++idx;
       }
     }
@@ -29,8 +27,7 @@ void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdate
     int idx = 0;
     for(int r = msg->y; r < msg->y+msg->height; ++r){
       for(int c = msg->x; c < msg->x+msg->width; ++c){
-        _costMap.at<signed char>(r, c) = msg->data[idx];
-        raw_cost[r*costmap_width+c] = msg->data[idx];
+        _cost_map(r,c) = msg->data[idx];
         ++idx;
       }
     }
@@ -47,13 +44,11 @@ void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::Const
   // std::cerr << "Start occupancyMapCallback" << std::endl;
   if (msg != nullptr) {
     int idx = 0;
-    _occupancyMap.create(msg->info.height, msg->info.width, CV_8SC1);
-    raw_occupancy.resize(msg->info.height*msg->info.width);
+    _occupancy_map.resize(msg->info.height, msg->info.width);
     occupancy_width = msg->info.width;
     for(int r = 0; r < msg->info.height; r++) {
       for(int c = 0; c < msg->info.width; c++) {
-        _occupancyMap.at<signed char>(r, c) = msg->data[idx];
-        raw_occupancy[r*msg->info.width+c] = msg->data[idx];
+        _occupancy_map(r,c) = msg->data[idx];
         ++idx;
       }
     }
@@ -70,12 +65,11 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
     int idx = 0;
     for(int r = msg->y; r < msg->y+msg->height; ++r){
       for(int c = msg->x; c < msg->x+msg->width; ++c){
-       _occupancyMap.at<signed char>(r, c) = msg->data[idx];
-       raw_occupancy[r*occupancy_width+c] = msg->data[idx];
-       ++idx; 
-     }
-   }
- }
+        _occupancy_map(r,c) = msg->data[idx];
+        ++idx; 
+      }
+    }
+  }
 }
 
 FrontierDetector::FrontierDetector( int thresholdSize,
@@ -138,8 +132,8 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
     startRow = 0;
     startCol = 0;
-    endRow = std::min(_occupancyMap.rows, _costMap.rows);
-    endCol = std::min(_occupancyMap.cols, _costMap.cols);
+    endRow = std::min(_occupancy_map.rows, _occupancy_map.rows);
+    endCol = std::min(_occupancy_map.cols, _occupancy_map.cols);
   }
 
   computeFrontierPoints(startRow, startCol, endRow, endCol);
@@ -152,19 +146,12 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
   _frontiers.clear();
   _occupiedCellsCloud.clear();
 
-  // if ((_occupancyMap.rows != _costMap.rows) || (_occupancyMap.cols != _costMap.cols)) {
-  //   endRow = std::min(_occupancyMap.rows, _costMap.rows);
-  //   endCol = std::min(_occupancyMap.cols, _costMap.cols);
-  // }
-
   for(int r = startRow; r < endRow; ++r) {
     for(int c = startCol; c < endCol; ++c) {
 
-      // if ((_occupancyMap.at<signed char>(r,c) == _freeColor)) { //If the current cell is free consider it
-      if (raw_occupancy[r*occupancy_width+c] == _freeColor) { //If the current cell is free consider it
+      if (_occupancy_map(r,c) == _freeColor) { //If the current cell is free consider it
         Vector2i coord(r,c);
-        // if (_costMap.at<signed char>(r,c) == _circumscribedThreshold) {//If the current free cell is too close to an obstacle skip
-        if (raw_cost[r*costmap_width+c] == _circumscribedThreshold) {//If the current free cell is too close to an obstacle skip
+        if (_cost_map(r,c) == _circumscribedThreshold) {//If the current free cell is too close to an obstacle skip
           continue;
         }
 
@@ -183,8 +170,7 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
             break;
           }
         }
-      // } else if (_costMap.at<signed char>(r, c) == _occupiedColor) {
-      } else if (raw_cost[r*costmap_width+c] == _occupiedColor) {
+      } else if (_cost_map(r,c) == _occupiedColor) {
         float x = c*_mapMetaData.resolution + _mapMetaData.origin.position.x;
         float y = r*_mapMetaData.resolution + _mapMetaData.origin.position.y;
         _occupiedCellsCloud.push_back(Vector2f(x,y)); 
@@ -222,7 +208,7 @@ void FrontierDetector::computeFrontierRegions(){
             int rr = tempRegion[k][0]+r;
             int cc = tempRegion[k][1]+c;
 
-            if (rr < 0 || rr > _occupancyMap.rows || cc < 0 || cc > _occupancyMap.cols) {
+            if (rr < 0 || rr >= _occupancy_map.rows || cc < 0 || cc >= _occupancy_map.cols) {
               continue;
             }
             neighbor.push_back(Vector2i(rr, cc));
@@ -284,7 +270,7 @@ void FrontierDetector::computeFrontierCentroids(){
     int centroid_row = _centroids[i].y();
     int centroid_col = _centroids[i].x();
 
-    if (_costMap.at<signed char>(centroid_row, centroid_col) > _circumscribedThreshold){  //If the centroid is in a non-free cell
+    if (_cost_map(centroid_row, centroid_col) > _circumscribedThreshold){  //If the centroid is in a non-free cell
       float distance = std::numeric_limits<float>::max();
       Vector2i closestPoint;
 
@@ -460,12 +446,11 @@ void FrontierDetector::getColoredNeighbors (Vector2i coord, signed char color, V
       }
       int rr = coord[0]+r;
       int cc = coord[1]+c;
-      if ( rr < 0 || rr >= _occupancyMap.rows ||
-           cc < 0 || cc >= _occupancyMap.cols) {
+      if ( rr < 0 || rr >= _occupancy_map.rows ||
+           cc < 0 || cc >= _occupancy_map.cols) {
         continue;
       }
-      // if (_occupancyMap.at<signed char>(rr, cc) == color) {
-      if (raw_occupancy[rr*_occupancyMap.cols+cc] == color) {
+      if (_occupancy_map(rr,cc) == color) {
         neighbors.push_back(Vector2i(rr, cc));
       }
     }
