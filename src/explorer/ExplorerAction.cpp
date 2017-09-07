@@ -316,6 +316,8 @@ int main(int argc, char** argv) {
 
   ros::init(argc, argv, "explorer_server");
 
+  //TODO take params here: take a look to thin_navigation
+
   ExplorerAction a(argc, argv);
   ros::spin();
 

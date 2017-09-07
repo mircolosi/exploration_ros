@@ -216,6 +216,8 @@ void PathsRollout::makeSampledPlan(const std::string& frame, const geometry_msgs
   nav_msgs::GetPlan::Request req;
   nav_msgs::GetPlan::Response res;
 
+  std::cerr << "**********************\n" << frame << std::endl; 
+
   req.start.header.frame_id = frame;
   req.start.pose = startPose;
   req.goal.header.frame_id = frame;
@@ -482,7 +484,7 @@ int PathsRollout::computeVisiblePoints(const Vector3f& robotPose, const Vector2f
 
 
 
-bool PathsRollout::isActionDone(const MoveBaseClient *ac){
+bool PathsRollout::isActionDone(const MoveBaseClient* ac){
 
   actionlib::SimpleClientGoalState state = ac->getState();
 

@@ -2,9 +2,7 @@
   <arg name="action" default="explore" />
 
   <arg name="robotname1" default="robot_0" />
-  <arg name="robot_map1" default="map0" />
   <arg name="robotname2" default="robot_1" />
-  <arg name="robot_map2" default="map1" />
 
   <arg name="base_frame" default="base_frame" />
   <arg name="laser_topic" default="scan" />
@@ -14,7 +12,7 @@
 <group ns="$(arg robotname2)">
     <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
       <param name="action"        value="$(arg action)" />
-      <param name="mapFrame"      value="/$(arg robot_map2)" /> 
+      <param name="mapFrame"      value="/$(arg robotname2)/map" /> 
       <param name="baseFrame"     value="/$(arg robotname2)/$(arg base_frame)" />  
       <param name="laserFrame"    value="/$(arg robotname2)/$(arg laser_frame)" />
       <param name="scanTopic"     value="/$(arg robotname2)/$(arg laser_topic)" /> 
