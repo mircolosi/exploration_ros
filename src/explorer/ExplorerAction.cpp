@@ -217,7 +217,7 @@ public:
         int numSampledPoses = _pathsRollout->computeAllSampledPlans(_centroids, _mapFrame);
         if (numSampledPoses == 0) {
             //mc the goal is unreachable
-          //maybe _isActive = false;
+          _isActive = false;
           std::cout << RED << "NO POSE AVAILABLE FOR GOAL" << std::endl;
           std::cerr << RESET;
           _result.state = "ABORTED [no pose available for goal]";

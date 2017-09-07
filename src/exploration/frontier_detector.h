@@ -84,8 +84,6 @@ protected:
   }
 
 
-cv::Mat _costMap;
-
 MyMatrix<signed char> _cost_map;
 MyMatrix<signed char> _occupancy_map;
 
