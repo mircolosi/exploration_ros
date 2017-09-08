@@ -53,7 +53,7 @@ void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::Const
       }
     }
 
-    if (_topicMapMetadataName == ""){
+    if (_map_metadata_topic == ""){
       _mapMetaData = msg->info;
     }
   }
@@ -74,49 +74,50 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
 
 FrontierDetector::FrontierDetector( int thresholdSize,
                                     int minNeighborsThreshold, 
-                                    const std::string& namePoints, 
-                                    const std::string& nameMarkers, 
-                                    const std::string& nameMap, 
-                                    const std::string& baseFrame, 
-                                    const std::string& nameMapMetadata) : _sizeThreshold(),
+                                    const std::string& frontier_topic_, 
+                                    const std::string& marker_topic_, 
+                                    const std::string& map_frame_, 
+                                    const std::string& base_frame_, 
+                                    const std::string& map_metadata_topic_) : _sizeThreshold(),
                                                                           _minNeighborsThreshold(minNeighborsThreshold),
-                                                                          _topicPointsName(namePoints),
-                                                                          _topicMarkersName(nameMarkers),
-                                                                          _topicMapName(nameMap),
-                                                                          _topicMapMetadataName(nameMapMetadata),
-                                                                          _baseFrame(baseFrame) {  
+                                                                          _frontier_topic(frontier_topic_),
+                                                                          _marker_topic(marker_topic_),
+                                                                          _map_frame(map_frame_),
+                                                                          _base_frame(base_frame_), 
+                                                                          _map_metadata_topic(map_metadata_topic_){  
 
-  _pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_topicPointsName,1);
-  _pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _topicMarkersName,1);
+  _pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_frontier_topic,1);
+  _pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _marker_topic,1);
 
-  std::string costMapTopic = ros::this_node::getNamespace()+"/move_base_node/global_costmap/costmap";
+  const std::string node_namespace = ros::this_node::getNamespace();
+
+  std::string costMapTopic = node_namespace+"/move_base_node/global_costmap/costmap";
 
   _subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>(costMapTopic,1, &FrontierDetector::costMapCallback, this);
   _subCostMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( costMapTopic + "_updates", 2, &FrontierDetector::costMapUpdateCallback, this );
   
-  _subOccupancyMap =  _nh.subscribe<nav_msgs::OccupancyGrid>(_topicMapName,1, &FrontierDetector::occupancyMapCallback, this);
-  _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>(ros::this_node::getNamespace()+"/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
+  _subOccupancyMap =  _nh.subscribe<nav_msgs::OccupancyGrid>(_map_frame,1, &FrontierDetector::occupancyMapCallback, this);
+  _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>(node_namespace+"/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
 
-  _mapClient = _nh.serviceClient<nav_msgs::GetMap>(_topicMapName);
+  _mapClient = _nh.serviceClient<nav_msgs::GetMap>(_map_frame);
 
-  if (_topicMapMetadataName != ""){
-    _subMapMetaData = _nh.subscribe<nav_msgs::MapMetaData>(_topicMapMetadataName, 1, &FrontierDetector::mapMetaDataCallback, this);
-    std::cerr << "_topicMapMetadataName: " << _topicMapMetadataName << std::endl;
-    ros::topic::waitForMessage<nav_msgs::MapMetaData>(_topicMapMetadataName,ros::Duration(5.0));
+  if (_map_metadata_topic != ""){
+    _subMapMetaData = _nh.subscribe<nav_msgs::MapMetaData>(_map_metadata_topic, 1, &FrontierDetector::mapMetaDataCallback, this);
+    std::cerr << "_map_metadata_topic: " << _map_metadata_topic << std::endl;
+    boost::shared_ptr<const nav_msgs::MapMetaData> map_metadata = ros::topic::waitForMessage<nav_msgs::MapMetaData>(_map_metadata_topic,ros::Duration(5.0));
+    if (!map_metadata) {
+      throw std::runtime_error("Impossible to retrieve the map_metadata");
+    }
   }
-  std::cerr << "costMapTopic: " << costMapTopic << std::endl;
   boost::shared_ptr<const nav_msgs::OccupancyGrid> costmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic,ros::Duration(5.0));
   if (!costmap) {
-    throw std::runtime_error("Impossible to retrieve the costmap");
-  } else {
-    std::cerr << costmap.get() << std::endl;
+    throw std::runtime_error("Impossible to retrieve the cost map");
   }
-  std::cerr << "_topicMapName: " << _topicMapName << std::endl;
-  boost::shared_ptr<const nav_msgs::OccupancyGrid> occupmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(_topicMapName,ros::Duration(5.0));
+  boost::shared_ptr<const nav_msgs::OccupancyGrid> occupmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(_map_frame,ros::Duration(5.0));
   if (!occupmap) {
     throw std::runtime_error("Impossible to retrieve the occupancy map");
   }
-  _tfListener.waitForTransform(_topicMapName, _baseFrame, ros::Time(0), ros::Duration(5.0));
+  _tfListener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
 
 }
 
@@ -130,10 +131,10 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   // ros::spinOnce();  
 
   try {
-    _tfListener.waitForTransform(_topicMapName, _baseFrame, ros::Time(0), ros::Duration(5.0));
-    _tfListener.lookupTransform(_topicMapName, _baseFrame, ros::Time(0), _tfMapToBase);
+    _tfListener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
+    _tfListener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _tfMapToBase);
   } catch(tf::TransformException ex) {
-    std::cout << "exception: " << ex.what() << std::endl;
+    std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
   float mapX = (_tfMapToBase.getOrigin().x() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
   float mapY = (_tfMapToBase.getOrigin().y() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
@@ -345,7 +346,7 @@ void FrontierDetector::publishFrontierPoints(){
 
   sensor_msgs::PointCloud2Ptr pointsMsg = boost::make_shared<sensor_msgs::PointCloud2>();
   
-  pointsMsg->header.frame_id = _topicMapName;
+  pointsMsg->header.frame_id = _map_frame;
   pointsMsg->is_bigendian = false;
   pointsMsg->is_dense = false;
 
@@ -393,7 +394,7 @@ void FrontierDetector::publishCentroidMarkers(){
   int limit = min(8, size);
   for (int i = 0; i < limit; i++){
 
-    marker.header.frame_id = _topicMapName;
+    marker.header.frame_id = _map_frame;
     marker.header.stamp = ros::Time();
     //marker.ns = "my_namespace";
     marker.id = i;

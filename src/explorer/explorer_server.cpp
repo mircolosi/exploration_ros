@@ -232,16 +232,19 @@ void ExplorerServer::setROSParams() {
 
 void ExplorerServer::init() {
 
-  std::cerr << YELLOW << "Retrieving base2laser transformation" <<  RESET << std::endl;
+  std::cerr << YELLOW << "Retrieving base_to_laser transformation" <<  RESET << std::endl;
 
   tf::StampedTransform tf_base_to_laser;
+  std::cerr << "_base_frame: " << _base_frame << std::endl;
+  std::cerr << "_laser_frame: " << _laser_frame << std::endl;
+
   try {
     _listener->waitForTransform(_base_frame, _laser_frame, ros::Time(0), ros::Duration(1.0));
     _listener->lookupTransform(_base_frame, _laser_frame, ros::Time(0), tf_base_to_laser);
     _laserOffset  = Vector2f(tf_base_to_laser.getOrigin().x(), tf_base_to_laser.getOrigin().y()); 
   } catch (...) {
     _laserOffset = Vector2f(0.05, 0.0);
-    std::cout << RED << "Catch exception: " << _laser_frame << " not exists. Using default values." << RESET << std::endl;
+    std::cout << YELLOW << "Catch exception: " << _laser_frame << " not exists. Using default values." << RESET << std::endl;
   }
 
   std::cerr << GREEN << "Base2laser transformation: " << _laserOffset.transpose() << RESET << std::endl;

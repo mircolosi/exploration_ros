@@ -7,9 +7,9 @@ using namespace Eigen;
 
 
 
-PathsRollout::PathsRollout( const MyMatrix<signed char>* costMap, 
-                            MoveBaseClient *ac, 
-                            FakeProjector *projector, 
+PathsRollout::PathsRollout( const MyMatrix<signed char>* cost_map_, 
+                            MoveBaseClient* ac, 
+                            FakeProjector* projector, 
                             Vector2f laserOffset, 
                             int maxCentroidsNumber, 
                             int regionSize, 
@@ -18,9 +18,9 @@ PathsRollout::PathsRollout( const MyMatrix<signed char>* costMap,
                             float sampleThreshold, 
                             int sampleOrientation,
                             float lambdaDecay,
-                            const std::string& mapFrame_, 
-                            const std::string& baseFrame_) :  _mapFrame(mapFrame_),
-                                                              _baseFrame(baseFrame_),
+                            const std::string& map_frame_, 
+                            const std::string& base_frame_) :  _map_frame(map_frame_),
+                                                              _base_frame(base_frame_),
                                                               _nearCentroidsThreshold(nearCentroidsThreshold),
                                                               _farCentroidsThreshold(farCentroidsThreshold),
                                                               _laserOffset(laserOffset),
@@ -33,34 +33,34 @@ PathsRollout::PathsRollout( const MyMatrix<signed char>* costMap,
                                                               _lambda(lambdaDecay),
                                                               _ac(ac),
                                                               _projector(projector),
-                                                              _cost_map(costMap) {
+                                                              _cost_map(cost_map_) {
   _planClient = _nh.serviceClient<nav_msgs::GetPlan>(_nh.resolveName("move_base_node/make_plan", true));
 }
 
 int PathsRollout::computeAllSampledPlans(const Vector2iVector& centroids, const std::string& frame){
 
-  _vectorSampledPoses.clear();
+  _sampled_pose_vector.clear();
   Vector2fVector meterCentroids;
 
   for (const Vector2i& centroid: centroids) {
-    float meter_x = centroid[1] * _mapMetaData.resolution + _mapMetaData.origin.position.x;
-    float meter_y = centroid[0] * _mapMetaData.resolution + _mapMetaData.origin.position.y;
+    float meter_x = centroid[1] * _map_metadata.resolution + _map_metadata.origin.position.x;
+    float meter_y = centroid[0] * _map_metadata.resolution + _map_metadata.origin.position.y;
     meterCentroids.push_back(Vector2f(meter_x, meter_y));
   }
 
-  try{
-    _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(1.0));
-    _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
+  try {
+    _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(1.0));
+    _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
   } catch (tf::TransformException ex) {
-    std::cout<<"exception: "<< ex.what() <<std::endl;
+    std::cout << "[paths_rollout] exception: "<< ex.what() <<std::endl;
   }
 
   geometry_msgs::Pose startPose;
-  startPose.position.x = _tfMapToBase.getOrigin().x(); 
-  startPose.position.y = _tfMapToBase.getOrigin().y();
+  startPose.position.x = _map_to_base_transformation.getOrigin().x(); 
+  startPose.position.y = _map_to_base_transformation.getOrigin().y();
 
   geometry_msgs::Quaternion qMsg;
-  tf::quaternionTFToMsg(_tfMapToBase.getRotation(),qMsg);
+  tf::quaternionTFToMsg(_map_to_base_transformation.getRotation(),qMsg);
 
   startPose.orientation = qMsg;  
 
@@ -107,7 +107,7 @@ int PathsRollout::computeAllSampledPlans(const Vector2iVector& centroids, const 
 
     for (const PoseWithInfo& pose_new: sampledPlan) {
       bool already_sampled_pose = true;
-      for (const PoseWithInfo& pose: _vectorSampledPoses) {
+      for (const PoseWithInfo& pose: _sampled_pose_vector) {
         float dist_x = fabs(pose.pose.x() - pose_new.pose.x());
         float dist_y = fabs(pose.pose.y() - pose_new.pose.y());
 
@@ -118,7 +118,7 @@ int PathsRollout::computeAllSampledPlans(const Vector2iVector& centroids, const 
       }
 
       if (already_sampled_pose) {
-        _vectorSampledPoses.push_back(pose_new);
+        _sampled_pose_vector.push_back(pose_new);
       }
     }
 
@@ -133,36 +133,36 @@ int PathsRollout::computeAllSampledPlans(const Vector2iVector& centroids, const 
     std::cerr << "Failed " << failedPlans << "/" << centroids.size() << " plans" << std::endl;
   }
 
-  return _vectorSampledPoses.size();
+  return _sampled_pose_vector.size();
 
 }
 
 
 bool PathsRollout::computeTargetSampledPlans(const Vector2iVector& targets, const std::string& frame) {
 
-  _vectorSampledPoses.clear();
+  _sampled_pose_vector.clear();
   // Vector2fVector meterCentroids;
 
   // bool found = false;
 
   // for (int i = 0; i < targets.size(); i ++) {
-  //   Vector2f meterCentroid = {targets[i][1]* _mapMetaData.resolution + _mapMetaData.origin.position.x, targets[i][0]* _mapMetaData.resolution + _mapMetaData.origin.position.y};//Inverted because computed in map (row col -> y x)
+  //   Vector2f meterCentroid = {targets[i][1]* _map_metadata.resolution + _map_metadata.origin.position.x, targets[i][0]* _map_metadata.resolution + _map_metadata.origin.position.y};//Inverted because computed in map (row col -> y x)
   //   meterCentroids.push_back(meterCentroid);
   // }
 
   // try {
-  //   _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(1.0));
-  //   _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
+  //   _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(1.0));
+  //   _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
   // } catch (tf::TransformException ex) {
   //   std::cout<<"exception: "<< ex.what() <<std::endl;
   // }
 
   // geometry_msgs::Pose startPose;
-  // startPose.position.x = _tfMapToBase.getOrigin().x(); 
-  // startPose.position.y = _tfMapToBase.getOrigin().y();
+  // startPose.position.x = _map_to_base_transformation.getOrigin().x(); 
+  // startPose.position.y = _map_to_base_transformation.getOrigin().y();
 
   // geometry_msgs::Quaternion qMsg;
-  // tf::quaternionTFToMsg(_tfMapToBase.getRotation(),qMsg);
+  // tf::quaternionTFToMsg(_map_to_base_transformation.getRotation(),qMsg);
 
   // startPose.orientation = qMsg;  
 
@@ -191,9 +191,9 @@ bool PathsRollout::computeTargetSampledPlans(const Vector2iVector& targets, cons
   //   makeSampledPlan(frame, startPose, goalPose, sampledPlan);
 
   //   if (sampledPlan.size()>0) {
-  //     _vectorSampledPoses.resize(sampledPlan.size());
+  //     _sampled_pose_vector.resize(sampledPlan.size());
   //     for (int i = 0; i < sampledPlan.size(); ++i) {
-  //       _vectorSampledPoses[i] = sampledPlan[i];
+  //       _sampled_pose_vector[i] = sampledPlan[i];
   //     }
   //     successPlans++;
   //     found = true;
@@ -237,8 +237,8 @@ void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVect
   if (!path.poses.empty()){
     PoseWithInfo lastPose;
     //This is the starting pose
-    double initialAngle = tf::getYaw(_tfMapToBase.getRotation());
-    lastPose.pose = Vector3f((float) _tfMapToBase.getOrigin().x(), (float) _tfMapToBase.getOrigin().y(), (float)  initialAngle);
+    double initialAngle = tf::getYaw(_map_to_base_transformation.getRotation());
+    lastPose.pose = Vector3f((float) _map_to_base_transformation.getOrigin().x(), (float) _map_to_base_transformation.getOrigin().y(), (float)  initialAngle);
     lastPose.predictedAngle = initialAngle;
     lastPose.index = 0;
     lastPose.planLenght = path.poses.size() - 1;
@@ -267,8 +267,8 @@ void PathsRollout::sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVect
 
       //NOTE: The orientation of this pose will be eventually computed if the pose will be sampled
       newPose.pose = Vector3f((float) path.poses[i].pose.position.x, (float) path.poses[i].pose.position.y, 0.0);
-      int new_pose_r = round((newPose.pose[1] - _mapMetaData.origin.position.y)/_mapMetaData.resolution);
-      int new_pose_c = round((newPose.pose[0] - _mapMetaData.origin.position.x)/_mapMetaData.resolution);
+      int new_pose_r = round((newPose.pose[1] - _map_metadata.origin.position.y)/_map_metadata.resolution);
+      int new_pose_c = round((newPose.pose[0] - _map_metadata.origin.position.x)/_map_metadata.resolution);
 
       float dx = lastPose.pose.x() - newPose.pose.x();
       float dy = lastPose.pose.y() - newPose.pose.y();
@@ -354,14 +354,14 @@ void PathsRollout::extractBestPose(PoseWithInfo& goalPose){
   Vector3f pose;
   Vector3f laserPose;
 
-  for (const PoseWithInfo& sampled_pose: _vectorSampledPoses) {
+  for (const PoseWithInfo& sampled_pose: _sampled_pose_vector) {
 
     pose.x() = sampled_pose.pose.x(); 
     pose.y() = sampled_pose.pose.y();
 
     bool isSamePosition = false;
-    float distanceX = fabs(pose.x() - _tfMapToBase.getOrigin().x());
-    float distanceY = fabs(pose.y() - _tfMapToBase.getOrigin().y());
+    float distanceX = fabs(pose.x() - _map_to_base_transformation.getOrigin().x());
+    float distanceY = fabs(pose.y() - _map_to_base_transformation.getOrigin().y());
     if ((distanceX < _xyThreshold) && (distanceY < _xyThreshold)){
       isSamePosition = true;
     }
@@ -376,7 +376,7 @@ void PathsRollout::extractBestPose(PoseWithInfo& goalPose){
       //If I'm considering a pose too close to the current one, discard rotations too similar to the current one.
       //Errors in the prediction function could make the robot to remain always in the same place.
       if (isSamePosition){
-        Rotation2D<float> currentRot(tf::getYaw(_tfMapToBase.getRotation()));
+        Rotation2D<float> currentRot(tf::getYaw(_map_to_base_transformation.getRotation()));
         Rotation2D<float> differenceRot = currentRot.inverse()*rot;
 
         float distanceYaw = atan2(differenceRot.toRotationMatrix()(1,0), differenceRot.toRotationMatrix()(0,0));
@@ -408,14 +408,14 @@ void PathsRollout::extractTargetPose(PoseWithInfo& goalPose){
   Vector3f pose;
   Vector3f laserPose;
 
-  for (int i = 0; i < _vectorSampledPoses.size(); i ++){
+  for (int i = 0; i < _sampled_pose_vector.size(); i ++){
 
-    pose[0] = _vectorSampledPoses[i].pose[0]; 
-    pose[1] = _vectorSampledPoses[i].pose[1];
+    pose[0] = _sampled_pose_vector[i].pose[0]; 
+    pose[1] = _sampled_pose_vector[i].pose[1];
 
     bool isSamePosition = false;
-    float distanceX = fabs(pose[0] - _tfMapToBase.getOrigin().x());
-    float distanceY = fabs(pose[1] - _tfMapToBase.getOrigin().y());
+    float distanceX = fabs(pose[0] - _map_to_base_transformation.getOrigin().x());
+    float distanceY = fabs(pose[1] - _map_to_base_transformation.getOrigin().y());
     if ((distanceX < _xyThreshold) &&(distanceY < _xyThreshold)){
       isSamePosition = true;
     }
@@ -431,7 +431,7 @@ void PathsRollout::extractTargetPose(PoseWithInfo& goalPose){
       //If I'm considering a pose too close to the current one, discard rotations too similar to the current one.
       //Errors in the prediction function could make the robot to always remain in the same place.
       if (isSamePosition){
-        Rotation2D<float> currentRot(tf::getYaw(_tfMapToBase.getRotation()));
+        Rotation2D<float> currentRot(tf::getYaw(_map_to_base_transformation.getRotation()));
         Rotation2D<float> differenceRot = currentRot.inverse()*rot;
 
         float distanceYaw = atan2(differenceRot.toRotationMatrix()(1,0), differenceRot.toRotationMatrix()(0,0));
@@ -444,13 +444,13 @@ void PathsRollout::extractTargetPose(PoseWithInfo& goalPose){
       int numVisiblePoints = computeVisiblePoints(pose, _laserOffset);  
       
 
-      float score = computePoseScore(_vectorSampledPoses[i], yawAngle, numVisiblePoints);
+      float score = computePoseScore(_sampled_pose_vector[i], yawAngle, numVisiblePoints);
 
       if (score > goalPose.score){
-        std::cout<<"GOAL: "<< _vectorSampledPoses.back().pose[0]<<" "<<_vectorSampledPoses.back().pose[1]<<" "<<_vectorSampledPoses.back().pose[2]<<" SCORE: "<<score<<std::endl;
-        goalPose.pose = _vectorSampledPoses.back().pose;
+        std::cout<<"GOAL: "<< _sampled_pose_vector.back().pose[0]<<" "<<_sampled_pose_vector.back().pose[1]<<" "<<_sampled_pose_vector.back().pose[2]<<" SCORE: "<<score<<std::endl;
+        goalPose.pose = _sampled_pose_vector.back().pose;
         goalPose.score = score;
-        goalPose.predictedAngle = _vectorSampledPoses[i].pose[2]; 
+        goalPose.predictedAngle = _sampled_pose_vector[i].pose[2]; 
         goalPose.predictedVisiblePoints = numVisiblePoints;
       }
     }
@@ -566,5 +566,5 @@ float PathsRollout::computePoseScore(const PoseWithInfo& pose, float orientation
   }
 
   void PathsRollout::setMapMetaData(const nav_msgs::MapMetaData& mapMetaDataMsg) {
-    _mapMetaData = mapMetaDataMsg;
+    _map_metadata = mapMetaDataMsg;
   }

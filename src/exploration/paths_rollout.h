@@ -84,7 +84,7 @@ protected:
 
   FakeProjector* _projector;
 
-  nav_msgs::MapMetaData _mapMetaData;
+  nav_msgs::MapMetaData _map_metadata;
 
   const float _xyThreshold = 0.25;
 
@@ -102,7 +102,7 @@ protected:
   const int _maxCentroidsNumber;
   const int _minUnknownRegionSize;
 
-  PoseWithInfoVector _vectorSampledPoses;
+  PoseWithInfoVector _sampled_pose_vector;
 
   const Vector2f _laserOffset;
 
@@ -122,11 +122,11 @@ protected:
   ros::ServiceClient _planClient;
   const MoveBaseClient *_ac;
 
-  const std::string _baseFrame;
-  const std::string _mapFrame;
+  const std::string _base_frame;
+  const std::string _map_frame;
 
-  tf::TransformListener _tfListener;
-  tf::StampedTransform _tfMapToBase;
+  tf::TransformListener _listener;
+  tf::StampedTransform _map_to_base_transformation;
 
 
 };

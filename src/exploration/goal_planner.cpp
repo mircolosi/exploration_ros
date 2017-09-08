@@ -158,11 +158,11 @@ bool GoalPlanner::isGoalReached(){
 
   bool changed = false;
 
-  try{
+  try {
     _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(5.0));
     _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
   } catch(tf::TransformException ex) {
-    std::cout << "exception: " << ex.what() << std::endl;
+    std::cout << "[goal_planner] exception: " << ex.what() << std::endl;
   }
 
   float distanceX = fabs(_tfMapToBase.getOrigin().x() - _goal.pose.x());

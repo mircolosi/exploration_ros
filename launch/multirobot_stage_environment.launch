@@ -11,6 +11,7 @@
   <!-- <arg name="world_file" default="my_AUTOGEN_DISB1_diago.world" /> -->
   <!-- <arg name="world_file" default="hospital.world"/> -->
   <arg name="world_file" default="saman.world"/>
+  <arg name="mapname" default="saman"/>
 
 
   <master auto="start"/>
@@ -28,9 +29,17 @@
     <param name="robotname" value="$(arg robotname1)" />
     <param name="tf_prefix" value="$(arg robotname1)" />
 
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find exploration_ros)/maps/$(arg mapname).yaml" respawn="false" >
+      <param name="frame_id" value="/$(arg robotname1)/map" />
+    </node>
+
     <node pkg="cg_mrslam" type="sim_mrslam" name="slam" output="screen" args="-idRobot 0 -nRobots 2 -publishMap -publishGraph -mapFrame /$(arg robotname1)/map -odomFrame /$(arg robotname1)/odom -baseFrame /$(arg robotname1)/$(arg base_frame) -odometryTopic /$(arg robotname1)/odom -scanTopic /$(arg robotname1)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+
+      <remap from="map"     to="/$(arg robotname1)/map" />
+      <remap from="odom"    to="/$(arg robotname1)/odom" />
+      <remap from="cmd_vel" to="/$(arg robotname1)/cmd_vel" />
 
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/move_base_params.yaml" command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/costmap_common_params.yaml" command="load" ns="global_costmap" />
@@ -80,9 +89,18 @@
     <param name="robotname" value="$(arg robotname2)" />
     <param name="tf_prefix" value="$(arg robotname2)" />
 
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find exploration_ros)/maps/$(arg mapname).yaml" respawn="false" >
+      <param name="frame_id" value="/$(arg robotname2)/map" />
+    </node>
+
     <node pkg="cg_mrslam" type="sim_mrslam" name="slam" output="screen" args="-idRobot 1 -nRobots 2 -publishMap -publishGraph -mapFrame /$(arg robotname2)/map -odomFrame /$(arg robotname2)/odom -baseFrame /$(arg robotname2)/$(arg base_frame) -odometryTopic /$(arg robotname2)/odom -scanTopic /$(arg robotname2)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+
+      <remap from="map"     to="/$(arg robotname2)/map"/>
+      <remap from="odom"    to="/$(arg robotname2)/odom"/>
+      <remap from="cmd_vel" to="/$(arg robotname2)/cmd_vel"/>
+
 
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/move_base_params.yaml" command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/costmap_common_params.yaml" command="load" ns="global_costmap" />
@@ -130,5 +148,5 @@
 
 <!--   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
   <node pkg="rviz" type="rviz" name="visualizer2" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname2)/rviz/diago.rviz"/>
- -->
+-->
 </launch>

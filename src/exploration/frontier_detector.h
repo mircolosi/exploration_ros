@@ -109,11 +109,11 @@ Vector2iVector _centroids;
 Vector2fVector _unknownCellsCloud;
 Vector2fVector _occupiedCellsCloud;
 
-const std::string _topicPointsName;
-const std::string _topicMarkersName;
-const std::string _topicMapName;
-const std::string _topicMapMetadataName;
-const std::string _baseFrame;
+const std::string _frontier_topic;
+const std::string _marker_topic;
+const std::string _map_frame;
+const std::string _map_metadata_topic;
+const std::string _base_frame;
 
 ros::NodeHandle _nh;
 ros::Publisher _pubFrontierPoints;
