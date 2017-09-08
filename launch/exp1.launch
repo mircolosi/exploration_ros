@@ -10,7 +10,7 @@
 
 
 <group ns="$(arg robotname1)">
-   <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
+    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
       <param name="action"        value="$(arg action)" />
       <param name="mapFrame"      value="/$(arg robotname1)/map" /> 
       <param name="baseFrame"     value="/$(arg robotname1)/$(arg base_frame)" />  
@@ -26,7 +26,6 @@
       <param name="nc"            value="10" /> 
       <param name="iter"          value="-1" /> 
     </node> 
-
 </group>
 
 </launch>

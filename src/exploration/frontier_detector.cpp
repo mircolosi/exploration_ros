@@ -101,12 +101,21 @@ FrontierDetector::FrontierDetector( int thresholdSize,
 
   if (_topicMapMetadataName != ""){
     _subMapMetaData = _nh.subscribe<nav_msgs::MapMetaData>(_topicMapMetadataName, 1, &FrontierDetector::mapMetaDataCallback, this);
-    ros::topic::waitForMessage<nav_msgs::MapMetaData>(_topicMapMetadataName);
+    std::cerr << "_topicMapMetadataName: " << _topicMapMetadataName << std::endl;
+    ros::topic::waitForMessage<nav_msgs::MapMetaData>(_topicMapMetadataName,ros::Duration(5.0));
   }
-
-  ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic);
-  ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(_topicMapName);
-
+  std::cerr << "costMapTopic: " << costMapTopic << std::endl;
+  boost::shared_ptr<const nav_msgs::OccupancyGrid> costmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic,ros::Duration(5.0));
+  if (!costmap) {
+    throw std::runtime_error("Impossible to retrieve the costmap");
+  } else {
+    std::cerr << costmap.get() << std::endl;
+  }
+  std::cerr << "_topicMapName: " << _topicMapName << std::endl;
+  boost::shared_ptr<const nav_msgs::OccupancyGrid> occupmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(_topicMapName,ros::Duration(5.0));
+  if (!occupmap) {
+    throw std::runtime_error("Impossible to retrieve the occupancy map");
+  }
   _tfListener.waitForTransform(_topicMapName, _baseFrame, ros::Time(0), ros::Duration(5.0));
 
 }

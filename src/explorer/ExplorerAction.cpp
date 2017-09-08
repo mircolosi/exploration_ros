@@ -9,6 +9,7 @@
 #include "exploration/paths_rollout.h"
 #include <exploration_ros/ExplorerAction.h>
 #include <actionlib/server/simple_action_server.h>
+#include <stdexcept>
 
 #include <sys/time.h>
 
@@ -28,28 +29,27 @@ typedef actionlib::SimpleActionServer<exploration_ros::ExplorerAction> ExplorerA
 class ExplorerAction {
 protected:
 
-  ros::NodeHandle _nh;
-  std::string _actionname;
-  bool _isActive = true;
-
-  ExplorerActionServer* _as = nullptr; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
-
-  // create messages that are used to published feedback/result
-  exploration_ros::ExplorerFeedback _feedback;
-  exploration_ros::ExplorerResult _result;
-
   std::string _frontierPointsTopic, _markersTopic;
+  std::string _mapFrame, _baseFrame, _laserFrame, _laserTopicName;
+  std::string _actionname;
+
+  bool _isActive = true;
+  bool _exploration_completed = false;
 
   int _thresholdRegionSize;
   int _thresholdExploredArea;
-  nav_msgs::MapMetaData _occupancyMapInfo;
-
   float _lambdaDecay;
-
   int _maxCentroidsNumber;
   float _farCentroidsThreshold;
   float _nearCentroidsThreshold;
   int _numExplorationIterations;
+
+  //Laserscan FAKE projection parameters
+  Vector2f _laserOffset;
+  const float _minRange = 0.0;
+  const float _maxRange = 4.0;
+  const int _numRanges = 181;
+  const float _fov = M_PI;
 
   Vector2iVector _centroids;
   Vector2iVector _targets;
@@ -59,31 +59,30 @@ protected:
   Vector2fVector* _unknownCellsCloud = nullptr;
   Vector2fVector* _occupiedCellsCloud = nullptr;
 
-  std::string _mapFrame, _baseFrame, _laserFrame, _laserTopicName;
+  ros::NodeHandle _nh;
+  // create messages that are used to published feedback/result
+  exploration_ros::ExplorerFeedback _feedback;
+  exploration_ros::ExplorerResult _result;
 
-  const MyMatrix<signed char>* _cost_map;
+  nav_msgs::MapMetaData _occupancyMapInfo;
 
-  Vector2f _laserOffset;
-
-  bool _exploration_completed = false;
-
-  //Laserscan FAKE projection parameters
-  float _minRange = 0.0;
-  float _maxRange = 4.0;
-  int _numRanges = 181;
-  float _fov = M_PI;
-
+  ExplorerActionServer* _as = nullptr; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
   FakeProjector* _projector = nullptr;
   FrontierDetector* _frontiersDetector = nullptr;
   PathsRollout* _pathsRollout = nullptr;
   GoalPlanner* _goalPlanner = nullptr;
   MoveBaseClient* _ac = nullptr;
+
+  const MyMatrix<signed char>* _cost_map;
+
+
+
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ExplorerAction(int argc_, char** argv_) {
 
 
-    std::cerr << RED << "Creation ExplorerActionServer" << std::endl;
+    std::cerr << GREEN << "Creation ExplorerActionServer" << std::endl;
     std::cerr << RESET;
     // TODO adjust this
     std::string prefix(ros::this_node::getName()+"/");
@@ -112,9 +111,10 @@ public:
 
     _ac = new MoveBaseClient("move_base", true);
     //wait for the action server to come up
-    while(!_ac->waitForServer(ros::Duration(5.0))){
-      std::cerr << RED << "Waiting for the move_base action server to come up" << std::endl;
+      std::cerr << GREEN << "Waiting for the move_base action server to come up" << std::endl;
       std::cerr << RESET;
+    if(!_ac->waitForServer(ros::Duration(30.0))){
+      throw std::runtime_error ("No move_base server has been found. Aborting.");
     }
 
     tf::TransformListener tfListener;
@@ -122,11 +122,10 @@ public:
     try {
       tfListener.waitForTransform(_baseFrame, _laserFrame, ros::Time(0), ros::Duration(1.0));
       tfListener.lookupTransform(_baseFrame, _laserFrame, ros::Time(0), tfBase2Laser);
-
-      _laserOffset  = {tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()}; 
+      _laserOffset  = Vector2f(tfBase2Laser.getOrigin().x(), tfBase2Laser.getOrigin().y()); 
     } catch (...) {
       _laserOffset = Vector2f(0.05, 0.0);
-      std::cout << RED << "Catch exception: " << _laserFrame << " not exists. Using default values." << std::endl;
+      std::cout << GREEN << "Catch exception: " << _laserFrame << " not exists. Using default values." << std::endl;
     }
 
     _frontiersDetector = new FrontierDetector(_thresholdRegionSize, 4, _frontierPointsTopic, _markersTopic, _mapFrame, _baseFrame);
@@ -163,7 +162,7 @@ public:
 
   // called when the action starts
   void executeCB(const exploration_ros::ExplorerGoalConstPtr &goal_) {
-    std::cerr << RED << "EXECUTION CALLBACK" << std::endl;
+    std::cerr << GREEN << "EXECUTION CALLBACK" << std::endl;
     std::cerr << RESET;
 
     _isActive = true; // can get false later
@@ -171,10 +170,10 @@ public:
     while (ros::ok() && (_numExplorationIterations != 0) && _isActive) {
 
       //mc compute frontiers
-      std::cerr << RED << "Computing frontiers" << std::endl;
+      std::cerr << GREEN << "Computing frontiers" << std::endl;
       std::cerr << RESET;
       _frontiersDetector->computeFrontiers();
-      std::cerr << RED << "Frontiers computed" << std::endl;
+      std::cerr << GREEN << "Frontiers computed" << std::endl;
       std::cerr << RESET;
 
       _frontiersDetector->publishFrontierPoints();
@@ -184,13 +183,13 @@ public:
       _frontiersDetector->getFrontierRegions(_regions);
       _frontiersDetector->getFrontierCentroids(_centroids);
 
-      std::cerr << RED << "_frontierPoints " << _frontierPoints.size() << RESET << std::endl ;
-      std::cerr << RED << "_regions " << _regions.size() << RESET << std::endl ;
-      std::cerr << RED << "_centroids " << _centroids.size() << RESET << std::endl ;
+      std::cerr << GREEN << "_frontierPoints " << _frontierPoints.size() << RESET << std::endl ;
+      std::cerr << GREEN << "_regions " << _regions.size() << RESET << std::endl ;
+      std::cerr << GREEN << "_centroids " << _centroids.size() << RESET << std::endl ;
 
         //mc the map is fully explored
       if (_centroids.size() == 0 ) { //add no centroid reachable
-        std::cout << "MAP FULLY EXPLORED" << std::endl;
+        std::cout << "MAP FULLY EXPLOGREEN" << std::endl;
         _exploration_completed = true;
         break;
       }
@@ -205,10 +204,10 @@ public:
       // EXPLORE ACTION
       if ("exploration" == goal_->goal.action) {
         _feedback.action = "exploration";
-        std::cerr << RED << "EXPLORAITON" << std::endl;
+        std::cerr << GREEN << "EXPLORAITON" << std::endl;
         std::cerr << RESET;
         if (_exploration_completed) {
-          std::cerr << RED << "Exploration Complete" << std::endl;
+          std::cerr << GREEN << "Exploration Complete" << std::endl;
           std::cerr << RESET;
           _result.state = "ABORTED [exploration complete]";
           break;
@@ -242,28 +241,28 @@ public:
 
       // GO TO TARGET ACTION
       if ("target" == goal_->goal.action || _targets.size() > 0) {
-        std::cerr << RED << "_targets.size(): " << _targets.size() << std::endl;
+        std::cerr << GREEN << "_targets.size(): " << _targets.size() << std::endl;
         std::cerr << RESET;
         _feedback.action = "target";
-        std::cerr << RED << "TARGET APPROACH" << std::endl;
+        std::cerr << GREEN << "TARGET APPROACH" << std::endl;
         std::cerr << RESET;
         _targets.push_back({goal_->goal.target_pose.position.x,goal_->goal.target_pose.position.y});
         if (!_pathsRollout->computeTargetSampledPlans(_targets, _mapFrame)){
-          std::cout << RED << "NO TRAJECTORY TOWARD GOAL... CONTINUE EXPLORATION"<<std::endl;
+          std::cout << GREEN << "NO TRAJECTORY TOWARD GOAL... CONTINUE EXPLORATION"<<std::endl;
           std::cerr << RESET;
           _as->setAborted();
         } else {
           PoseWithInfo target;
           _pathsRollout->extractTargetPose(target);
 
-          std::cerr << RED << "Goal: " << target.pose.transpose() << std::endl;
+          std::cerr << GREEN << "Goal: " << target.pose.transpose() << std::endl;
           std::cerr << RESET;
 
           _goalPlanner->publishGoal(target, _mapFrame);
-          std::cerr << RED << "Approaching to the target" << std::endl;
+          std::cerr << GREEN << "Approaching to the target" << std::endl;
           std::cerr << RESET;
           _goalPlanner->waitForGoal();
-          std::cerr << RED << "Target apporached" << std::endl;
+          std::cerr << GREEN << "Target apporached" << std::endl;
           std::cerr << RESET;
           _targets.clear();
           _result.state = "SUCCEEDED";
@@ -271,7 +270,7 @@ public:
         break;
       }
       if ("wait" == goal_->goal.action) {
-        std::cerr << RED << "WAITING" << std::endl;
+        std::cerr << GREEN << "WAITING" << std::endl;
         std::cerr << RESET;
         _feedback.action = "wait";
         // if (_as->isNewGoalAvailable()){

@@ -27,10 +27,10 @@ int main (int argc, char **argv)
 
       _exp_client = new ExplorerActionClient(action, true); 
 
-      // wait for the action server to start
-      while(!_exp_client->waitForServer(ros::Duration(5.0))){
-        std::cerr << GREEN << "Waiting for the explorer action server to come up" << std::endl;
-        std::cerr << RESET;
+      std::cerr << GREEN << "Waiting for the explorer_server to come up" << std::endl;
+      std::cerr << RESET;
+      if(!_exp_client->waitForServer(ros::Duration(30.0))){
+        throw std::runtime_error ("No explorer_server has been found. Aborting.");
       }
       ROS_INFO("Action server started, sending goal.");
     }
