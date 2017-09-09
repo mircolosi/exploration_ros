@@ -216,9 +216,15 @@ void PathsRollout::makeSampledPlan(const std::string& frame, const geometry_msgs
   nav_msgs::GetPlan::Request req;
   nav_msgs::GetPlan::Response res;
 
-  req.start.header.frame_id = frame;
+  std::string remapped_frame = frame;
+
+  if (frame.at(0) == '/') {
+    remapped_frame = remapped_frame.erase(0, 1);
+  }
+
+  req.start.header.frame_id = remapped_frame;
   req.start.pose = startPose;
-  req.goal.header.frame_id = frame;
+  req.goal.header.frame_id = remapped_frame;
   req.goal.pose = goalPose;
 
   if (_planClient.call(req,res)){

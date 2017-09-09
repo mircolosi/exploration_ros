@@ -35,11 +35,11 @@
 
     <node pkg="cg_mrslam" type="sim_mrslam" name="slam" output="screen" args="-idRobot 0 -nRobots 2 -publishMap -publishGraph -mapFrame /$(arg robotname1)/map -odomFrame /$(arg robotname1)/odom -baseFrame /$(arg robotname1)/$(arg base_frame) -odometryTopic /$(arg robotname1)/odom -scanTopic /$(arg robotname1)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
 
-    <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+    <node pkg="move_base" type="move_base" respawn="true" name="move_base_node" output="screen">
 
-      <remap from="map"     to="/$(arg robotname1)/map" />
+<!--       <remap from="map"     to="/$(arg robotname1)/map" />
       <remap from="odom"    to="/$(arg robotname1)/odom" />
-      <remap from="cmd_vel" to="/$(arg robotname1)/cmd_vel" />
+      <remap from="cmd_vel" to="/$(arg robotname1)/cmd_vel" /> -->
 
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/move_base_params.yaml" command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/costmap_common_params.yaml" command="load" ns="global_costmap" />
