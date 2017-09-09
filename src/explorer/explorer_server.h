@@ -6,6 +6,7 @@
 #include "exploration/goal_planner.h"
 #include "exploration/paths_rollout.h"
 #include <exploration_ros/ExplorerAction.h>
+#include <exploration_ros/FrontierTrade.h>
 #include <actionlib/server/simple_action_server.h>
 #include <stdexcept>
 
@@ -34,6 +35,10 @@ public:
 
   void executeCB(const exploration_ros::ExplorerGoalConstPtr &goal_); 
   void preemptCB();
+
+  void requestFrontiers();
+  void sendFrontiers( exploration_ros::FrontierTrade::Request&  req,
+                      exploration_ros::FrontierTrade::Response& res);
 
   void setROSParams();
   virtual void init();
@@ -71,8 +76,8 @@ private:
 
   Vector2iVector _centroids;
   Vector2iVector _targets;
-  Vector2iVector _frontierPoints;
-  Vector2fVector _abortedGoals;
+  Vector2iVector _frontier_points;
+  Vector2fVector _aborted_goals;
   regionVector _regions;
   Vector2fVector* _unknownCellsCloud = nullptr;
   Vector2fVector* _occupiedCellsCloud = nullptr;
@@ -83,14 +88,17 @@ private:
   exploration_ros::ExplorerFeedback _feedback;
   exploration_ros::ExplorerResult _result;
 
-  nav_msgs::MapMetaData _occupancyMapInfo;
+  ros::ServiceServer _frontiers_service_server;
+  std::vector<ros::ServiceClient> _frontiers_service_clients;
+
+  nav_msgs::MapMetaData _occupancy_metadata;
 
   ExplorerActionServer* _as = nullptr; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
-  MoveBaseClient* _ac = nullptr;
-  FakeProjector* _projector = nullptr;
-  FrontierDetector* _frontiersDetector = nullptr;
-  PathsRollout* _pathsRollout = nullptr;
-  GoalPlanner* _goalPlanner = nullptr;
+  MoveBaseClient*       _ac = nullptr;
+  FakeProjector*        _projector = nullptr;
+  FrontierDetector*     _frontiers_detector = nullptr;
+  PathsRollout*         _paths_rollout = nullptr;
+  GoalPlanner*          _goal_planner = nullptr;
 
   const MyMatrix<signed char>* _cost_map = nullptr;
 

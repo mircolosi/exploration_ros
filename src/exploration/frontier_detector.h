@@ -125,6 +125,6 @@ ros::Subscriber _subOccupancyMapUpdate;
 ros::Subscriber _subMapMetaData;
 ros::ServiceClient _mapClient;
 
-tf::TransformListener _tfListener;
-tf::StampedTransform _tfMapToBase;
+tf::TransformListener _listener;
+tf::StampedTransform _map_to_base_transformation;
 };

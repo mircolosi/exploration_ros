@@ -59,10 +59,10 @@ add_message_files(
   Goal.msg
 )
 # Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#  DoSomething.srv
-# )
+add_service_files(
+  FILES
+  FrontierTrade.srv
+)
 
 ## Generate actions in the 'action' folder
 add_action_files(

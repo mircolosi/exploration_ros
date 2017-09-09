@@ -34,7 +34,7 @@ PathsRollout::PathsRollout( const MyMatrix<signed char>* cost_map_,
                                                               _ac(ac),
                                                               _projector(projector),
                                                               _cost_map(cost_map_) {
-  _planClient = _nh.serviceClient<nav_msgs::GetPlan>(_nh.resolveName("move_base_node/make_plan", true));
+  _plan_service_client = _nh.serviceClient<nav_msgs::GetPlan>(_nh.resolveName("move_base_node/make_plan", true));
 }
 
 int PathsRollout::computeAllSampledPlans(const Vector2iVector& centroids, const std::string& frame){
@@ -227,13 +227,13 @@ void PathsRollout::makeSampledPlan(const std::string& frame, const geometry_msgs
   req.goal.header.frame_id = remapped_frame;
   req.goal.pose = goalPose;
 
-  if (_planClient.call(req,res)){
+  if (_plan_service_client.call(req,res)){
     if (!res.plan.poses.empty()) {
       sampleTrajectory(res.plan, sampledPlan);
     }
   }
   else {
-    ROS_ERROR("Failed to call service %s - is the robot moving?", _planClient.getService().c_str());
+    ROS_ERROR("Failed to call service %s - is the robot moving?", _plan_service_client.getService().c_str());
   }
 
 }

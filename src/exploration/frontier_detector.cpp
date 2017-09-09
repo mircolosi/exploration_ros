@@ -117,8 +117,12 @@ FrontierDetector::FrontierDetector( int thresholdSize,
   if (!occupmap) {
     throw std::runtime_error("Impossible to retrieve the occupancy map");
   }
-  _tfListener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
-
+  try {
+    _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
+    _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
+  } catch(tf::TransformException ex) {
+    std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
+  }
 }
 
 void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoord){
@@ -131,13 +135,13 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   // ros::spinOnce();  
 
   try {
-    _tfListener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
-    _tfListener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _tfMapToBase);
+    _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
+    _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
   } catch(tf::TransformException ex) {
     std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
-  float mapX = (_tfMapToBase.getOrigin().x() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
-  float mapY = (_tfMapToBase.getOrigin().y() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
+  float mapX = (_map_to_base_transformation.getOrigin().x() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
+  float mapY = (_map_to_base_transformation.getOrigin().y() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
 
   if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
     startRow = 0;

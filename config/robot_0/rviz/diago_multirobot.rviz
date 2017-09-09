@@ -55,7 +55,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: Map
-      Topic: /map0
+      Topic: /robot_0/map
       Unreliable: false
       Value: true
     - Alpha: 1

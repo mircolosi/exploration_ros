@@ -117,10 +117,9 @@ protected:
 
   int _longestPlan;
 
-
   ros::NodeHandle _nh;
-  ros::ServiceClient _planClient;
-  const MoveBaseClient *_ac;
+  ros::ServiceClient _plan_service_client;
+  const MoveBaseClient* _ac;
 
   const std::string _base_frame;
   const std::string _map_frame;

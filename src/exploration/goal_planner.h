@@ -68,9 +68,9 @@ protected:
 
   MoveBaseClient* _ac;
   FakeProjector* _projector;
-  FrontierDetector* _frontierDetector;
+  FrontierDetector* _frontier_detector;
 
-  nav_msgs::MapMetaData _mapMetaData;
+  nav_msgs::MapMetaData _map_metadata;
   PoseWithInfo _goal;
 
   const Vector2f _laserOffset;
@@ -83,20 +83,19 @@ protected:
 
   Vector2fVector _abortedGoals;
 
-  const std::string _mapFrame;
-  const std::string _baseFrame;
-  const std::string _laserTopicName;
+  const std::string _map_frame;
+  const std::string _base_frame;
+  const std::string _laser_topic;
 
   const MyMatrix<signed char>* _cost_map;
   
   ros::NodeHandle _nh;
-  ros::ServiceClient _mapClient;
   ros::Subscriber _subLaserScan;
   ros::Subscriber _subVel;
 
   sensor_msgs::LaserScan _laserscan;
   geometry_msgs::Twist _twist;
 
-  tf::TransformListener _tfListener;
-  tf::StampedTransform _tfMapToBase;
+  tf::TransformListener _listener;
+  tf::StampedTransform _map_to_base_transformation;
 };

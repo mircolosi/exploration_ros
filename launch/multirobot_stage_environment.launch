@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="action" default="explore" />
+  <arg name="action" default="exploration" />
 
   <arg name="robotname1" default="robot_0" />
   <arg name="robotname2" default="robot_1" />
@@ -61,9 +61,9 @@
       <param name="local_costmap/robot_base_frame" value="/$(arg robotname1)/$(arg base_frame)" /> 
     </node>
 
-<!--     <node pkg="exploration_ros" name="explorer_client" type="exploration_action_client" output="screen">
+    <node pkg="exploration_ros" name="explorer_client" type="exploration_action_client" output="screen">
       <param name="action" value="$(arg action)" />
-    </node>  -->
+    </node> 
 
 <!--     <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
       <param name="action"        value="$(arg action)" />
@@ -97,9 +97,9 @@
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
 
-      <remap from="map"     to="/$(arg robotname2)/map"/>
+<!--       <remap from="map"     to="/$(arg robotname2)/map"/>
       <remap from="odom"    to="/$(arg robotname2)/odom"/>
-      <remap from="cmd_vel" to="/$(arg robotname2)/cmd_vel"/>
+      <remap from="cmd_vel" to="/$(arg robotname2)/cmd_vel"/> -->
 
 
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/move_base_params.yaml" command="load" />
@@ -122,9 +122,9 @@
       <param name="local_costmap/robot_base_frame" value="/$(arg robotname2)/$(arg base_frame)" /> 
     </node>
 
-<!--     <node pkg="exploration_ros" name="explorer_client" type="exploration_action_client" output="screen">
+    <node pkg="exploration_ros" name="explorer_client" type="exploration_action_client" output="screen">
       <param name="action" value="$(arg action)" />
-    </node>  -->
+    </node> 
 <!-- 
     <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
       <param name="action"        value="$(arg action)" />
@@ -146,7 +146,7 @@
   </group>
 
 
-<!--   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
+   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
   <node pkg="rviz" type="rviz" name="visualizer2" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname2)/rviz/diago.rviz"/>
--->
+
 </launch>

@@ -19,22 +19,19 @@ GoalPlanner::GoalPlanner( MoveBaseClient* ac,
                           const MyMatrix<signed char>* costImage,
                           const Vector2f& laserOffset,
                           int minThresholdSize,
-                          const std::string& mapFrame,
-                          const std::string& baseFrame,
+                          const std::string& map_frame_,
+                          const std::string& base_frame_,
                           const std::string& laserTopicName) :  _ac(ac),
                                                                 _projector(projector),
-                                                                _frontierDetector(frontierDetector),
+                                                                _frontier_detector(frontierDetector),
                                                                 _cost_map(costImage),
                                                                 _laserOffset(laserOffset),
                                                                 _minUnknownRegionSize(minThresholdSize),
-                                                                _mapFrame(mapFrame),
-                                                                _baseFrame(baseFrame),
-                                                                _laserTopicName(laserTopicName) {
-
-  _mapClient = _nh.serviceClient<nav_msgs::GetMap>(_mapFrame);
-
-  if (_laserTopicName != ""){
-    _subLaserScan = _nh.subscribe<sensor_msgs::LaserScan>(_laserTopicName, 1,  &GoalPlanner::scanCallback, this);
+                                                                _map_frame(map_frame_),
+                                                                _base_frame(base_frame_),
+                                                                _laser_topic(laserTopicName) {
+  if (_laser_topic != ""){
+    _subLaserScan = _nh.subscribe<sensor_msgs::LaserScan>(_laser_topic, 1,  &GoalPlanner::scanCallback, this);
     _subVel = _nh.subscribe<geometry_msgs::Twist>(ros::this_node::getNamespace()+"/cmd_vel", 1,  &GoalPlanner::velCallback, this);
   }
 }
@@ -81,9 +78,9 @@ void GoalPlanner::waitForGoal(){
   while (!reached) {
 
     //mc here goes interrupt
-    _frontierDetector->computeFrontiers();
-    _frontierDetector->publishFrontierPoints();
-    _frontierDetector->publishCentroidMarkers();
+    _frontier_detector->computeFrontiers();
+    _frontier_detector->publishFrontierPoints();
+    _frontier_detector->publishCentroidMarkers();
     
     loop_rate2.sleep();
     reached = isGoalReached();
@@ -100,7 +97,7 @@ bool GoalPlanner::isGoalReached(){
     displayStringWithTime("The goal SUCCEEDED");
     return true;
   }
-  if (_laserTopicName != ""){
+  if (_laser_topic != ""){
     const int center = (_laserscan.ranges.size() - 1)/2;
     const float angle = 0.45;
     const int numBins = int(angle/_laserscan.angle_increment);
@@ -120,8 +117,8 @@ bool GoalPlanner::isGoalReached(){
   }
   const Vector2f goal2d(_goal.pose.x(), _goal.pose.y());
 
-  const int goal_cell_r = round((_goal.pose.y() - _mapMetaData.origin.position.y)/_mapMetaData.resolution);
-  const int goal_cell_c = round((_goal.pose.x() - _mapMetaData.origin.position.x)/_mapMetaData.resolution);
+  const int goal_cell_r = round((_goal.pose.y() - _map_metadata.origin.position.y)/_map_metadata.resolution);
+  const int goal_cell_c = round((_goal.pose.x() - _map_metadata.origin.position.x)/_map_metadata.resolution);
 
   const signed char goalCellCost = _cost_map->at(goal_cell_r, goal_cell_c);
 
@@ -159,14 +156,14 @@ bool GoalPlanner::isGoalReached(){
   bool changed = false;
 
   try {
-    _tfListener.waitForTransform(_mapFrame, _baseFrame, ros::Time(0), ros::Duration(5.0));
-    _tfListener.lookupTransform(_mapFrame, _baseFrame, ros::Time(0), _tfMapToBase);
+    _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
+    _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
   } catch(tf::TransformException ex) {
     std::cout << "[goal_planner] exception: " << ex.what() << std::endl;
   }
 
-  float distanceX = fabs(_tfMapToBase.getOrigin().x() - _goal.pose.x());
-  float distanceY = fabs(_tfMapToBase.getOrigin().y() - _goal.pose.y());
+  float distanceX = fabs(_map_to_base_transformation.getOrigin().x() - _goal.pose.x());
+  float distanceY = fabs(_map_to_base_transformation.getOrigin().y() - _goal.pose.y());
 
   if ((distanceX > _xyThreshold*2.5) || (distanceY > _xyThreshold*2.5)) { // If distance greater than local planner xy threshold
 
@@ -197,13 +194,13 @@ bool GoalPlanner::isGoalReached(){
 
 
     if (changed){ 
-      std::cout << "POSE BEFORE CHANGING " << _tfMapToBase.getOrigin().x() << " " << _tfMapToBase.getOrigin().y() << std::endl;
+      std::cout << "POSE BEFORE CHANGING " << _map_to_base_transformation.getOrigin().x() << " " << _map_to_base_transformation.getOrigin().y() << std::endl;
       std::cout << "Changed angle from " <<  _goal.pose.z() << " to " << newGoalAngle << std::endl;
 
       PoseWithInfo newGoal = _goal;
       newGoal.pose.z() = newGoalAngle;
 
-      publishGoal(newGoal, _mapFrame); //Publishing a new goal cancel the previous one
+      publishGoal(newGoal, _map_frame); //Publishing a new goal cancel the previous one
 
       return false;
     }
@@ -267,5 +264,5 @@ void GoalPlanner::setOccupiedCellsCloud(Vector2fVector* cloud) {
 }
 
 void GoalPlanner::setMapMetaData(const nav_msgs::MapMetaData& mapMetaDataMsg) {
-  _mapMetaData = mapMetaDataMsg;
+  _map_metadata = mapMetaDataMsg;
 }
