@@ -23,7 +23,6 @@
 #include "projector2d.h"
 #include "exploration/fake_projector.h"
 
-#include "g2o/types/slam2d/se2.h"
 #include "frontier_detector.h"
 #include "paths_rollout.h"
 #include "srrg_types/defs.h"
