@@ -21,6 +21,15 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
   _marker_topic = "markers";
   _action = "exploration";
 
+  std::string fullns = ros::this_node::getNamespace();
+  std::string delimiter = "_";
+  _rootns = fullns.substr(0, fullns.find(delimiter));
+  _ns = _rootns + "_" + std::to_string(_id_robot);
+
+  if (fullns == _ns) {
+    std::cerr << RED << "MIRCO CANCELLA" << std::endl;
+  }
+
   std::cerr << YELLOW << "    Waiting for the move_base action server to come up" << RESET << std::endl;
   if(!_ac->waitForServer(ros::Duration(30.0))){
     throw std::runtime_error ("No move_base server has been found. Aborting.");
@@ -70,9 +79,9 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
       break;
     }
 
-    _frontiers_detector->getMapMetaData(_occupancy_metadata);
-    _paths_rollout->setMapMetaData(_occupancy_metadata);
-    _goal_planner->setMapMetaData(_occupancy_metadata);
+    _frontiers_detector->getMapMetaData(_map_metadata);
+    _paths_rollout->setMapMetaData(_map_metadata);
+    _goal_planner->setMapMetaData(_map_metadata);
 
     _goal_planner->getAbortedGoals(_aborted_goals);
     _paths_rollout->setAbortedGoals(_aborted_goals);
@@ -186,44 +195,82 @@ void ExplorerServer::requestFrontiers() {
 
   Vector2iVector new_centroids;
 
-  if (frontiers_service_client.call(req, res)) {
-    if (res.frontiers.empty()) {
-      ROS_WARN("No frontiers traded.");
+  for (ros::ServiceClient& frontiers_service_client: _frontiers_service_clients) {
+    if (frontiers_service_client.call(req, res)) {
+      if (res.frontiers.empty() && res.transformed_frontiers.empty()) {
+        ROS_ERROR("No frontiers traded.");
+      } else if (res.transformed_frontiers.empty()) { 
+        ROS_WARN("Only frontiers in %s coords.", res.frontiers[0].header.frame_id.c_str());
+        ROS_ERROR("These frontiers will not be ranked");
+        for (int i = 0; i < res.frontiers.size(); ++i){
+          new_centroids.push_back(Vector2i(res.frontiers[i].point.x, res.frontiers[i].point.y));
+        }
+      } else {
+        for (int i = 0; i < res.transformed_frontiers.size(); ++i){
+          new_centroids.push_back(Vector2i(res.transformed_frontiers[i].point.x, res.transformed_frontiers[i].point.y));
+        }
+      }
     } else {
-      new_centroids.push_back(Vector2i(res.frontiers.point.x(), res.frontiers.point.y()));
+      ROS_ERROR("Failed to call service %s", frontiers_service_client.getService().c_str());
     }
-  } else {
-    ROS_ERROR("Failed to call service %s", _frontiers_service_client.getService().c_str());
   }
 
-  // rankFrontiers
+  try {
+    _listener->waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
+    _listener->lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
+  } catch(tf::TransformException ex) {
+    std::cout << "[explorer_server] exception: " << ex.what() << std::endl;
+  }
+
+  int _robot_in_map_cell_x = (_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  int _robot_in_map_cell_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
+
+  if (!res.transformed_frontiers.empty()) {
+    _frontiers_detector->rankNewFrontierCentroids(_robot_in_map_cell_x, _robot_in_map_cell_y, new_centroids);
+  }
 
 }
 
-void ExplorerServer::sendFrontiers( exploration_ros::FrontierTrade::Request&  req,
+bool ExplorerServer::sendFrontiers( exploration_ros::FrontierTrade::Request&  req,
                                     exploration_ros::FrontierTrade::Response& res ) {
   res.frontiers.clear();
-  tf::StampedTransform _req_map_to_this_map_transform;
+  tf::StampedTransform _req_map_to_this_map_transform; 
+  bool can_transform = true;
+  _req_map_to_this_map_transform.setIdentity();
   try {
     _listener->waitForTransform(req.robot_map_frame.frame_id, _map_frame, ros::Time(0), ros::Duration(3.0));
     _listener->lookupTransform(req.robot_map_frame.frame_id, _map_frame, ros::Time(0), _req_map_to_this_map_transform);
   } catch (tf::TransformException& ex) {
-    std::cout << RED << "In sendFrontiers: unable to retrieve transformations between " << req.robot_map_frame.frame_id << " and " << _map_frame << RESET << std::endl;
-    std::cout << RED << "[explorer_server] exception: "<< ex.what() << RESET << std::endl;
+    can_transform = false;
+    std::cerr << RED << "In sendFrontiers: unable to retrieve transformations between " << req.robot_map_frame.frame_id << " and " << _map_frame << RESET << std::endl;
+    std::cerr << RED << "[explorer_server] exception: "<< ex.what() << RESET << std::endl;
+    std::cerr << YELLOW << "Returning frontier centroids in " << _map_frame << " coords" << std::endl;
   }
 
   geometry_msgs::PointStamped transformed_frontier;
+  geometry_msgs::PointStamped frontier;
+
   for (const Vector2i& centroid: _centroids) {
     tf::Vector3 actual_centroid_position(centroid.x(), centroid.y(), 0.0);
     tf::Vector3 new_centroid_position = _req_map_to_this_map_transform*actual_centroid_position; 
 
-    transformed_frontier.header.frame_id = req.robot_map_frame;
-    transformed_frontier.point.x = new_centroid_position.x();
-    transformed_frontier.point.y = new_centroid_position.y();
-    transformed_frontier.point.z = 0.0;
+    if (!can_transform) {
+      transformed_frontier.header.frame_id = req.robot_map_frame.frame_id;
+      transformed_frontier.point.x = new_centroid_position.x();
+      transformed_frontier.point.y = new_centroid_position.y();
+      transformed_frontier.point.z = 0.0;
+      res.transformed_frontiers.push_back(transformed_frontier);
+    }
+      
+    frontier.header.frame_id = _map_frame;
+    frontier.point.x = centroid.x();
+    frontier.point.y = centroid.y();
+    frontier.point.z = 0.0;
 
-    res.frontiers.push_back(transformed_frontier);
+    res.frontiers.push_back(frontier);
   }
+
+  return true;
 }
 
 void ExplorerServer::setROSParams() {
@@ -249,6 +296,12 @@ void ExplorerServer::setROSParams() {
   
   _private_nh.param("markersTopic", _marker_topic, std::string("markers"));
   std::cerr << "explorer_server: [string] _marker_topic: " << _marker_topic << std::endl;
+
+  _private_nh.param("idRobot", _id_robot, 0);
+  std::cerr << "explorer_server: [int] _id_robot: " << _id_robot << std::endl;
+
+  _private_nh.param("nRobots", _n_robots, 1);
+  std::cerr << "explorer_server: [int] _n_robots: " << _n_robots << std::endl;
 
   std::cerr << std::endl << YELLOW << "FrontierDetector Parameters:" << RESET << std::endl;
   
@@ -298,13 +351,6 @@ void ExplorerServer::init() {
 
   std::cerr << YELLOW << "FakeProjector creation" << RESET << std::endl;
 
-  // _projector = new FakeProjector();
-
-  // _projector->setMaxRange(_maxRange);
-  // _projector->setMinRange(_minRange);
-  // _projector->setFov(_fov);
-  // _projector->setNumRanges(_numRanges);
-
   _projector = new FakeProjector(_maxRange, _minRange, _fov, _numRanges);
 
   std::cerr << GREEN << "Created FakeProjector" << RESET << std::endl;
@@ -349,17 +395,14 @@ void ExplorerServer::init() {
 
   std::cerr << YELLOW << "Starting FrontiersServer/Client" << RESET << std::endl;
 
+  _frontiers_service_server = _nh.advertiseService(_ns + "/frontiers_trade", &ExplorerServer::sendFrontiers, this);
 
-  //TODO
-  // aggiungere arg numero robots in launch file
-  // aggiungere parametri n_robots e robot_id
-  // aggiungere parametro namespace e namespace_root in explorer_server (vedere cg_mrslam)
-  // 
-
-  //TODO for each other robot
-  _frontiers_service_server = _nh.advertiseService(_namespace + "/frontiers_trade", ExplorerServer::sendFrontiers);
-  for (int i = 0; i < _n_robots; ++i) {
-    _frontiers_service_clients[i] = _nh.serviceClient<exploration_ros::FrontierTrade>(_namespace_root + "_" + i + "/frontiers_trade");
+  for (int id = 0; id < _n_robots; ++id) {
+    if (id == _id_robot) {
+      continue;
+    }
+    ros::ServiceClient frontier_service_client = _nh.serviceClient<exploration_ros::FrontierTrade>(_rootns + "_" + std::to_string(id) + "/frontiers_trade");
+    _frontiers_service_clients.push_back(frontier_service_client);
   }
 
   std::cerr << GREEN << "FrontiersServer/Client are running" << RESET << std::endl;

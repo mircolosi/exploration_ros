@@ -37,7 +37,7 @@ public:
   void preemptCB();
 
   void requestFrontiers();
-  void sendFrontiers( exploration_ros::FrontierTrade::Request&  req,
+  bool sendFrontiers( exploration_ros::FrontierTrade::Request&  req,
                       exploration_ros::FrontierTrade::Response& res);
 
   void setROSParams();
@@ -46,6 +46,7 @@ public:
 private:
 
   tf::TransformListener* _listener = nullptr;
+  tf::StampedTransform _map_to_base_transformation;
 
   std::string _map_frame;
   std::string _base_frame;
@@ -53,6 +54,11 @@ private:
   std::string _laser_topic;
   std::string _frontier_topic;
   std::string _marker_topic;
+
+  std::string _rootns;
+  std::string _ns;
+  int _id_robot;
+  int _n_robots;
 
   std::string _action;
 
@@ -91,7 +97,7 @@ private:
   ros::ServiceServer _frontiers_service_server;
   std::vector<ros::ServiceClient> _frontiers_service_clients;
 
-  nav_msgs::MapMetaData _occupancy_metadata;
+  nav_msgs::MapMetaData _map_metadata;
 
   ExplorerActionServer* _as = nullptr; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
   MoveBaseClient*       _ac = nullptr;

@@ -4,6 +4,7 @@
 
   <arg name="robotname1" default="robot_0" />
   <arg name="robotname2" default="robot_1" />
+  <arg name="nrobots"    default="2" />
 
   <arg name="base_frame" default="base_frame" />
   <arg name="laser_topic" default="scan" />
@@ -65,7 +66,7 @@
       <param name="action" value="$(arg action)" />
     </node> 
 
-<!--     <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
+    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="false">  
       <param name="action"        value="$(arg action)" />
       <param name="mapFrame"      value="/$(arg robotname1)/map" /> 
       <param name="baseFrame"     value="/$(arg robotname1)/$(arg base_frame)" />  
@@ -73,6 +74,8 @@
       <param name="scanTopic"     value="/$(arg robotname1)/$(arg laser_topic)" /> 
       <param name="pointsTopic"   value="/$(arg robotname1)/points" /> 
       <param name="markersTopic"  value="/$(arg robotname1)/markers" /> 
+      <param name="idRobot"       value="0" />
+      <param name="nRobots"       value="$(arg nrobots)" />
       <param name="regionSize"    value="15" /> 
       <param name="exploredArea"  value="10" />
       <param name="lambda"        value="1.25" /> 
@@ -80,7 +83,7 @@
       <param name="Mc"            value="5.0" />
       <param name="nc"            value="10" /> 
       <param name="iter"          value="-1" /> 
-    </node>  -->
+    </node> 
 
   </group>
 
@@ -96,11 +99,6 @@
     <node pkg="cg_mrslam" type="sim_mrslam" name="slam" output="screen" args="-idRobot 1 -nRobots 2 -publishMap -publishGraph -mapFrame /$(arg robotname2)/map -odomFrame /$(arg robotname2)/odom -baseFrame /$(arg robotname2)/$(arg base_frame) -odometryTopic /$(arg robotname2)/odom -scanTopic /$(arg robotname2)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
-
-<!--       <remap from="map"     to="/$(arg robotname2)/map"/>
-      <remap from="odom"    to="/$(arg robotname2)/odom"/>
-      <remap from="cmd_vel" to="/$(arg robotname2)/cmd_vel"/> -->
-
 
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/move_base_params.yaml" command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/costmap_common_params.yaml" command="load" ns="global_costmap" />
@@ -125,8 +123,8 @@
     <node pkg="exploration_ros" name="explorer_client" type="exploration_action_client" output="screen">
       <param name="action" value="$(arg action)" />
     </node> 
-<!-- 
-    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="true">  
+
+    <node pkg="exploration_ros" name="explorer_server" type="exploration_action_node" output="screen" respawn="false">  
       <param name="action"        value="$(arg action)" />
       <param name="mapFrame"      value="/$(arg robotname2)/map" /> 
       <param name="baseFrame"     value="/$(arg robotname2)/$(arg base_frame)" />  
@@ -134,6 +132,8 @@
       <param name="scanTopic"     value="/$(arg robotname2)/$(arg laser_topic)" /> 
       <param name="pointsTopic"   value="/$(arg robotname2)/points" /> 
       <param name="markersTopic"  value="/$(arg robotname2)/markers" /> 
+      <param name="idRobot"       value="1" />
+      <param name="nRobots"       value="$(arg nrobots)" />
       <param name="regionSize"    value="15" /> 
       <param name="exploredArea"  value="10" />
       <param name="lambda"        value="1.25" /> 
@@ -141,7 +141,7 @@
       <param name="Mc"            value="5.0" />
       <param name="nc"            value="10" /> 
       <param name="iter"          value="-1" /> 
-    </node>  -->
+    </node> 
 
   </group>
 

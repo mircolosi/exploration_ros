@@ -36,7 +36,7 @@ void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdate
 
 void FrontierDetector::mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg){
   if (msg != nullptr) {
-    _mapMetaData = *msg;
+    _map_metadata = *msg;
   }
 }
 
@@ -54,7 +54,7 @@ void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::Const
     }
 
     if (_map_metadata_topic == ""){
-      _mapMetaData = msg->info;
+      _map_metadata = msg->info;
     }
   }
   // std::cerr << "End occupancyMapCallback" << std::endl;  
@@ -99,8 +99,6 @@ FrontierDetector::FrontierDetector( int thresholdSize,
   _subOccupancyMap =  _nh.subscribe<nav_msgs::OccupancyGrid>(_map_frame,1, &FrontierDetector::occupancyMapCallback, this);
   _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>(node_namespace+"/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
 
-  _mapClient = _nh.serviceClient<nav_msgs::GetMap>(_map_frame);
-
   if (_map_metadata_topic != ""){
     _subMapMetaData = _nh.subscribe<nav_msgs::MapMetaData>(_map_metadata_topic, 1, &FrontierDetector::mapMetaDataCallback, this);
     std::cerr << "_map_metadata_topic: " << _map_metadata_topic << std::endl;
@@ -140,8 +138,8 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   } catch(tf::TransformException ex) {
     std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
-  float mapX = (_map_to_base_transformation.getOrigin().x() - _mapMetaData.origin.position.x)/_mapMetaData.resolution;
-  float mapY = (_map_to_base_transformation.getOrigin().y() - _mapMetaData.origin.position.y)/_mapMetaData.resolution;
+  int _robot_in_map_meter_x = (_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  int _robot_in_map_meter_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
   if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
     startRow = 0;
@@ -153,7 +151,7 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
-  rankFrontierRegions(mapX, mapY);
+  rankFrontierCentroids(_robot_in_map_meter_x, _robot_in_map_meter_y);
 }
 
 void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int endRow, int endCol) {
@@ -185,8 +183,8 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
           }
         }
       } else if (_cost_map(r,c) == _occupiedColor) {
-        float x = c*_mapMetaData.resolution + _mapMetaData.origin.position.x;
-        float y = r*_mapMetaData.resolution + _mapMetaData.origin.position.y;
+        float x = c*_map_metadata.resolution + _map_metadata.origin.position.x;
+        float y = r*_map_metadata.resolution + _map_metadata.origin.position.y;
         _occupiedCellsCloud.push_back(Vector2f(x,y)); 
       }
     }
@@ -244,8 +242,8 @@ void FrontierDetector::computeFrontierRegions(){
           Vector2iVector neighbors;
           getColoredNeighbors(tempRegion[l], _unknownColor, neighbors);
           for (const Vector2i& m : neighbors) {
-            float x = m[1]*_mapMetaData.resolution + _mapMetaData.origin.position.x;
-            float y = m[0]*_mapMetaData.resolution + _mapMetaData.origin.position.y;
+            float x = m[1]*_map_metadata.resolution + _map_metadata.origin.position.x;
+            float y = m[0]*_map_metadata.resolution + _map_metadata.origin.position.y;
             if (!contains(_unknownCellsCloud, Vector2f(x,y))){
               _unknownCellsCloud.push_back(Vector2f(x,y));
             }
@@ -265,17 +263,14 @@ void FrontierDetector::computeFrontierCentroids(){
     int accY = 0;
 
     for (int j = 0; j <_regions[i].size(); j++){
-      accX += _regions[i][j][0];
-      accY += _regions[i][j][1];
+      accX += _regions[i][j].x();
+      accY += _regions[i][j].y();
     }
-
 
     int meanX = round(accX/_regions[i].size());
     int meanY = round(accY/_regions[i].size());
 
-    Vector2i centroid(meanX, meanY);
-
-    _centroids.push_back(centroid);
+    _centroids.push_back(Vector2i(meanX, meanY));
 
   }
 
@@ -307,36 +302,45 @@ void FrontierDetector::computeFrontierCentroids(){
   }
 }
 
-void FrontierDetector::rankFrontierRegions(float mapX, float mapY){
+void FrontierDetector::rankFrontierCentroids(const int& mapX, const int& mapY, const Vector2iVector& new_centroids){
 
   coordWithScoreVector centroid_score_vector;
-
-  float maxSize = 0;
-
-  for (int i = 0; i < _centroids.size(); ++i){
-    if (_regions[i].size() > maxSize){
-      maxSize = _regions[i].size();
-    }
-  }
 
   for (int i = 0; i < _centroids.size(); ++i){
 
     int dx = mapX - _centroids[i].x();
     int dy = mapY - _centroids[i].y();
 
-    float distance = sqrt(dx*dx + dy*dy)*_mapMetaData.resolution;
-    if (distance < 1)
+    float distance = sqrt(dx*dx + dy*dy)*_map_metadata.resolution;
+    if (distance < 1) {
       distance = 1;
+    }
 
     coordWithScore centroidScore;
 
     centroidScore.coord = _centroids[i];
-    centroidScore.score = (_mixtureParam)*1/distance + (1 - _mixtureParam)*_regions[i].size()/maxSize ;
-
+    centroidScore.score = 1/distance;
 
     centroid_score_vector.push_back(centroidScore);
   }
 
+
+  for (int i = 0; i < new_centroids.size(); ++i) {
+    int dx = mapX - new_centroids[i].x();
+    int dy = mapY - new_centroids[i].y();
+
+    float distance = sqrt(dx*dx + dy*dy)*_map_metadata.resolution;
+    if (distance < 1) {
+      distance = 1;
+    }
+
+    coordWithScore centroidScore;
+
+    centroidScore.coord = new_centroids[i];
+    centroidScore.score = 1/distance;
+
+    centroid_score_vector.push_back(centroidScore);
+  }
 
   sort(centroid_score_vector.begin(), centroid_score_vector.end());
 
@@ -370,8 +374,8 @@ void FrontierDetector::publishFrontierPoints(){
   sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(*pointsMsg, "b");
 
   for (int i = 0; i < _frontiers.size(); i++, ++iter_x, ++iter_y, ++iter_z,  ++iter_r, ++iter_g, ++iter_b){
-    *iter_x = (_frontiers[i][1])*_mapMetaData.resolution + _mapMetaData.origin.position.x;    //inverted because computed on the map (row, col -> y,x)
-    *iter_y = (_frontiers[i][0])*_mapMetaData.resolution + _mapMetaData.origin.position.y;
+    *iter_x = (_frontiers[i][1])*_map_metadata.resolution + _map_metadata.origin.position.x;    //inverted because computed on the map (row, col -> y,x)
+    *iter_y = (_frontiers[i][0])*_map_metadata.resolution + _map_metadata.origin.position.y;
     *iter_z = 0;
 
     *iter_r = 1;
@@ -404,8 +408,8 @@ void FrontierDetector::publishCentroidMarkers(){
     marker.id = i;
     marker.type = visualization_msgs::Marker::SPHERE;
     marker.action = visualization_msgs::Marker::ADD;
-    marker.pose.position.x = _centroids[i][1]*_mapMetaData.resolution + _mapMetaData.origin.position.x;  //inverted because computed on the map (row, col -> y,x)
-    marker.pose.position.y = _centroids[i][0] *_mapMetaData.resolution + _mapMetaData.origin.position.y;
+    marker.pose.position.x = _centroids[i][1]*_map_metadata.resolution + _map_metadata.origin.position.x;  //inverted because computed on the map (row, col -> y,x)
+    marker.pose.position.y = _centroids[i][0] *_map_metadata.resolution + _map_metadata.origin.position.y;
     marker.pose.position.z = 0;
     marker.pose.orientation.x = 0.0;
     marker.pose.orientation.y = 0.0;
@@ -447,7 +451,7 @@ void FrontierDetector::getFrontierCentroids(Vector2iVector& centorids_){
 
 
 void FrontierDetector::getMapMetaData(nav_msgs::MapMetaData& mapMetaData_){
-  mapMetaData_ = _mapMetaData;
+  mapMetaData_ = _map_metadata;
 }
 
 

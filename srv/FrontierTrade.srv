@@ -1,3 +1,4 @@
 std_msgs/Header robot_map_frame
 ---
+geometry_msgs/PointStamped[] transformed_frontiers
 geometry_msgs/PointStamped[] frontiers

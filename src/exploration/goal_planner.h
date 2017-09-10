@@ -73,6 +73,8 @@ protected:
   nav_msgs::MapMetaData _map_metadata;
   PoseWithInfo _goal;
 
+  Vector3f initial_pose;
+
   const Vector2f _laserOffset;
   const float _xyThreshold = 0.25;
 

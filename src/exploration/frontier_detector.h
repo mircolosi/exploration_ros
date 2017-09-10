@@ -68,11 +68,15 @@ public:
   void publishFrontierPoints();
   void publishCentroidMarkers();
 
+  inline void rankNewFrontierCentroids(const int& mapX, const int& mapY, const Vector2iVector& new_centroids) {
+    rankFrontierCentroids(mapX, mapY, new_centroids);
+  }
+
 protected:
   void computeFrontierPoints(int startR, int startC, int endR, int endC);
   void computeFrontierRegions();
   void computeFrontierCentroids();
-  void rankFrontierRegions(float mapX, float mapY);
+  void rankFrontierCentroids(const int& mapX, const int& mapY, const Vector2iVector& new_centroids = Vector2iVector(0));
 
   void getColoredNeighbors(Vector2i coord, signed char color, Vector2iVector& neighbors);
 
@@ -92,9 +96,8 @@ int occupancy_width;
 
 const int _minNeighborsThreshold;
 const int _sizeThreshold;
-const float _mixtureParam = 1;
 
-nav_msgs::MapMetaData _mapMetaData;
+nav_msgs::MapMetaData _map_metadata;
 
 const signed char _freeColor = 0;
 const signed char _unknownColor = -1;
@@ -123,7 +126,6 @@ ros::Subscriber _subCostMapUpdate;
 ros::Subscriber _subOccupancyMap;
 ros::Subscriber _subOccupancyMapUpdate;
 ros::Subscriber _subMapMetaData;
-ros::ServiceClient _mapClient;
 
 tf::TransformListener _listener;
 tf::StampedTransform _map_to_base_transformation;
