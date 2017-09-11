@@ -68,15 +68,20 @@ public:
   void publishFrontierPoints();
   void publishCentroidMarkers();
 
-  inline void rankNewFrontierCentroids(const int& mapX, const int& mapY, const Vector2iVector& new_centroids) {
-    rankFrontierCentroids(mapX, mapY, new_centroids);
+  inline void rankNewFrontierCentroids(const int& mapX, const int& mapY, const float& angle, const Vector2iVector& new_centroids) {
+    rankFrontierCentroids(mapX, mapY, angle, new_centroids);
+  }
+
+  inline void rankNewFrontierCentroids(const tf::StampedTransform& robot_pose_, const Vector2iVector& new_centroids) {
+    rankFrontierCentroids(robot_pose_, new_centroids);
   }
 
 protected:
   void computeFrontierPoints(int startR, int startC, int endR, int endC);
   void computeFrontierRegions();
   void computeFrontierCentroids();
-  void rankFrontierCentroids(const int& mapX, const int& mapY, const Vector2iVector& new_centroids = Vector2iVector(0));
+  void rankFrontierCentroids(const int& mapX, const int& mapY, const float& angle, const Vector2iVector& new_centroids = Vector2iVector(0));
+  void rankFrontierCentroids(const tf::StampedTransform& robot_pose_, const Vector2iVector& new_centroids = Vector2iVector(0));
 
   void getColoredNeighbors(Vector2i coord, signed char color, Vector2iVector& neighbors);
 

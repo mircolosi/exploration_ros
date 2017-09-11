@@ -221,7 +221,7 @@ void ExplorerServer::requestFrontiers() {
   int _robot_in_map_cell_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
   if (!res.transformed_frontiers.empty()) {
-    _frontiers_detector->rankNewFrontierCentroids(_robot_in_map_cell_x, _robot_in_map_cell_y, new_centroids);
+    _frontiers_detector->rankNewFrontierCentroids(_map_to_base_transformation, new_centroids);
   }
 
 }
@@ -246,7 +246,7 @@ bool ExplorerServer::sendFrontiers( exploration_ros::FrontierTrade::Request&  re
   geometry_msgs::PointStamped frontier;
 
   for (const Vector2i& centroid: _centroids) {
-    tf::Vector3 actual_centroid_position(centroid.x(), centroid.y(), 0.0);
+    tf::Vector3 actual_centroid_position(centroid.x(), centroid.y(), 1.0);
     tf::Vector3 new_centroid_position = _req_map_to_this_map_transform*actual_centroid_position; 
 
     if (!can_transform) {

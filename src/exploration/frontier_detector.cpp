@@ -138,8 +138,8 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   } catch(tf::TransformException ex) {
     std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
-  int _robot_in_map_meter_x = (_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
-  int _robot_in_map_meter_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
+  int robot_in_map_cell_x = (_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  int robot_in_map_cell_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
   if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
     startRow = 0;
@@ -151,7 +151,7 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
-  rankFrontierCentroids(_robot_in_map_meter_x, _robot_in_map_meter_y);
+  rankFrontierCentroids(_map_to_base_transformation);
 }
 
 void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int endRow, int endCol) {
@@ -302,7 +302,7 @@ void FrontierDetector::computeFrontierCentroids(){
   }
 }
 
-void FrontierDetector::rankFrontierCentroids(const int& mapX, const int& mapY, const Vector2iVector& new_centroids){
+void FrontierDetector::rankFrontierCentroids(const int& mapX, const int& mapY, const float& angle, const Vector2iVector& new_centroids){
 
   coordWithScoreVector centroid_score_vector;
 
@@ -312,13 +312,14 @@ void FrontierDetector::rankFrontierCentroids(const int& mapX, const int& mapY, c
     int dy = mapY - _centroids[i].y();
 
     float distance = sqrt(dx*dx + dy*dy)*_map_metadata.resolution;
-    if (distance < 1) {
-      distance = 1;
+    if (distance < 3) {
+      distance = 100;
     }
 
     coordWithScore centroidScore;
 
     centroidScore.coord = _centroids[i];
+    // the score is based on the distance
     centroidScore.score = 1/distance;
 
     centroid_score_vector.push_back(centroidScore);
@@ -345,6 +346,112 @@ void FrontierDetector::rankFrontierCentroids(const int& mapX, const int& mapY, c
   sort(centroid_score_vector.begin(), centroid_score_vector.end());
 
   for (int i = 0; i < _centroids.size(); i ++){
+    _centroids[i] = centroid_score_vector[i].coord;
+  }
+}
+
+void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_pose_, const Vector2iVector& new_centroids) {
+  
+  coordWithScoreVector centroid_score_vector;
+
+  int robot_in_map_cell_x = (_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  int robot_in_map_cell_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
+
+  for (int i = 0; i < _centroids.size(); ++i){
+
+    int dx = robot_in_map_cell_x - _centroids[i].x();
+    int dy = robot_in_map_cell_y - _centroids[i].y();
+
+    float distance = sqrt(dx*dx + dy*dy);
+    if (distance < 10) {
+      distance = 100;
+    }
+
+    tf::StampedTransform adj_transf;
+    adj_transf.setIdentity();
+    tf::Vector3 origin(_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x, _map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y, 1);
+    adj_transf.setOrigin(origin);
+    adj_transf.setRotation(_map_to_base_transformation.getRotation());
+    tf::Vector3 centroid(_centroids[i].x()*_map_metadata.resolution,  _centroids[i].y()*_map_metadata.resolution, 0.0);
+    tf::Vector3 centroid_in_robot_frame = adj_transf.inverse()*centroid;
+    std::cerr << centroid_in_robot_frame.x() << "\t" << centroid_in_robot_frame.y();
+    std::cerr << "\t" << _centroids[i].x() << "\t" << _centroids[i].y() << std::endl;
+    if (centroid_in_robot_frame.z() != 0) {
+      centroid_in_robot_frame /= centroid_in_robot_frame.z();
+    }
+    const int tmp_cells = 20;
+    const float ahead_cost = (centroid_in_robot_frame.x() > tmp_cells ? std::exp(0.1*tmp_cells-1) : std::exp(0.1*(centroid_in_robot_frame.x()-1))) - 1;
+
+
+    //mc HARD CODED 
+    float obstacle_distance_cost = 1.0;
+    float min_dist = 30;
+    for (int r = -10; r <= 10; ++r) {
+      for (int c = -10; c <= 10; ++c) {
+        if (r == 0 && c == 0) {
+          continue;
+        }
+        int rr = _centroids[i].x()+r;
+        int cc = _centroids[i].y()+c;
+        if ( rr < 0 || rr >= _occupancy_map.rows || cc < 0 || cc >= _occupancy_map.cols) {
+          continue;
+        }
+
+        if (_occupancy_map.at(rr,cc) == _occupiedColor) {
+          int dx = _centroids[i].x() - cc;
+          int dy = _centroids[i].y() - rr;
+
+          float distance = sqrt(dx*dx + dy*dy);
+
+          if (distance < min_dist) {
+            min_dist = distance;
+          }
+        }
+
+      }
+    }
+
+    if (min_dist != 30 && obstacle_distance_cost > 0) {
+      obstacle_distance_cost -= 1/obstacle_distance_cost;
+    }
+
+    coordWithScore centroidScore;
+
+    centroidScore.coord = _centroids[i];
+    const float w1 = 1.0;
+    const float w2 = 10.0;
+    const float w3 = 20.0;
+
+    // the score is based on the distance, the position where the centroid is locate wrt the robot (ahead is better) and the distance from an obstacle (far is better)
+                          //closest    //the 
+    centroidScore.score = w1 * 1/distance + w2 * 1/(std::exp(0.1*tmp_cells)-1) * ahead_cost + w3 * obstacle_distance_cost;
+
+    centroid_score_vector.push_back(centroidScore);
+  }
+
+
+  // for (int i = 0; i < new_centroids.size(); ++i) {
+  //   int dx = robot_in_map_cell_x - new_centroids[i].x();
+  //   int dy = robot_in_map_cell_y - new_centroids[i].y();
+
+  //   float distance = sqrt(dx*dx + dy*dy)*_map_metadata.resolution;
+  //   if (distance < 1) {
+  //     distance = 1;
+  //   }
+
+  //   coordWithScore centroidScore;
+
+  //   centroidScore.coord = new_centroids[i];
+  //   centroidScore.score = 1/distance;
+
+  //   centroid_score_vector.push_back(centroidScore);
+  // }
+
+  sort(centroid_score_vector.begin(), centroid_score_vector.end());
+
+
+  for (int i = 0; i < _centroids.size(); i ++){
+    std::cerr << "centroid: " << centroid_score_vector[i].coord.transpose() << "\tcost: " <<  centroid_score_vector[i].score << std::endl;
     _centroids[i] = centroid_score_vector[i].coord;
   }
 }

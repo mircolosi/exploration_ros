@@ -11,8 +11,8 @@
   <arg name="laser_frame" default="laser_frame" />
   <!-- <arg name="world_file" default="my_AUTOGEN_DISB1_diago.world" /> -->
   <!-- <arg name="world_file" default="hospital.world"/> -->
-  <arg name="world_file" default="saman.world"/>
-  <arg name="mapname" default="saman"/>
+  <arg name="world_file" default="hospital.world"/>
+  <arg name="mapname" default="hospital"/>
 
 
   <master auto="start"/>
