@@ -21,21 +21,16 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
   _marker_topic = "markers";
   _action = "exploration";
 
-  std::string fullns = ros::this_node::getNamespace();
-  std::string delimiter = "_";
-  _rootns = fullns.substr(0, fullns.find(delimiter));
-  _ns = _rootns + "_" + std::to_string(_id_robot);
-
-  if (fullns == _ns) {
-    std::cerr << RED << "MIRCO CANCELLA" << std::endl;
-  }
-
   std::cerr << YELLOW << "    Waiting for the move_base action server to come up" << RESET << std::endl;
   if(!_ac->waitForServer(ros::Duration(30.0))){
     throw std::runtime_error ("No move_base server has been found. Aborting.");
   }
 
   setROSParams();
+
+  _ns = ros::this_node::getNamespace();
+  std::string delimiter = "_";
+  _rootns = _ns.substr(0, _ns.find(delimiter));
 
   init();
 

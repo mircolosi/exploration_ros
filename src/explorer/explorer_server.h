@@ -57,8 +57,8 @@ private:
 
   std::string _rootns;
   std::string _ns;
-  int _id_robot;
-  int _n_robots;
+  int _id_robot = 0;
+  int _n_robots = 1;
 
   std::string _action;
 
