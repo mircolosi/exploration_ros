@@ -80,6 +80,7 @@ protected:
   void computeFrontierPoints(int startR, int startC, int endR, int endC);
   void computeFrontierRegions();
   void computeFrontierCentroids();
+  void binFrontierCentroids();
   void rankFrontierCentroids(const int& mapX, const int& mapY, const float& angle, const Vector2iVector& new_centroids = Vector2iVector(0));
   void rankFrontierCentroids(const tf::StampedTransform& robot_pose_, const Vector2iVector& new_centroids = Vector2iVector(0));
 

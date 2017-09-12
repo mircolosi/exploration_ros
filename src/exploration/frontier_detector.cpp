@@ -121,6 +121,7 @@ FrontierDetector::FrontierDetector( int thresholdSize,
   } catch(tf::TransformException ex) {
     std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
+
 }
 
 void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoord){
@@ -151,6 +152,7 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
+  binFrontierCentroids();
   rankFrontierCentroids(_map_to_base_transformation);
 }
 
@@ -302,6 +304,67 @@ void FrontierDetector::computeFrontierCentroids(){
   }
 }
 
+void FrontierDetector::binFrontierCentroids() {
+
+  int _number_of_bins_u = 0;
+  int _number_of_bins_v = 0;
+  const int _bin_size = 3;
+  Vector2i*** _bin_map = nullptr;
+
+  _number_of_bins_u = std::floor(static_cast<float>(_occupancy_map.cols)/_bin_size);
+  _number_of_bins_v = std::floor(static_cast<float>(_occupancy_map.rows)/_bin_size);
+  _bin_map = new Vector2i**[_number_of_bins_v];
+  for (int v = 0; v < _number_of_bins_v; ++v) {
+    _bin_map[v]  = new Vector2i*[_number_of_bins_u];
+    for (int u = 0; u < _number_of_bins_u; ++u) {
+      _bin_map[v][u] = nullptr;
+    }
+  }
+
+  Vector2iVector binned_centroids;
+
+  int u_current = 0;
+  for (const Vector2i& centroid: _centroids) {
+    const int& centroid_u = centroid.x();
+    const int& centroid_v = centroid.y();
+    assert(u_current < _number_of_bins_u);
+
+    if (centroid_u < u_current*_bin_size) {
+      // check matching bin range in V
+      for (int v = 0; v < _number_of_bins_v; ++v) {
+        if (centroid_u < v*_bin_size) {
+          // check if the matching bin has higer response
+          if (_bin_map[v][u_current] == nullptr) {
+            _bin_map[v][u_current] = (Vector2i*)&centroid;
+          }
+          break;
+        }
+      }
+
+    } else {
+      ++u_current;
+
+      // if we reached the end of the grid
+      if (u_current == _number_of_bins_u) {
+        break;
+      }
+    }
+  }
+
+  int index_keypoint = 0;
+  for (int v = 0; v < _number_of_bins_v; ++v) {
+    for (int u = 0; u < _number_of_bins_u; ++u) {
+      if (_bin_map[v][u] != nullptr) {
+        binned_centroids.push_back(*_bin_map[v][u]);
+        _bin_map[v][u] = nullptr;
+      }
+    }
+  }
+  _centroids = binned_centroids;
+
+}
+
+
 void FrontierDetector::rankFrontierCentroids(const int& mapX, const int& mapY, const float& angle, const Vector2iVector& new_centroids){
 
   coordWithScoreVector centroid_score_vector;
@@ -354,8 +417,8 @@ void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_p
   
   coordWithScoreVector centroid_score_vector;
 
-  int robot_in_map_cell_x = (_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
-  int robot_in_map_cell_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
+  int robot_in_map_cell_x = (robot_pose_.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  int robot_in_map_cell_y = (robot_pose_.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
   for (int i = 0; i < _centroids.size(); ++i){
 
@@ -367,20 +430,16 @@ void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_p
       distance = 100;
     }
 
-    tf::StampedTransform adj_transf;
-    adj_transf.setIdentity();
-    tf::Vector3 origin(_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x, _map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y, 1);
-    adj_transf.setOrigin(origin);
-    adj_transf.setRotation(_map_to_base_transformation.getRotation());
-    tf::Vector3 centroid(_centroids[i].x()*_map_metadata.resolution,  _centroids[i].y()*_map_metadata.resolution, 0.0);
-    tf::Vector3 centroid_in_robot_frame = adj_transf.inverse()*centroid;
+    tf::Vector3 centroid(_centroids[i].x(),  _centroids[i].y(), 1.0);
+    tf::Vector3 centroid_in_robot_frame = robot_pose_.inverse()*centroid*_map_metadata.resolution;
     std::cerr << centroid_in_robot_frame.x() << "\t" << centroid_in_robot_frame.y();
     std::cerr << "\t" << _centroids[i].x() << "\t" << _centroids[i].y() << std::endl;
     if (centroid_in_robot_frame.z() != 0) {
       centroid_in_robot_frame /= centroid_in_robot_frame.z();
     }
-    const int tmp_cells = 20;
-    const float ahead_cost = (centroid_in_robot_frame.x() > tmp_cells ? std::exp(0.1*tmp_cells-1) : std::exp(0.1*(centroid_in_robot_frame.x()-1))) - 1;
+    const int tmp_cells = 2;
+    const float decay = 0.3;
+    const float ahead_cost = (centroid_in_robot_frame.x() > tmp_cells ? std::exp(decay*tmp_cells) : std::exp(decay*(centroid_in_robot_frame.x())));
 
 
     //mc HARD CODED 
@@ -418,13 +477,13 @@ void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_p
     coordWithScore centroidScore;
 
     centroidScore.coord = _centroids[i];
-    const float w1 = 1.0;
-    const float w2 = 10.0;
-    const float w3 = 20.0;
+    const float w1 = 0.0;
+    const float w2 = 1.0;
+    const float w3 = 0.0;
 
     // the score is based on the distance, the position where the centroid is locate wrt the robot (ahead is better) and the distance from an obstacle (far is better)
                           //closest    //the 
-    centroidScore.score = w1 * 1/distance + w2 * 1/(std::exp(0.1*tmp_cells)-1) * ahead_cost + w3 * obstacle_distance_cost;
+    centroidScore.score = w1 * 1/distance + w2 * 1/(std::exp(decay*tmp_cells)) * ahead_cost + w3 * obstacle_distance_cost;
 
     centroid_score_vector.push_back(centroidScore);
   }
