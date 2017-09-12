@@ -152,7 +152,7 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
-  binFrontierCentroids();
+  //binFrontierCentroids();
   rankFrontierCentroids(_map_to_base_transformation);
 }
 
