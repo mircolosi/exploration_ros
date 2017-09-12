@@ -128,6 +128,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 FIND_PACKAGE(Eigen3 REQUIRED)
 INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIR})
 
+FIND_PACKAGE(OpenCV)    
+INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
+
 include_directories(src)
 
 include_directories(include ${catkin_INCLUDE_DIRS})

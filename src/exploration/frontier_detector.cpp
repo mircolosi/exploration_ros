@@ -131,17 +131,6 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   int endRow;
   int endCol;
 
-  // ros::spinOnce();  
-
-  try {
-    _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
-    _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
-  } catch(tf::TransformException ex) {
-    std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
-  }
-  int robot_in_map_cell_x = (_map_to_base_transformation.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
-  int robot_in_map_cell_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
-
   if (distance == -1){ //This is the default value, it means that I want to compute frontiers on the whole map
     startRow = 0;
     startCol = 0;
@@ -152,7 +141,7 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
-  binFrontierCentroids();
+  // binFrontierCentroids();
   rankFrontierCentroids(_map_to_base_transformation);
 }
 
@@ -413,40 +402,68 @@ void FrontierDetector::rankFrontierCentroids(const int& mapX, const int& mapY, c
   }
 }
 
-void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_pose_, const Vector2iVector& new_centroids) {
+#include <opencv2/opencv.hpp>
+
+void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_posessdas_, const Vector2iVector& new_centroids) {
   
   coordWithScoreVector centroid_score_vector;
 
-  int robot_in_map_cell_x = (robot_pose_.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
-  int robot_in_map_cell_y = (robot_pose_.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
+  tf::StampedTransform robot_pose;
+  tf::Transform robot_pose_inv;
+
+  try {
+    _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
+    _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), robot_pose);
+  } catch(tf::TransformException ex) {
+    std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
+  }
+
+  robot_pose_inv = robot_pose.inverse();
+
+  robot_pose_inv.setOrigin(tf::Vector3(robot_pose_inv.getOrigin().y(), robot_pose_inv.getOrigin().x(), robot_pose_inv.getOrigin().z()));
+
+  cv::Mat occupancy_map_gray(_occupancy_map.rows, _occupancy_map.cols, CV_8UC1);
+  cv::Mat occupancy_map(_occupancy_map.rows, _occupancy_map.cols, CV_8UC3);
+
+  for (int r = 0; r < _occupancy_map.rows; ++r) {
+    for (int c = 0; c < _occupancy_map.cols; ++c) {
+      occupancy_map_gray.at<signed char>(r,c) = _occupancy_map.at(r,c);
+    }
+  }
+
+  cv::cvtColor(occupancy_map_gray, occupancy_map, cv::COLOR_GRAY2BGR);
+
+  //mc unreasonable, but it seems to be correct
+  int robot_in_map_cell_r = (robot_pose.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  int robot_in_map_cell_c = (robot_pose.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
+
+  cv::circle(occupancy_map, cv::Point(robot_in_map_cell_r, robot_in_map_cell_c), 3, cv::Scalar(255,0,0), -1);
 
   for (int i = 0; i < _centroids.size(); ++i){
 
-    int dx = robot_in_map_cell_x - _centroids[i].x();
-    int dy = robot_in_map_cell_y - _centroids[i].y();
+    int dx = robot_in_map_cell_c - _centroids[i].x();
+    int dy = robot_in_map_cell_r - _centroids[i].y();
 
     float distance = sqrt(dx*dx + dy*dy);
     if (distance < 10) {
       distance = 100;
     }
 
-    tf::Vector3 centroid(_centroids[i].x(),  _centroids[i].y(), 1.0);
-    tf::Vector3 centroid_in_robot_frame = robot_pose_.inverse()*centroid*_map_metadata.resolution;
-    std::cerr << centroid_in_robot_frame.x() << "\t" << centroid_in_robot_frame.y();
-    std::cerr << "\t" << _centroids[i].x() << "\t" << _centroids[i].y() << std::endl;
-    if (centroid_in_robot_frame.z() != 0) {
-      centroid_in_robot_frame /= centroid_in_robot_frame.z();
-    }
-    const int tmp_cells = 2;
-    const float decay = 0.3;
-    const float ahead_cost = (centroid_in_robot_frame.x() > tmp_cells ? std::exp(decay*tmp_cells) : std::exp(decay*(centroid_in_robot_frame.x())));
+    const tf::Quaternion atan2 = tf::Quaternion(tf::Vector3(0,0,1), std::atan2(dy,dx));
+    const tf::Quaternion robot_rotation = robot_pose.getRotation();
+    const float angle = robot_rotation.angle(atan2);
+
+    // cv::circle(occupancy_map, cv::Point(centroid_in_robot_frame.y()/_map_metadata.resolution, centroid_in_robot_frame.x()/_map_metadata.resolution), 5, cv::Scalar(0,255,0), 1);
+    const float ahead_cost = std::cos(angle);
 
 
     //mc HARD CODED 
     float obstacle_distance_cost = 1.0;
-    float min_dist = 30;
-    for (int r = -10; r <= 10; ++r) {
-      for (int c = -10; c <= 10; ++c) {
+    float half_rad = 15;
+    const float min_dist_threshold = std::sqrt(2*half_rad*half_rad);
+    float min_dist = min_dist_threshold;
+    for (int r = -half_rad; r <= half_rad; ++r) {
+      for (int c = -half_rad; c <= half_rad; ++c) {
         if (r == 0 && c == 0) {
           continue;
         }
@@ -470,22 +487,27 @@ void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_p
       }
     }
 
-    if (min_dist != 30 && obstacle_distance_cost > 0) {
-      obstacle_distance_cost -= 1/obstacle_distance_cost;
+    if (min_dist != min_dist_threshold && min_dist > 0) {
+      std::cerr << min_dist << std::endl;
+      const float scale_factor = 0.3;
+      obstacle_distance_cost = std::exp(- scale_factor * min_dist);
     }
 
     coordWithScore centroidScore;
 
     centroidScore.coord = _centroids[i];
-    const float w1 = 0.0;
-    const float w2 = 1.0;
-    const float w3 = 0.0;
+    const float w1 = 1.0;
+    const float w2 = 1.5;
+    const float w3 = 2.0;
 
     // the score is based on the distance, the position where the centroid is locate wrt the robot (ahead is better) and the distance from an obstacle (far is better)
                           //closest    //the 
-    centroidScore.score = w1 * 1/distance + w2 * 1/(std::exp(decay*tmp_cells)) * ahead_cost + w3 * obstacle_distance_cost;
+    centroidScore.score = w1 * 1/distance + w2 * ahead_cost + w3 * obstacle_distance_cost;
 
     centroid_score_vector.push_back(centroidScore);
+
+    cv::circle(occupancy_map, cv::Point(_centroids[i].y(), _centroids[i].x()), (centroidScore.score > 0 ? 10*centroidScore.score : 0.1), cv::Scalar(0,255,0), 1);
+    // cv::line(occupancy_map, cv::Point(robot_in_map_cell_r, robot_in_map_cell_c), cv::Point(_centroids[i].y(), _centroids[i].x()), CV_RGB(255,255,0));
   }
 
 
@@ -505,6 +527,10 @@ void FrontierDetector::rankFrontierCentroids(const tf::StampedTransform& robot_p
 
   //   centroid_score_vector.push_back(centroidScore);
   // }
+
+  cv::imshow("occupancy_map", occupancy_map);
+  cv::waitKey(1);
+
 
   sort(centroid_score_vector.begin(), centroid_score_vector.end());
 

@@ -17,6 +17,7 @@ add_executable(exploration_node explorer_server_node.cpp
 
 target_link_libraries(exploration_node
   ${catkin_LIBRARIES}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 add_dependencies(exploration_node
