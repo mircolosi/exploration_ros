@@ -221,7 +221,7 @@ void ExplorerServer::requestFrontiers() {
   int _robot_in_map_cell_y = (_map_to_base_transformation.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
   if (!res.transformed_frontiers.empty()) {
-    _frontiers_detector->rankNewFrontierCentroids(_map_to_base_transformation, new_centroids);
+    _frontiers_detector->rankNewFrontierCentroids(new_centroids);
   }
 
 }
