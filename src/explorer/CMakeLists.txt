@@ -17,8 +17,12 @@ add_executable(exploration_node explorer_server_node.cpp
 
 target_link_libraries(exploration_node
   ${catkin_LIBRARIES}
-  ${OpenCV_INCLUDE_DIRS}
 )
+IF(${visual_dbg})
+target_link_libraries(exploration_node
+  ${catkin_LIBRARIES}
+)
+ENDIF(${visual_dbg})
 
 add_dependencies(exploration_node
    exploration_ros_generate_messages_cpp

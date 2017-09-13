@@ -119,17 +119,21 @@ catkin_package(
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(exploration_ros_node
-#   ${catkin_LIBRARIES}
+#   ${catkin_LIB{RARIES}
 # )
-
+set(visual_dbg FALSE)
+IF(${visual_dbg})
+  add_definitions(-DVISUAL_DBG)
+  FIND_PACKAGE(OpenCV)    
+  INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
+ENDIF(${visual_dbg}) 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake_modules)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 FIND_PACKAGE(Eigen3 REQUIRED)
 INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIR})
 
-FIND_PACKAGE(OpenCV)    
-INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
+
 
 include_directories(src)
 

@@ -5,6 +5,10 @@ using namespace cv;
 using namespace Eigen;
 using namespace srrg_core;
 
+#ifdef VISUAL_DBG
+#include <opencv2/opencv.hpp>
+#endif
+
 void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
   // std::cerr << "Start costMapCallback" << std::endl;
 
@@ -362,7 +366,6 @@ void FrontierDetector::binFrontierCentroids() {
 
 }
 
-#include <opencv2/opencv.hpp>
 
 void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids) {
   
@@ -382,6 +385,7 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
   int robot_in_map_cell_r = (robot_pose.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
   int robot_in_map_cell_c = (robot_pose.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
+#ifdef VISUAL_DBG
   cv::Mat occupancy_map_gray(_occupancy_map.rows, _occupancy_map.cols, CV_8UC1);
   cv::Mat occupancy_map(_occupancy_map.rows, _occupancy_map.cols, CV_8UC3);
 
@@ -395,6 +399,7 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
 
 
   cv::circle(occupancy_map, cv::Point(robot_in_map_cell_r, robot_in_map_cell_c), 3, cv::Scalar(255,0,0), -1);
+#endif
 
   for (int i = 0; i < _centroids.size(); ++i){
 
@@ -460,8 +465,9 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
     centroidScore.score = w1 * 1/distance + w2 * ahead_cost + w3 * obstacle_distance_cost;
 
     centroid_score_vector.push_back(centroidScore);
-
+#ifdef VISUAL_DBG
     cv::circle(occupancy_map, cv::Point(_centroids[i].y(), _centroids[i].x()), (centroidScore.score > 0 ? 10*centroidScore.score : 0.1), cv::Scalar(0,255,0), 1);
+#endif
   }
 
 
@@ -481,9 +487,10 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
 
   //   centroid_score_vector.push_back(centroidScore);
   // }
-
+#ifdef VISUAL_DBG
   cv::imshow("occupancy_map", occupancy_map);
   cv::waitKey(1);
+#endif
 
 
   sort(centroid_score_vector.begin(), centroid_score_vector.end());
