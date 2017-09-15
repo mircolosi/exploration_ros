@@ -5,13 +5,13 @@ using namespace cv;
 using namespace Eigen;
 using namespace srrg_core;
 
+#define VISUAL_DBG
+
 #ifdef VISUAL_DBG
 #include <opencv2/opencv.hpp>
 #endif
 
 void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-  // std::cerr << "Start costMapCallback" << std::endl;
-
   if (msg != nullptr) {
     int idx = 0;
     _cost_map.resize(msg->info.height, msg->info.width);
@@ -23,7 +23,6 @@ void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& 
       }
     }
   }
-  // std::cerr << "End costMapCallback" << std::endl;
 }
 
 void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
@@ -45,7 +44,6 @@ void FrontierDetector::mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr
 }
 
 void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-  // std::cerr << "Start occupancyMapCallback" << std::endl;
   if (msg != nullptr) {
     int idx = 0;
     _occupancy_map.resize(msg->info.height, msg->info.width);
@@ -61,7 +59,6 @@ void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::Const
       _map_metadata = msg->info;
     }
   }
-  // std::cerr << "End occupancyMapCallback" << std::endl;  
 }
 
 void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
@@ -194,7 +191,6 @@ void FrontierDetector::computeFrontierRegions(){
 
   Vector2iVector examined;
 
-  // for (int i = 0; i < _frontiers.size(); i++){
   for (const Vector2i& f: _frontiers){
 
     if (!contains(examined, f)){ //I proceed only if the current coord has not been already considered
@@ -203,7 +199,6 @@ void FrontierDetector::computeFrontierRegions(){
       tempRegion.push_back(f);
       examined.push_back(f);
 
-      // for (int k = 0; k < tempRegion.size(); k ++){
       for (int k = 0; k < tempRegion.size(); k ++){
         Vector2iVector neighbor;
 
@@ -299,7 +294,7 @@ void FrontierDetector::computeFrontierCentroids(){
 
 void FrontierDetector::binFrontierCentroids() {
 
-  const int _bin_size = 10;
+  const int _bin_size = 40;
   Vector2i*** _bin_map = nullptr;
 
   const int _number_of_bins_u = std::floor(static_cast<float>(_occupancy_map.cols)/_bin_size);
@@ -314,33 +309,44 @@ void FrontierDetector::binFrontierCentroids() {
     }
   }
 
+  #ifdef VISUAL_DBG
+  cv::Mat occupancy_map_gray(_occupancy_map.rows, _occupancy_map.cols, CV_8UC1);
+  cv::Mat occupancy_map(_occupancy_map.rows, _occupancy_map.cols, CV_8UC3);
+
+  for (int r = 0; r < _occupancy_map.rows; ++r) {
+    for (int c = 0; c < _occupancy_map.cols; ++c) {
+      occupancy_map_gray.at<signed char>(r,c) = _occupancy_map.at(r,c);
+    }
+  }
+
+  for (int u = 0; u < _number_of_bins_u; ++u) {
+    cv::line(occupancy_map_gray, cv::Point(0, u*_bin_size), cv::Point(_occupancy_map.rows, u*_bin_size), cv::Scalar(0));
+  }
+  for (int v = 0; v < _number_of_bins_v; ++v) {
+    cv::line(occupancy_map_gray, cv::Point(v*_bin_size, 0), cv::Point(v*_bin_size, _occupancy_map.cols), cv::Scalar(0));
+  }
+
+  cv::cvtColor(occupancy_map_gray, occupancy_map, cv::COLOR_GRAY2BGR);
+
+  #endif
+
   Vector2iVector binned_centroids;
 
   int u_current = 0;
   for (Vector2i& centroid: _centroids) {
     const int& centroid_u = centroid.x();
     const int& centroid_v = centroid.y();
-    assert(u_current < _number_of_bins_u);
 
-    if (centroid_u < u_current*_bin_size) {
-      // check matching bin range in V
-      for (int v = 0; v < _number_of_bins_v; ++v) {
-        if (centroid_u < v*_bin_size) {
-          // check if the matching bin has higer response
-          if (_bin_map[v][u_current] == nullptr) {
-            _bin_map[v][u_current] = &centroid;
-          }
-          break;
-        }
-      }
+    #ifdef VISUAL_DBG
+    cv::circle(occupancy_map, cv::Point(centroid.y(), centroid.x()), 3, cv::Scalar(0,255,0), -1);
+    #endif
 
-    } else {
-      ++u_current;
 
-      // if we reached the end of the grid
-      if (u_current == _number_of_bins_u) {
-        break;
-      }
+    const int& binned_centroid_u = static_cast<int>(centroid.x()/_bin_size);
+    const int& binned_centroid_v = static_cast<int>(centroid.y()/_bin_size);
+
+    if (_bin_map[binned_centroid_v][binned_centroid_u] == nullptr) {
+      _bin_map[binned_centroid_v][binned_centroid_u] = &centroid;
     }
   }
 
@@ -348,6 +354,9 @@ void FrontierDetector::binFrontierCentroids() {
   for (int v = 0; v < _number_of_bins_v; ++v) {
     for (int u = 0; u < _number_of_bins_u; ++u) {
       if (_bin_map[v][u] != nullptr) {
+        #ifdef VISUAL_DBG
+          cv::circle(occupancy_map, cv::Point(_bin_map[v][u]->y(), _bin_map[v][u]->x()), 3, cv::Scalar(0,0,255), -1);
+        #endif
         binned_centroids.push_back(*_bin_map[v][u]);
         _bin_map[v][u] = nullptr;
       }
@@ -356,7 +365,12 @@ void FrontierDetector::binFrontierCentroids() {
   std::cerr << "binned_centroids: " << binned_centroids.size() << std::endl;
   std::cerr << "_centroids:       " << _centroids.size() << std::endl;
   std::cerr << "ratio:             " << binned_centroids.size()/(float)_centroids.size() << std::endl;
-  // _centroids = binned_centroids;
+  _centroids = binned_centroids;
+
+  #ifdef VISUAL_DBG
+  cv::imshow("occupancy_map", occupancy_map);
+  cv::waitKey(1);
+  #endif
 
   for (int v = 0; v < _number_of_bins_v; ++v) {
     delete [] _bin_map[v];
@@ -384,22 +398,6 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
   //mc unreasonable, but it seems to be correct
   int robot_in_map_cell_r = (robot_pose.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
   int robot_in_map_cell_c = (robot_pose.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
-
-#ifdef VISUAL_DBG
-  cv::Mat occupancy_map_gray(_occupancy_map.rows, _occupancy_map.cols, CV_8UC1);
-  cv::Mat occupancy_map(_occupancy_map.rows, _occupancy_map.cols, CV_8UC3);
-
-  for (int r = 0; r < _occupancy_map.rows; ++r) {
-    for (int c = 0; c < _occupancy_map.cols; ++c) {
-      occupancy_map_gray.at<signed char>(r,c) = _occupancy_map.at(r,c);
-    }
-  }
-
-  cv::cvtColor(occupancy_map_gray, occupancy_map, cv::COLOR_GRAY2BGR);
-
-
-  cv::circle(occupancy_map, cv::Point(robot_in_map_cell_r, robot_in_map_cell_c), 3, cv::Scalar(255,0,0), -1);
-#endif
 
   for (int i = 0; i < _centroids.size(); ++i){
 
@@ -448,7 +446,7 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
     }
 
     if (min_dist != min_dist_threshold && min_dist > 0) {
-      std::cerr << min_dist << std::endl;
+      // std::cerr << min_dist << std::endl;
       const float scale_factor = 0.3;
       obstacle_distance_cost = std::exp(- scale_factor * min_dist);
     }
@@ -465,9 +463,7 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
     centroidScore.score = w1 * 1/distance + w2 * ahead_cost + w3 * obstacle_distance_cost;
 
     centroid_score_vector.push_back(centroidScore);
-#ifdef VISUAL_DBG
-    cv::circle(occupancy_map, cv::Point(_centroids[i].y(), _centroids[i].x()), (centroidScore.score > 0 ? 10*centroidScore.score : 0.1), cv::Scalar(0,255,0), 1);
-#endif
+
   }
 
 
@@ -487,17 +483,14 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
 
   //   centroid_score_vector.push_back(centroidScore);
   // }
-#ifdef VISUAL_DBG
-  cv::imshow("occupancy_map", occupancy_map);
-  cv::waitKey(1);
-#endif
+
 
 
   sort(centroid_score_vector.begin(), centroid_score_vector.end());
 
 
   for (int i = 0; i < _centroids.size(); i ++){
-    std::cerr << "centroid: " << centroid_score_vector[i].coord.transpose() << "\tcost: " <<  centroid_score_vector[i].score << std::endl;
+    // std::cerr << "centroid: " << centroid_score_vector[i].coord.transpose() << "\tcost: " <<  centroid_score_vector[i].score << std::endl;
     _centroids[i] = centroid_score_vector[i].coord;
   }
 }
