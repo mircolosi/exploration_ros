@@ -76,7 +76,6 @@ protected:
   void computeFrontierPoints(int startR, int startC, int endR, int endC);
   void computeFrontierRegions();
   void computeFrontierCentroids();
-  void binFrontierCentroids();
   void rankFrontierCentroids(const Vector2iVector& new_centroids = Vector2iVector(0));
 
   void getColoredNeighbors(Vector2i coord, signed char color, Vector2iVector& neighbors);
