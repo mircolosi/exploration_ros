@@ -145,6 +145,7 @@ void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoor
   computeFrontierPoints(startRow, startCol, endRow, endCol);
   computeFrontierRegions();
   computeFrontierCentroids();
+  binFrontierCentroids();
   rankFrontierCentroids();
 }
 
@@ -295,6 +296,76 @@ void FrontierDetector::computeFrontierCentroids(){
     }
   }
 }
+
+void FrontierDetector::binFrontierCentroids() {
+
+  const int _bin_size = 10;
+  Vector2i*** _bin_map = nullptr;
+
+  const int _number_of_bins_u = std::floor(static_cast<float>(_occupancy_map.cols)/_bin_size);
+  const int _number_of_bins_v = std::floor(static_cast<float>(_occupancy_map.rows)/_bin_size);
+
+  std::cerr << "_number_of_bins_u.size() _number_of_bins_v.size()" << _number_of_bins_u << " " << _number_of_bins_v << std::endl;
+  _bin_map = new Vector2i**[_number_of_bins_v];
+  for (int v = 0; v < _number_of_bins_v; ++v) {
+    _bin_map[v]  = new Vector2i*[_number_of_bins_u];
+    for (int u = 0; u < _number_of_bins_u; ++u) {
+      _bin_map[v][u] = nullptr;
+    }
+  }
+
+  Vector2iVector binned_centroids;
+
+  int u_current = 0;
+  for (Vector2i& centroid: _centroids) {
+    const int& centroid_u = centroid.x();
+    const int& centroid_v = centroid.y();
+    assert(u_current < _number_of_bins_u);
+
+    if (centroid_u < u_current*_bin_size) {
+      // check matching bin range in V
+      for (int v = 0; v < _number_of_bins_v; ++v) {
+        if (centroid_u < v*_bin_size) {
+          // check if the matching bin has higer response
+          if (_bin_map[v][u_current] == nullptr) {
+            _bin_map[v][u_current] = &centroid;
+          }
+          break;
+        }
+      }
+
+    } else {
+      ++u_current;
+
+      // if we reached the end of the grid
+      if (u_current == _number_of_bins_u) {
+        break;
+      }
+    }
+  }
+
+  int index_keypoint = 0;
+  for (int v = 0; v < _number_of_bins_v; ++v) {
+    for (int u = 0; u < _number_of_bins_u; ++u) {
+      if (_bin_map[v][u] != nullptr) {
+        binned_centroids.push_back(*_bin_map[v][u]);
+        _bin_map[v][u] = nullptr;
+      }
+    }
+  }
+  std::cerr << "binned_centroids: " << binned_centroids.size() << std::endl;
+  std::cerr << "_centroids:       " << _centroids.size() << std::endl;
+  std::cerr << "ratio:             " << binned_centroids.size()/(float)_centroids.size() << std::endl;
+  // _centroids = binned_centroids;
+
+  for (int v = 0; v < _number_of_bins_v; ++v) {
+    delete [] _bin_map[v];
+  }
+  delete [] _bin_map;
+  _bin_map = nullptr;
+
+}
+
 
 void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids) {
   
