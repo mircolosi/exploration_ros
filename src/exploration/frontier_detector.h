@@ -130,4 +130,8 @@ ros::Subscriber _subMapMetaData;
 
 tf::TransformListener _listener;
 tf::StampedTransform _map_to_base_transformation;
+tf::StampedTransform _map_to_base_transformation_origin;
+tf::StampedTransform _map_to_base_transformation_prev_origin;
+const int _bin_size = 40;
+Vector2i*** _bin_map = nullptr;
 };

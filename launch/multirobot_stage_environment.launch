@@ -24,7 +24,7 @@
     <param name="laser_topic"           value="$(arg laser_topic)"/>
     <param name="laser_frame"           value="$(arg laser_frame)"/>
   </node>
-
+<!-- 
   <group ns="$(arg robotname1)">
 
     <param name="robotname" value="$(arg robotname1)" />
@@ -34,7 +34,7 @@
       <param name="frame_id" value="/$(arg robotname1)/map" />
     </node>
 
-    <node pkg="cg_mrslam" type="sim_mrslam" name="slam" output="screen" args="-idRobot 0 -nRobots $(arg nrobots) -publishMap -publishGraph -mapFrame /$(arg robotname1)/map -odomFrame /$(arg robotname1)/odom -baseFrame /$(arg robotname1)/$(arg base_frame) -odometryTopic /$(arg robotname1)/odom -scanTopic /$(arg robotname1)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
+    <node pkg="cg_mrslam" type="cg_mrslam" name="slam" output="screen" args="-modality sim -idRobot 0 -nRobots $(arg nrobots) -publishMap -publishGraph -mapFrame /$(arg robotname1)/map -odomFrame /$(arg robotname1)/odom -baseFrame /$(arg robotname1)/$(arg base_frame) -odometryTopic /$(arg robotname1)/odom -scanTopic /$(arg robotname1)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
 
     <node pkg="move_base" type="move_base" respawn="true" name="move_base_node" output="screen">
 
@@ -46,7 +46,6 @@
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/base_local_planner_params.yaml" command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/base_global_planner_params.yaml" command="load" />
 
-      <!-- Override MOVE_BASE Frame Params to include prefix -->
       <param name="global_costmap/global_frame" value="/$(arg robotname1)/map" />   
       <param name="global_costmap/static_layer/map_topic" value="/$(arg robotname1)/map" />    
       <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname1)/$(arg laser_frame)" />
@@ -83,6 +82,8 @@
 
   </group>
 
+-->
+
   <group ns="$(arg robotname2)">
 
     <param name="robotname" value="$(arg robotname2)" />
@@ -92,7 +93,7 @@
       <param name="frame_id" value="/$(arg robotname2)/map" />
     </node>
 
-    <node pkg="cg_mrslam" type="sim_mrslam" name="slam" output="screen" args="-idRobot 1 -nRobots $(arg nrobots) -publishMap -publishGraph -mapFrame /$(arg robotname2)/map -odomFrame /$(arg robotname2)/odom -baseFrame /$(arg robotname2)/$(arg base_frame) -odometryTopic /$(arg robotname2)/odom -scanTopic /$(arg robotname2)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
+    <node pkg="cg_mrslam" type="cg_mrslam" name="slam" output="screen" args="-modality sim -idRobot 1 -nRobots $(arg nrobots) -publishMap -publishGraph -mapFrame /$(arg robotname2)/map -odomFrame /$(arg robotname2)/odom -baseFrame /$(arg robotname2)/$(arg base_frame) -odometryTopic /$(arg robotname2)/odom -scanTopic /$(arg robotname2)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
 
@@ -104,7 +105,6 @@
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/base_local_planner_params.yaml" command="load" />
       <rosparam file="$(find exploration_ros)/config/$(arg robotname2)/navigation/base_global_planner_params.yaml" command="load" />
 
-      <!-- Override MOVE_BASE Frame Params to include prefix -->
       <param name="global_costmap/global_frame" value="/$(arg robotname2)/map" />   
       <param name="global_costmap/static_layer/map_topic" value="/$(arg robotname2)/map" />    
       <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname2)/$(arg laser_frame)" />
@@ -142,7 +142,7 @@
   </group>
 
 
-   <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
-  <node pkg="rviz" type="rviz" name="visualizer2" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname2)/rviz/diago.rviz"/>
+  <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
+  <!-- <node pkg="rviz" type="rviz" name="visualizer2" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname2)/rviz/diago.rviz"/> -->
 
 </launch>

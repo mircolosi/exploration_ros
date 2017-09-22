@@ -119,6 +119,7 @@ FrontierDetector::FrontierDetector( int thresholdSize,
   try {
     _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
     _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
+    _map_to_base_transformation_origin = _map_to_base_transformation;
   } catch(tf::TransformException ex) {
     std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
@@ -294,13 +295,23 @@ void FrontierDetector::computeFrontierCentroids(){
 
 void FrontierDetector::binFrontierCentroids() {
 
-  const int _bin_size = 40;
-  Vector2i*** _bin_map = nullptr;
-
   const int _number_of_bins_u = std::floor(static_cast<float>(_occupancy_map.cols)/_bin_size);
   const int _number_of_bins_v = std::floor(static_cast<float>(_occupancy_map.rows)/_bin_size);
+  int origin_cell_r = (_map_to_base_transformation_origin.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  int origin_cell_c = (_map_to_base_transformation_origin.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
-  std::cerr << "_number_of_bins_u.size() _number_of_bins_v.size()" << _number_of_bins_u << " " << _number_of_bins_v << std::endl;
+  const int _n_bin_left  = std::ceil(static_cast<float>(origin_cell_r)/_bin_size);
+  const int _n_bin_right = std::ceil(static_cast<float>(_occupancy_map.rows - origin_cell_r)/_bin_size);
+  const int _n_bin_up    = std::ceil(static_cast<float>(origin_cell_c)/_bin_size);
+  const int _n_bin_down  = std::ceil(static_cast<float>(_occupancy_map.cols - origin_cell_c)/_bin_size);
+ 
+  std::cerr << "_n_bin_up (RED):     " << _n_bin_up << std::endl;
+  std::cerr << "_n_bin_down (GREEN): " << _n_bin_down << std::endl;
+  std::cerr << "_n_bin_left (BLUE):  " << _n_bin_left << std::endl;
+  std::cerr << "_n_bin_right (X):    " << _n_bin_right << std::endl;
+
+  cv::Point2i origin(origin_cell_r, origin_cell_c);
+
   _bin_map = new Vector2i**[_number_of_bins_v];
   for (int v = 0; v < _number_of_bins_v; ++v) {
     _bin_map[v]  = new Vector2i*[_number_of_bins_u];
@@ -318,15 +329,25 @@ void FrontierDetector::binFrontierCentroids() {
       occupancy_map_gray.at<signed char>(r,c) = _occupancy_map.at(r,c);
     }
   }
-
-  for (int u = 0; u < _number_of_bins_u; ++u) {
-    cv::line(occupancy_map_gray, cv::Point(0, u*_bin_size), cv::Point(_occupancy_map.rows, u*_bin_size), cv::Scalar(0));
-  }
-  for (int v = 0; v < _number_of_bins_v; ++v) {
-    cv::line(occupancy_map_gray, cv::Point(v*_bin_size, 0), cv::Point(v*_bin_size, _occupancy_map.cols), cv::Scalar(0));
-  }
-
   cv::cvtColor(occupancy_map_gray, occupancy_map, cv::COLOR_GRAY2BGR);
+
+  for (int i = origin_cell_c; i >= -_n_bin_up*_bin_size; i -= _bin_size) {
+    cv::line(occupancy_map, cv::Point(0, i), cv::Point(_occupancy_map.cols, i), CV_RGB(255, 0, 0));
+  }  
+
+  for (int i = origin_cell_c; i <= origin_cell_c+(_n_bin_up*_bin_size); i += _bin_size) {
+    cv::line(occupancy_map, cv::Point(0, i), cv::Point(_occupancy_map.cols, i), CV_RGB(0, 255, 0));
+  }  
+
+  for (int i = origin_cell_r; i >= -_n_bin_left*_bin_size; i -= _bin_size) {
+    cv::line(occupancy_map, cv::Point(i, 0), cv::Point(i, _occupancy_map.rows), CV_RGB(0, 0, 255));
+  }  
+
+  for (int i = origin_cell_r; i <= origin_cell_r+(_n_bin_left*_bin_size); i += _bin_size) {
+    cv::line(occupancy_map, cv::Point(i, 0), cv::Point(i, _occupancy_map.rows), CV_RGB(255, 255, 0));
+  }  
+
+  cv::circle(occupancy_map, origin, 5, cv::Scalar(255,0,0), -1); 
 
   #endif
 
@@ -362,9 +383,7 @@ void FrontierDetector::binFrontierCentroids() {
       }
     }
   }
-  std::cerr << "binned_centroids: " << binned_centroids.size() << std::endl;
-  std::cerr << "_centroids:       " << _centroids.size() << std::endl;
-  std::cerr << "ratio:             " << binned_centroids.size()/(float)_centroids.size() << std::endl;
+
   _centroids = binned_centroids;
 
   #ifdef VISUAL_DBG
