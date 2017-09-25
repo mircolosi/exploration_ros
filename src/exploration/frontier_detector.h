@@ -109,6 +109,7 @@ const signed char _circumscribedThreshold = 99;
 Vector2iVector _frontiers;
 regionVector _regions;
 Vector2iVector _centroids;
+Vector2iVector _binned_centroids;
 
 Vector2fVector _unknownCellsCloud;
 Vector2fVector _occupiedCellsCloud;
@@ -133,5 +134,6 @@ tf::StampedTransform _map_to_base_transformation;
 tf::StampedTransform _map_to_base_transformation_origin;
 tf::StampedTransform _map_to_base_transformation_prev_origin;
 const int _bin_size = 40;
-Vector2i*** _bin_map = nullptr;
+// Vector2i*** _bin_map = nullptr;
+QuadMatrix _bin_map;
 };

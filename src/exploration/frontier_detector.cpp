@@ -5,7 +5,7 @@ using namespace cv;
 using namespace Eigen;
 using namespace srrg_core;
 
-#define VISUAL_DBG
+// #define VISUAL_DBG
 
 #ifdef VISUAL_DBG
 #include <opencv2/opencv.hpp>
@@ -85,7 +85,8 @@ FrontierDetector::FrontierDetector( int thresholdSize,
                                                                           _marker_topic(marker_topic_),
                                                                           _map_frame(map_frame_),
                                                                           _base_frame(base_frame_), 
-                                                                          _map_metadata_topic(map_metadata_topic_){  
+                                                                          _map_metadata_topic(map_metadata_topic_),
+                                                                          _bin_map(_bin_size) {  
 
   _pubFrontierPoints = _nh.advertise<sensor_msgs::PointCloud2>(_frontier_topic,1);
   _pubCentroidMarkers = _nh.advertise<visualization_msgs::MarkerArray>( _marker_topic,1);
@@ -123,7 +124,6 @@ FrontierDetector::FrontierDetector( int thresholdSize,
   } catch(tf::TransformException ex) {
     std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
-
 }
 
 void FrontierDetector::computeFrontiers(int distance, const Vector2f& centerCoord){
@@ -294,108 +294,76 @@ void FrontierDetector::computeFrontierCentroids(){
 }
 
 void FrontierDetector::binFrontierCentroids() {
+  const int origin_cell_x = (_map_to_base_transformation_origin.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
+  const int origin_cell_y = (_map_to_base_transformation_origin.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
 
-  const int _number_of_bins_u = std::floor(static_cast<float>(_occupancy_map.cols)/_bin_size);
-  const int _number_of_bins_v = std::floor(static_cast<float>(_occupancy_map.rows)/_bin_size);
-  int origin_cell_r = (_map_to_base_transformation_origin.getOrigin().x() - _map_metadata.origin.position.x)/_map_metadata.resolution;
-  int origin_cell_c = (_map_to_base_transformation_origin.getOrigin().y() - _map_metadata.origin.position.y)/_map_metadata.resolution;
+  const int _n_bin_up    = std::ceil(static_cast<float>(origin_cell_y)/_bin_size);
+  const int _n_bin_down  = std::ceil(static_cast<float>(_occupancy_map.rows - origin_cell_y)/_bin_size);
+  const int _n_bin_left  = std::ceil(static_cast<float>(origin_cell_x)/_bin_size);
+  const int _n_bin_right = std::ceil(static_cast<float>(_occupancy_map.cols - origin_cell_x)/_bin_size);
 
-  const int _n_bin_left  = std::ceil(static_cast<float>(origin_cell_r)/_bin_size);
-  const int _n_bin_right = std::ceil(static_cast<float>(_occupancy_map.rows - origin_cell_r)/_bin_size);
-  const int _n_bin_up    = std::ceil(static_cast<float>(origin_cell_c)/_bin_size);
-  const int _n_bin_down  = std::ceil(static_cast<float>(_occupancy_map.cols - origin_cell_c)/_bin_size);
- 
+  _bin_map.clear();
+  _bin_map.resize(_n_bin_up, _n_bin_down, _n_bin_left, _n_bin_right);
+  _bin_map.setOrigin(origin_cell_x, origin_cell_y);
+
   std::cerr << "_n_bin_up (RED):     " << _n_bin_up << std::endl;
   std::cerr << "_n_bin_down (GREEN): " << _n_bin_down << std::endl;
   std::cerr << "_n_bin_left (BLUE):  " << _n_bin_left << std::endl;
   std::cerr << "_n_bin_right (X):    " << _n_bin_right << std::endl;
 
-  cv::Point2i origin(origin_cell_r, origin_cell_c);
-
-  _bin_map = new Vector2i**[_number_of_bins_v];
-  for (int v = 0; v < _number_of_bins_v; ++v) {
-    _bin_map[v]  = new Vector2i*[_number_of_bins_u];
-    for (int u = 0; u < _number_of_bins_u; ++u) {
-      _bin_map[v][u] = nullptr;
-    }
-  }
-
   #ifdef VISUAL_DBG
-  cv::Mat occupancy_map_gray(_occupancy_map.rows, _occupancy_map.cols, CV_8UC1);
-  cv::Mat occupancy_map(_occupancy_map.rows, _occupancy_map.cols, CV_8UC3);
+    cv::Point2i origin(origin_cell_x, origin_cell_y);
+    cv::Mat occupancy_map_gray(_occupancy_map.rows, _occupancy_map.cols, CV_8UC1);
+    cv::Mat occupancy_map(_occupancy_map.rows, _occupancy_map.cols, CV_8UC3);
 
-  for (int r = 0; r < _occupancy_map.rows; ++r) {
-    for (int c = 0; c < _occupancy_map.cols; ++c) {
-      occupancy_map_gray.at<signed char>(r,c) = _occupancy_map.at(r,c);
-    }
-  }
-  cv::cvtColor(occupancy_map_gray, occupancy_map, cv::COLOR_GRAY2BGR);
-
-  for (int i = origin_cell_c; i >= -_n_bin_up*_bin_size; i -= _bin_size) {
-    cv::line(occupancy_map, cv::Point(0, i), cv::Point(_occupancy_map.cols, i), CV_RGB(255, 0, 0));
-  }  
-
-  for (int i = origin_cell_c; i <= origin_cell_c+(_n_bin_up*_bin_size); i += _bin_size) {
-    cv::line(occupancy_map, cv::Point(0, i), cv::Point(_occupancy_map.cols, i), CV_RGB(0, 255, 0));
-  }  
-
-  for (int i = origin_cell_r; i >= -_n_bin_left*_bin_size; i -= _bin_size) {
-    cv::line(occupancy_map, cv::Point(i, 0), cv::Point(i, _occupancy_map.rows), CV_RGB(0, 0, 255));
-  }  
-
-  for (int i = origin_cell_r; i <= origin_cell_r+(_n_bin_left*_bin_size); i += _bin_size) {
-    cv::line(occupancy_map, cv::Point(i, 0), cv::Point(i, _occupancy_map.rows), CV_RGB(255, 255, 0));
-  }  
-
-  cv::circle(occupancy_map, origin, 5, cv::Scalar(255,0,0), -1); 
-
-  #endif
-
-  Vector2iVector binned_centroids;
-
-  int u_current = 0;
-  for (Vector2i& centroid: _centroids) {
-    const int& centroid_u = centroid.x();
-    const int& centroid_v = centroid.y();
-
-    #ifdef VISUAL_DBG
-    cv::circle(occupancy_map, cv::Point(centroid.y(), centroid.x()), 3, cv::Scalar(0,255,0), -1);
-    #endif
-
-
-    const int& binned_centroid_u = static_cast<int>(centroid.x()/_bin_size);
-    const int& binned_centroid_v = static_cast<int>(centroid.y()/_bin_size);
-
-    if (_bin_map[binned_centroid_v][binned_centroid_u] == nullptr) {
-      _bin_map[binned_centroid_v][binned_centroid_u] = &centroid;
-    }
-  }
-
-  int index_keypoint = 0;
-  for (int v = 0; v < _number_of_bins_v; ++v) {
-    for (int u = 0; u < _number_of_bins_u; ++u) {
-      if (_bin_map[v][u] != nullptr) {
-        #ifdef VISUAL_DBG
-          cv::circle(occupancy_map, cv::Point(_bin_map[v][u]->y(), _bin_map[v][u]->x()), 3, cv::Scalar(0,0,255), -1);
-        #endif
-        binned_centroids.push_back(*_bin_map[v][u]);
-        _bin_map[v][u] = nullptr;
+    for (int r = 0; r < _occupancy_map.rows; ++r) {
+      for (int c = 0; c < _occupancy_map.cols; ++c) {
+        occupancy_map_gray.at<signed char>(r,c) = _occupancy_map.at(r,c);
       }
     }
+    cv::cvtColor(occupancy_map_gray, occupancy_map, cv::COLOR_GRAY2BGR);
+
+    for (int i = origin_cell_y; i >= -_n_bin_up*_bin_size; i -= _bin_size) {
+      cv::line(occupancy_map, cv::Point(0, i), cv::Point(_occupancy_map.cols, i), CV_RGB(255, 0, 0));
+    }  
+
+    for (int i = origin_cell_y; i <= origin_cell_y+(_n_bin_up*_bin_size); i += _bin_size) {
+      cv::line(occupancy_map, cv::Point(0, i), cv::Point(_occupancy_map.cols, i), CV_RGB(0, 255, 0));
+    }  
+
+    for (int i = origin_cell_x; i >= -_n_bin_left*_bin_size; i -= _bin_size) {
+      cv::line(occupancy_map, cv::Point(i, 0), cv::Point(i, _occupancy_map.rows), CV_RGB(0, 0, 255));
+    }  
+
+    for (int i = origin_cell_x; i <= origin_cell_x+(_n_bin_left*_bin_size); i += _bin_size) {
+      cv::line(occupancy_map, cv::Point(i, 0), cv::Point(i, _occupancy_map.rows), CV_RGB(255, 255, 0));
+    }  
+
+    cv::circle(occupancy_map, origin, 5, cv::Scalar(255,0,0), -1); 
+  #endif
+
+  _binned_centroids.clear();
+
+  for (Vector2i& centroid: _centroids) {
+    const int& centroid_x = centroid.y();
+    const int& centroid_y = centroid.x();
+
+    if (_bin_map.binCentroid(centroid_x, centroid_y)) {
+      _binned_centroids.push_back(centroid);
+    }
+    
   }
 
-  _centroids = binned_centroids;
+  std::cerr << "_binned_centroids: " << _binned_centroids.size() << std::endl;
+  std::cerr << "_centroids:        " << _centroids.size() << std::endl;
+  std::cerr << "_binned/_cent:     " << _binned_centroids.size()/(float)_centroids.size() << std::endl;  
+
+  _centroids = _binned_centroids;
 
   #ifdef VISUAL_DBG
   cv::imshow("occupancy_map", occupancy_map);
   cv::waitKey(1);
   #endif
-
-  for (int v = 0; v < _number_of_bins_v; ++v) {
-    delete [] _bin_map[v];
-  }
-  delete [] _bin_map;
-  _bin_map = nullptr;
 
 }
 
