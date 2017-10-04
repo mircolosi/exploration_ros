@@ -1,8 +1,8 @@
 #include "paths_rollout.h"
 
 
-using namespace srrg_core;
-using namespace srrg_scan_matcher;
+// using namespace srrg_core;
+// using namespace srrg_scan_matcher;
 using namespace Eigen;
 
 
@@ -137,80 +137,6 @@ int PathsRollout::computeAllSampledPlans(const Vector2iVector& centroids, const 
 
 }
 
-
-bool PathsRollout::computeTargetSampledPlans(const Vector2iVector& targets, const std::string& frame) {
-
-  _sampled_pose_vector.clear();
-  // Vector2fVector meterCentroids;
-
-  // bool found = false;
-
-  // for (int i = 0; i < targets.size(); i ++) {
-  //   Vector2f meterCentroid = {targets[i][1]* _map_metadata.resolution + _map_metadata.origin.position.x, targets[i][0]* _map_metadata.resolution + _map_metadata.origin.position.y};//Inverted because computed in map (row col -> y x)
-  //   meterCentroids.push_back(meterCentroid);
-  // }
-
-  // try {
-  //   _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(1.0));
-  //   _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
-  // } catch (tf::TransformException ex) {
-  //   std::cout<<"exception: "<< ex.what() <<std::endl;
-  // }
-
-  // geometry_msgs::Pose startPose;
-  // startPose.position.x = _map_to_base_transformation.getOrigin().x(); 
-  // startPose.position.y = _map_to_base_transformation.getOrigin().y();
-
-  // geometry_msgs::Quaternion qMsg;
-  // tf::quaternionTFToMsg(_map_to_base_transformation.getRotation(),qMsg);
-
-  // startPose.orientation = qMsg;  
-
-  // //Wait for robot to stop moving (moveBaseClient can't do 2 things at same time, like moving and planning)
-  // ros::Rate checkReadyRate(100);
-  // while(!isActionDone(_ac)){
-  //   checkReadyRate.sleep();
-  // }
-
-  // _longestPlan = 0;
-  // int failedPlans = 0;
-  // int successPlans = 0;
-
-  // for (int i = 0; i < meterCentroids.size(); i++){
-  //   geometry_msgs::Pose goalPose;
-  //   goalPose.position.x = meterCentroids[i][0];  
-  //   goalPose.position.y = meterCentroids[i][1];
-
-  //   float distanceActualPose = sqrt(pow((meterCentroids[i][0] - startPose.position.x),2) + pow((meterCentroids[i][1] - startPose.position.y),2));
-
-  //   if ((successPlans > (round(_maxCentroidsNumber/2)))&&(distanceActualPose > _farCentroidsThreshold)){ //If I have already some plans and this is quite far, break.
-  //     break;
-  //   }
-
-  //   PoseWithInfoVector sampledPlan;
-  //   makeSampledPlan(frame, startPose, goalPose, sampledPlan);
-
-  //   if (sampledPlan.size()>0) {
-  //     _sampled_pose_vector.resize(sampledPlan.size());
-  //     for (int i = 0; i < sampledPlan.size(); ++i) {
-  //       _sampled_pose_vector[i] = sampledPlan[i];
-  //     }
-  //     successPlans++;
-  //     found = true;
-  //     break;
-  //   }
-  //   else {
-  //     failedPlans++;
-  //     found = false;
-  //     continue;
-  //   }
-
-
-  // }
-  bool found = false;
-  return found;
-}
-
 void PathsRollout::makeSampledPlan(const std::string& frame, const geometry_msgs::Pose& startPose, const geometry_msgs::Pose& goalPose, PoseWithInfoVector& sampledPlan) {
 
   nav_msgs::GetPlan::Request req;
@@ -226,7 +152,7 @@ void PathsRollout::makeSampledPlan(const std::string& frame, const geometry_msgs
   req.start.pose = startPose;
   req.goal.header.frame_id = remapped_frame;
   req.goal.pose = goalPose;
-
+  
   if (_plan_service_client.call(req,res)){
     if (!res.plan.poses.empty()) {
       sampleTrajectory(res.plan, sampledPlan);
@@ -404,61 +330,6 @@ void PathsRollout::extractBestPose(PoseWithInfo& goalPose){
         goalPose.predictedVisiblePoints = numVisiblePoints;
       }
 
-    }
-  }
-}
-
-void PathsRollout::extractTargetPose(PoseWithInfo& goalPose){
-
-  Isometry2f transform;
-  Vector3f pose;
-  Vector3f laserPose;
-
-  for (int i = 0; i < _sampled_pose_vector.size(); i ++){
-
-    pose[0] = _sampled_pose_vector[i].pose[0]; 
-    pose[1] = _sampled_pose_vector[i].pose[1];
-
-    bool isSamePosition = false;
-    float distanceX = fabs(pose[0] - _map_to_base_transformation.getOrigin().x());
-    float distanceY = fabs(pose[1] - _map_to_base_transformation.getOrigin().y());
-    if ((distanceX < _xyThreshold) &&(distanceY < _xyThreshold)){
-      isSamePosition = true;
-    }
-
-
-    for (int j = 0; j < _sampleOrientation; j++){
-
-      float yawAngle = _intervalOrientation*j;
-      Rotation2D<float> rot(yawAngle);
-
-      pose[2] = yawAngle;
-
-      //If I'm considering a pose too close to the current one, discard rotations too similar to the current one.
-      //Errors in the prediction function could make the robot to always remain in the same place.
-      if (isSamePosition){
-        Rotation2D<float> currentRot(tf::getYaw(_map_to_base_transformation.getRotation()));
-        Rotation2D<float> differenceRot = currentRot.inverse()*rot;
-
-        float distanceYaw = atan2(differenceRot.toRotationMatrix()(1,0), differenceRot.toRotationMatrix()(0,0));
-
-        if (fabs(distanceYaw) < M_PI_2){
-          continue;
-        }
-      }
-
-      int numVisiblePoints = computeVisiblePoints(pose, _laserOffset);  
-      
-
-      float score = computePoseScore(_sampled_pose_vector[i], yawAngle, numVisiblePoints);
-
-      if (score > goalPose.score){
-        std::cout<<"GOAL: "<< _sampled_pose_vector.back().pose[0]<<" "<<_sampled_pose_vector.back().pose[1]<<" "<<_sampled_pose_vector.back().pose[2]<<" SCORE: "<<score<<std::endl;
-        goalPose.pose = _sampled_pose_vector.back().pose;
-        goalPose.score = score;
-        goalPose.predictedAngle = _sampled_pose_vector[i].pose[2]; 
-        goalPose.predictedVisiblePoints = numVisiblePoints;
-      }
     }
   }
 }

@@ -23,7 +23,7 @@
 #include "exploration/fake_projector.h"
 #include "utils/my_matrix.h"
 
-using namespace srrg_core;
+// using namespace srrg_core;
 using namespace Eigen;
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
@@ -59,10 +59,8 @@ public:
 
 
   int computeAllSampledPlans(const Vector2iVector& centroids, const std::string& frame);
-  bool computeTargetSampledPlans(const Vector2iVector& targets, const std::string& frame);
 
   void extractBestPose(PoseWithInfo& goalPose);
-  void extractTargetPose(PoseWithInfo& goalPose);
 
   void makeSampledPlan(const std::string& frame, const geometry_msgs::Pose& startPose, const geometry_msgs::Pose& goalPose, PoseWithInfoVector& sampledPlan);
   void sampleTrajectory(const nav_msgs::Path& path, PoseWithInfoVector& vecSampledPoses);

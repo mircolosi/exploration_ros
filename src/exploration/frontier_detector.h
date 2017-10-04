@@ -16,7 +16,6 @@
 
 #include <Eigen/Dense>
 
-#include "srrg_types/defs.h"
 #include "utils/my_matrix.h"
 
 using namespace Eigen;
