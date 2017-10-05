@@ -20,8 +20,6 @@ public:
   _private_nh("~") {
 
     std::string action;
-    std::string prefix(ros::this_node::getName()+"/");
-
     _private_nh.param("action", action, std::string("exploration"));
 
     _exp_client = new ExplorerActionClient(action, true); 

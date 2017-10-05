@@ -11,32 +11,6 @@ using namespace srrg_core;
 #include <opencv2/opencv.hpp>
 #endif
 
-void FrontierDetector::costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg){
-  if (msg != nullptr) {
-    int idx = 0;
-    _cost_map.resize(msg->info.height, msg->info.width);
-    costmap_width = msg->info.width;
-    for(int r = 0; r < msg->info.height; r++) {
-      for(int c = 0; c < msg->info.width; c++) {
-        _cost_map(r,c) = msg->data[idx];
-        ++idx;
-      }
-    }
-  }
-}
-
-void FrontierDetector::costMapUpdateCallback(const map_msgs::OccupancyGridUpdateConstPtr& msg){
-  if (msg != nullptr) {
-    int idx = 0;
-    for(int r = msg->y; r < msg->y+msg->height; ++r){
-      for(int c = msg->x; c < msg->x+msg->width; ++c){
-        _cost_map(r,c) = msg->data[idx];
-        ++idx;
-      }
-    }
-  }
-}
-
 void FrontierDetector::mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg){
   if (msg != nullptr) {
     _map_metadata = *msg;
@@ -93,10 +67,6 @@ FrontierDetector::FrontierDetector( int thresholdSize,
 
   const std::string node_namespace = ros::this_node::getNamespace();
 
-  std::string costMapTopic = node_namespace+"/move_base_node/global_costmap/costmap";
-
-  _subCostMap = _nh.subscribe<nav_msgs::OccupancyGrid>(costMapTopic,1, &FrontierDetector::costMapCallback, this);
-  _subCostMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>( costMapTopic + "_updates", 2, &FrontierDetector::costMapUpdateCallback, this );
   
   _subOccupancyMap =  _nh.subscribe<nav_msgs::OccupancyGrid>(_map_frame,1, &FrontierDetector::occupancyMapCallback, this);
   _subOccupancyMapUpdate = _nh.subscribe<map_msgs::OccupancyGridUpdate>(node_namespace+"/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this );
@@ -108,10 +78,6 @@ FrontierDetector::FrontierDetector( int thresholdSize,
     if (!map_metadata) {
       throw std::runtime_error("Impossible to retrieve the map_metadata");
     }
-  }
-  boost::shared_ptr<const nav_msgs::OccupancyGrid> costmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(costMapTopic,ros::Duration(5.0));
-  if (!costmap) {
-    throw std::runtime_error("Impossible to retrieve the cost map");
   }
   boost::shared_ptr<const nav_msgs::OccupancyGrid> occupmap = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(_map_frame,ros::Duration(5.0));
   if (!occupmap) {
@@ -156,9 +122,6 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
 
       if (_occupancy_map(r,c) == _freeColor) { //If the current cell is free consider it
         Vector2i coord(r,c);
-        if (_cost_map(r,c) == _circumscribedThreshold) {//If the current free cell is too close to an obstacle skip
-          continue;
-        }
 
         Vector2iVector neighbors;
         getColoredNeighbors(coord, _unknownColor, neighbors); 
@@ -175,7 +138,7 @@ void FrontierDetector::computeFrontierPoints(int startRow, int startCol, int end
             break;
           }
         }
-      } else if (_cost_map(r,c) == _occupiedColor) {
+      } else if (_occupancy_map(r,c) == _occupiedColor) {
         float x = c*_map_metadata.resolution + _map_metadata.origin.position.x;
         float y = r*_map_metadata.resolution + _map_metadata.origin.position.y;
         _occupiedCellsCloud.push_back(Vector2f(x,y)); 
@@ -270,11 +233,11 @@ void FrontierDetector::computeFrontierCentroids(){
     int centroid_row = _centroids[i].y();
     int centroid_col = _centroids[i].x();
 
-    if (_cost_map(centroid_row, centroid_col) > _circumscribedThreshold){  //If the centroid is in a non-free cell
+    if (_occupancy_map(centroid_row, centroid_col) >= _occupiedColor) {  //If the centroid is in a non-free cell
       float distance = std::numeric_limits<float>::max();
       Vector2i closestPoint;
 
-      for (int j = 0; j < _regions[i].size(); j++){
+      for (int j = 0; j < _regions[i].size(); j++) {
 
         int dx = _centroids[i].x() - _regions[i][j].x();
         int dy = _centroids[i].y() - _regions[i][j].y();
@@ -338,8 +301,6 @@ void FrontierDetector::binFrontierCentroids() {
     for (int i = origin_cell_x; i <= origin_cell_x+(_n_bin_left*_bin_size); i += _bin_size) {
       cv::line(occupancy_map, cv::Point(i, 0), cv::Point(i, _occupancy_map.rows), CV_RGB(255, 255, 0));
     }  
-
-    cv::circle(occupancy_map, origin, 5, cv::Scalar(255,0,0), -1); 
   #endif
 
   _binned_centroids.clear();
@@ -349,6 +310,9 @@ void FrontierDetector::binFrontierCentroids() {
     const int& centroid_y = centroid.x();
 
     if (_bin_map.binCentroid(centroid_x, centroid_y)) {
+      #ifdef VISUAL_DBG
+        cv::circle(occupancy_map, cv::Point(centroid.y(), centroid.x()), 3, cv::Scalar(0,0,255), -1);
+      #endif
       _binned_centroids.push_back(centroid);
     }
     

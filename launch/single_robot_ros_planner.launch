@@ -1,0 +1,110 @@
+<launch>
+
+  <arg name="action" default="exploration" />
+
+  <arg name="robotname1" default="robot_0" />
+  <arg name="robotname2" default="robot_1" />
+  <arg name="nrobots"    default="2" />
+
+  <arg name="base_frame" default="base_frame" />
+  <arg name="laser_topic" default="scan" />
+  <arg name="laser_frame" default="laser_frame" />
+  <!-- <arg name="world_file" default="my_AUTOGEN_DISB1_diago.world" /> -->
+  <!-- <arg name="world_file" default="hospital.world"/> -->
+  <arg name="world_file" default="saman.world"/>
+  <arg name="mapname" default="saman"/>
+
+
+  <master auto="start"/>
+  <param name="/use_sim_time" value="true"/>
+
+  <node pkg="stage_environments" type="stageros_experimental" name="stageros" args="-u $(find exploration_ros)/maps/$(arg world_file)" respawn="false" required="true" output="screen">
+    <param name="base_watchdog_timeout" value="0.2"/>
+    <param name="base_frame"            value="$(arg base_frame)"/>
+    <param name="laser_topic"           value="$(arg laser_topic)"/>
+    <param name="laser_frame"           value="$(arg laser_frame)"/>
+  </node>
+ 
+  <group ns="$(arg robotname1)">
+
+    <param name="robotname" value="$(arg robotname1)" />
+    <param name="tf_prefix" value="$(arg robotname1)" />
+
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find exploration_ros)/maps/$(arg mapname).yaml" respawn="false" >
+      <param name="frame_id" value="/$(arg robotname1)/map" />
+    </node>
+
+    <node pkg="cg_mrslam" type="cg_mrslam" name="slam" output="screen" args="-modality sim -idRobot 0 -nRobots $(arg nrobots) -publishMap -publishGraph -mapFrame /$(arg robotname1)/map -odomFrame /$(arg robotname1)/odom -baseFrame /$(arg robotname1)/$(arg base_frame) -odometryTopic /$(arg robotname1)/odom -scanTopic /$(arg robotname1)/$(arg laser_topic) -minInliers 5 -inlierThreshold 3. -o test.g2o"/>
+
+<!--     <node pkg="move_base" type="move_base" respawn="true" name="move_base_node" output="screen">
+      <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/move_base_params.yaml" command="load" />
+      <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/costmap_common_params.yaml" command="load" ns="global_costmap" />
+      <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/costmap_common_params.yaml" command="load" ns="local_costmap" />
+      <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/local_costmap_params.yaml" command="load" />
+      <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/global_costmap_params.yaml" command="load" />
+      <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/base_local_planner_params.yaml" command="load" />
+      <rosparam file="$(find exploration_ros)/config/$(arg robotname1)/navigation/base_global_planner_params.yaml" command="load" />
+
+      <param name="global_costmap/global_frame" value="/$(arg robotname1)/map" />   
+      <param name="global_costmap/static_layer/map_topic" value="/$(arg robotname1)/map" />    
+      <param name="global_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname1)/$(arg laser_frame)" />
+      <param name="global_costmap/laser_scan_sensor/topic" value="/$(arg robotname1)/$(arg laser_topic)" />
+      <param name="global_costmap/robot_base_frame" value="/$(arg robotname1)/$(arg base_frame)" />   
+      <param name="local_costmap/global_frame" value="/$(arg robotname1)/odom" />
+      <param name="local_costmap/laser_scan_sensor/sensor_frame" value="/$(arg robotname1)/$(arg laser_frame)" />
+      <param name="local_costmap/laser_scan_sensor/topic" value="/$(arg robotname1)/$(arg laser_topic)" />
+      <param name="local_costmap/robot_base_frame" value="/$(arg robotname1)/$(arg base_frame)" /> 
+    </node> -->
+
+    <node pkg="spqrel_navigation" type="spqrel_planner_node" name="spqrel_planner" output="screen">
+      <remap from="static_map" to="/$(arg robotname1)/static_map" />
+      <param name="max_range" value="10.0"/>
+      <param name="local_map_dimension" value="10.0" />
+      <param name="max_tv" value="1.2"/>
+      <param name="max_rv" value="2.0"/>
+      <param name="max_acc_tv" value="0.3"/>
+      <param name="max_acc_rv" value="0.5"/>
+      <param name="translational_gain" value="8.0"/>
+      <param name="rotational_gain" value="2.0"/>
+      <param name="approaching_translational_gain" value="2.0"/>
+      <param name="approaching_rotational_gain" value="1.0"/>
+      <param name="distance_cost" value="10.0"/>
+      <param name="distance_threshold" value="3"/>
+      <param name="publish_global_plan" value="true"/>
+      <param name="robot_radius" value="0.4"/>
+      <param name="map_service_id" value="/$(arg robotname1)/map"/> 
+      <param name="global_frame_id" value="/$(arg robotname1)/map"/>
+      <param name="base_frame_id" value="/$(arg robotname1)/$(arg base_frame)"/>
+      <param name="laser_topic" value="/$(arg robotname1)/$(arg laser_topic)"/>
+      <param name="command_vel_topic" value="/$(arg robotname1)/cmd_vel"/>
+      <param name="use_gui" value="false"/>  <!-- DO NOT SET true - deadlock in opencv imgshow !!! -->
+    </node>
+
+    <node pkg="exploration_ros" name="explorer_client" type="exploration_action_client" output="screen">
+      <param name="action" value="$(arg action)" />
+    </node> 
+
+<!--     <node pkg="exploration_ros" name="explorer_server" type="exploration_node" output="screen" respawn="false">  
+      <param name="action"        value="$(arg action)" />
+      <param name="mapFrame"      value="/$(arg robotname1)/map" /> 
+      <param name="baseFrame"     value="/$(arg robotname1)/$(arg base_frame)" />  
+      <param name="laserFrame"    value="/$(arg robotname1)/$(arg laser_frame)" />
+      <param name="scanTopic"     value="/$(arg robotname1)/$(arg laser_topic)" /> 
+      <param name="pointsTopic"   value="/$(arg robotname1)/points" /> 
+      <param name="markersTopic"  value="/$(arg robotname1)/markers" /> 
+      <param name="idRobot"       value="0" />
+      <param name="nRobots"       value="$(arg nrobots)" />
+      <param name="regionSize"    value="15" /> 
+      <param name="exploredArea"  value="10" />
+      <param name="lambda"        value="1.25" /> 
+      <param name="mc"            value="0.5" /> 
+      <param name="Mc"            value="5.0" />
+      <param name="nc"            value="10" /> 
+      <param name="iter"          value="-1" /> 
+    </node>  -->
+
+  </group>
+
+  <node pkg="rviz" type="rviz" name="visualizer1" output="screen" args="-d $(find exploration_ros)/config/$(arg robotname1)/rviz/diago.rviz"/>
+
+</launch>

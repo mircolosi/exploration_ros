@@ -37,8 +37,6 @@ class FrontierDetector {
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  void costMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
-  void costMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
   void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
@@ -56,8 +54,6 @@ public:
   void getFrontierPoints(Vector2iVector& frontiers_);
   void getFrontierRegions(regionVector& regions_);
   void getFrontierCentroids(Vector2iVector& centorids_);
-
-  const MyMatrix<signed char>* costMap() const {return &_cost_map;}
 
   Vector2fVector* getUnknownCloud();
   Vector2fVector* getOccupiedCloud();
@@ -88,7 +84,6 @@ protected:
   }
 
 
-MyMatrix<signed char> _cost_map;
 MyMatrix<signed char> _occupancy_map;
 
 int costmap_width;

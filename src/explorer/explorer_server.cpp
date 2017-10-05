@@ -25,6 +25,7 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
   if(!_ac->waitForServer(ros::Duration(30.0))){
     throw std::runtime_error ("No move_base server has been found. Aborting.");
   }
+  std::cerr << GREEN << "    Move_base action server is ready" << RESET << std::endl;
 
   setROSParams();
 
@@ -39,8 +40,6 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
 }
 
 ExplorerServer::~ExplorerServer() {
-  delete _goal_planner;
-  delete _paths_rollout;
   delete _frontiers_detector;
   delete _projector;
   delete _ac;
@@ -61,8 +60,6 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
     _frontiers_detector->publishFrontierPoints();
     _frontiers_detector->publishCentroidMarkers();
 
-    _frontiers_detector->getFrontierPoints(_frontier_points);
-    _frontiers_detector->getFrontierRegions(_regions);
     _frontiers_detector->getFrontierCentroids(_centroids);
 
     std::cerr << YELLOW << "Possible GOALS: " << _centroids.size() << RESET << std::endl ;
@@ -75,11 +72,6 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
     }
 
     _frontiers_detector->getMapMetaData(_map_metadata);
-    _paths_rollout->setMapMetaData(_map_metadata);
-    _goal_planner->setMapMetaData(_map_metadata);
-
-    _goal_planner->getAbortedGoals(_aborted_goals);
-    _paths_rollout->setAbortedGoals(_aborted_goals);
 
     // EXPLORE ACTION
     if ("exploration" == goal_->goal.action) {
@@ -90,75 +82,53 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
         std::cerr << GREEN << "Exploration Complete" << std::endl;
         std::cerr << RESET;
         _result.state = "ABORTED [exploration complete]";
-        break;
-      }
-
-      int numSampledPoses = _paths_rollout->computeAllSampledPlans(_centroids, _map_frame);
-      if (numSampledPoses == 0) {
-          //mc the goal is unreachable
         _isActive = false;
-        std::cout << RED << "NO POSE AVAILABLE FOR GOAL" << std::endl;
-        std::cerr << RESET;
-        _result.state = "ABORTED [no pose available for goal]";
         break;
       }
 
-      PoseWithInfo goal;
-      _paths_rollout->extractBestPose(goal);
+      for (const Vector2i& centroid: _centroids) {      
+        move_base_msgs::MoveBaseGoal goalMsg;
 
-      _goal_planner->publishGoal(goal, _map_frame); 
-      
+        goalMsg.target_pose.header.frame_id = _map_frame;
+        goalMsg.target_pose.header.stamp = ros::Time::now();
+
+        float x = centroid.x()*_map_metadata.resolution + _map_metadata.origin.position.x;
+        float y = centroid.y()*_map_metadata.resolution + _map_metadata.origin.position.y;
+
+        goalMsg.target_pose.pose.position.x = x;
+        goalMsg.target_pose.pose.position.y = y; 
+
+        goalMsg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(0);
+
+        std::stringstream infoGoal;
+
+        time_t _now = time(0);
+        tm *ltm = localtime(&_now);
+        infoGoal << "[" << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec 
+        << "]Sending goal " << x << " " << y << " " << 0;
+
+        std::cout << infoGoal.str() << std::endl;
+        _ac->sendGoal(goalMsg);
+        _ac->waitForResult();
+        _ac->getState();
+        if(_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
+          ROS_INFO("Goal Reached");
+          break;
+        }
+        else {
+          ROS_ERROR("Goal failed, checking next goal");
+        }
+      }
+
       if (_as->isNewGoalAvailable()) {
         _result.state = "PREEMPTED";
         break;
       }
-      _goal_planner->waitForGoal();
       
       _result.state = "SUCCEEDED";
       _numExplorationIterations--;
       break;
     }
-
-    // GO TO TARGET ACTION
-    // if ("target" == goal_->goal.action || _targets.size() > 0) {
-    //   std::cerr << GREEN << "_targets.size(): " << _targets.size() << std::endl;
-    //   std::cerr << RESET;
-    //   _feedback.action = "target";
-    //   std::cerr << GREEN << "TARGET APPROACH" << std::endl;
-    //   std::cerr << RESET;
-    //   _targets.push_back(Vector2i(goal_->goal.target_pose.position.x,goal_->goal.target_pose.position.y));
-    //   if (!_paths_rollout->computeTargetSampledPlans(_targets, _map_frame)){
-    //     std::cout << GREEN << "NO TRAJECTORY TOWARD GOAL... CONTINUE EXPLORATION"<<std::endl;
-    //     std::cerr << RESET;
-    //     _as->setAborted();
-    //   } else {
-    //     PoseWithInfo target;
-    //     _paths_rollout->extractTargetPose(target);
-
-    //     std::cerr << GREEN << "Goal: " << target.pose.transpose() << std::endl;
-    //     std::cerr << RESET;
-
-    //     _goal_planner->publishGoal(target, _map_frame);
-    //     std::cerr << GREEN << "Approaching to the target" << std::endl;
-    //     std::cerr << RESET;
-    //     _goal_planner->waitForGoal();
-    //     std::cerr << GREEN << "Target apporached" << std::endl;
-    //     std::cerr << RESET;
-    //     _targets.clear();
-    //     _result.state = "SUCCEEDED";
-    //   }
-    //   break;
-    // }
-    // if ("wait" == goal_->goal.action) {
-    //   std::cerr << GREEN << "WAITING" << std::endl;
-    //   std::cerr << RESET;
-    //   _feedback.action = "wait";
-    //   // if (_as->isNewGoalAvailable()){
-    //   //   _as->acceptNewGoal();
-    //   // }
-    //   // _as->setSucceeded();
-    //   break;
-    // }
   }
 
   // Set final outcome
@@ -353,30 +323,8 @@ void ExplorerServer::init() {
   std::cerr << YELLOW << "FrontierDetector creation" << RESET << std::endl;
 
   _frontiers_detector = new FrontierDetector(_thresholdRegionSize, 4, _frontier_topic, _marker_topic, _map_frame, _base_frame);
-  _cost_map = _frontiers_detector->costMap();
-
-  _unknownCellsCloud = _frontiers_detector->getUnknownCloud();
-  _occupiedCellsCloud = _frontiers_detector->getOccupiedCloud();
 
   std::cerr << GREEN << "Created FrontierDetector" << RESET << std::endl;
-
-  std::cerr << YELLOW << "PathsRollout creation" << RESET << std::endl;
-
-  _paths_rollout = new PathsRollout(_cost_map, _ac, _projector, _laserOffset, _maxCentroidsNumber, _thresholdExploredArea, _nearCentroidsThreshold, _farCentroidsThreshold, 1, 8, _lambdaDecay, _map_frame, _base_frame);
-
-  _paths_rollout->setUnknownCellsCloud(_unknownCellsCloud);
-  _paths_rollout->setOccupiedCellsCloud(_occupiedCellsCloud);
-
-  std::cerr << GREEN << "Created PathsRollout" << RESET << std::endl;
-
-  std::cerr << YELLOW << "GoalPlanner creation" << RESET << std::endl;
-
-  _goal_planner = new GoalPlanner(_ac, _projector, _frontiers_detector, _cost_map, _laserOffset, _thresholdExploredArea, _map_frame, _base_frame, _laser_topic);
-
-  _goal_planner->setUnknownCellsCloud(_unknownCellsCloud);
-  _goal_planner->setOccupiedCellsCloud(_occupiedCellsCloud);
-
-  std::cerr << GREEN << "Created GoalPlanner" << RESET << std::endl;
 
   std::cerr << YELLOW << "Starting ExplorerServer" << RESET << std::endl;
 
@@ -387,6 +335,10 @@ void ExplorerServer::init() {
   _as->start();
 
   std::cerr << GREEN << "ExplorerServer is running" << RESET << std::endl;
+
+  std::cerr << RED << "Starting ROSPlanner" << RESET << std::endl;
+  
+  std::cerr << GREEN << "ROSPlanner is running" << RESET << std::endl;
 
   std::cerr << YELLOW << "Starting FrontiersServer/Client" << RESET << std::endl;
 

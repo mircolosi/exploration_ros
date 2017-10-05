@@ -81,12 +81,6 @@ private:
   const float _fov;
 
   Vector2iVector _centroids;
-  Vector2iVector _targets;
-  Vector2iVector _frontier_points;
-  Vector2fVector _aborted_goals;
-  regionVector _regions;
-  Vector2fVector* _unknownCellsCloud = nullptr;
-  Vector2fVector* _occupiedCellsCloud = nullptr;
 
   ros::NodeHandle& _nh;
   ros::NodeHandle _private_nh;
@@ -103,10 +97,6 @@ private:
   MoveBaseClient*       _ac = nullptr;
   FakeProjector*        _projector = nullptr;
   FrontierDetector*     _frontiers_detector = nullptr;
-  PathsRollout*         _paths_rollout = nullptr;
-  GoalPlanner*          _goal_planner = nullptr;
-
-  const MyMatrix<signed char>* _cost_map = nullptr;
 
 };
 
