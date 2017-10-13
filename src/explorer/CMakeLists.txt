@@ -10,19 +10,11 @@ add_dependencies(exploration_action_client
 
 add_executable(exploration_node explorer_server_node.cpp
   explorer_server.cpp
-  ../exploration/fake_projector.cpp
-  ../exploration/frontier_detector.cpp
-  ../exploration/goal_planner.cpp
-  ../exploration/paths_rollout.cpp)
+  ../modules/frontier_detector.cpp)
 
 target_link_libraries(exploration_node
   ${catkin_LIBRARIES}
 )
-IF(${visual_dbg})
-target_link_libraries(exploration_node
-  ${catkin_LIBRARIES}
-)
-ENDIF(${visual_dbg})
 
 add_dependencies(exploration_node
    exploration_ros_generate_messages_cpp

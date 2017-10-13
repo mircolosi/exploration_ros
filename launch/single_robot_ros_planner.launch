@@ -95,12 +95,6 @@
       <param name="idRobot"       value="0" />
       <param name="nRobots"       value="$(arg nrobots)" />
       <param name="regionSize"    value="15" /> 
-      <param name="exploredArea"  value="10" />
-      <param name="lambda"        value="1.25" /> 
-      <param name="mc"            value="0.5" /> 
-      <param name="Mc"            value="5.0" />
-      <param name="nc"            value="10" /> 
-      <param name="iter"          value="-1" /> 
     </node>  -->
 
   </group>

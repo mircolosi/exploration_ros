@@ -4,10 +4,6 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
                                                       _private_nh("~"),
                                                       _isActive(true),
                                                       _exploration_completed(false),
-                                                      _minRange(0.0),
-                                                      _maxRange(4.0),
-                                                      _numRanges(181),
-                                                      _fov(M_PI),
                                                       _ac(new MoveBaseClient("move_base", true)) {
 
   std::cerr << GREEN << "Creation ExplorerServer" << RESET << std::endl;
@@ -41,7 +37,6 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
 
 ExplorerServer::~ExplorerServer() {
   delete _frontiers_detector;
-  delete _projector;
   delete _ac;
   delete _as;
 }
@@ -51,16 +46,13 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
   std::cerr << GREEN << "EXECUTION CALLBACK" << std::endl;
   std::cerr << RESET;
 
-  _isActive = true; // can get false later
-
-  while (ros::ok() && (_numExplorationIterations != 0) && _isActive) {
+  while (ros::ok() && _isActive && !_exploration_completed) {
     //mc compute frontiers
     _frontiers_detector->computeFrontiers();
+    _frontiers_detector->getFrontiers(_centroids);
 
-    _frontiers_detector->publishFrontierPoints();
-    _frontiers_detector->publishCentroidMarkers();
+    _frontiers_detector->publishFrontiers();
 
-    _frontiers_detector->getFrontierCentroids(_centroids);
 
     std::cerr << YELLOW << "Possible GOALS: " << _centroids.size() << RESET << std::endl ;
 
@@ -86,47 +78,50 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
         break;
       }
 
-      for (const Vector2i& centroid: _centroids) {      
+      int processed_centroids = 0;
+      for (const Vector2i& centroid: _centroids) {  
         move_base_msgs::MoveBaseGoal goalMsg;
 
         goalMsg.target_pose.header.frame_id = _map_frame;
         goalMsg.target_pose.header.stamp = ros::Time::now();
 
-        float x = centroid.x()*_map_metadata.resolution + _map_metadata.origin.position.x;
-        float y = centroid.y()*_map_metadata.resolution + _map_metadata.origin.position.y;
+        float x = centroid.y()*_map_metadata.resolution + _map_metadata.origin.position.x;
+        float y = centroid.x()*_map_metadata.resolution + _map_metadata.origin.position.y;
 
         goalMsg.target_pose.pose.position.x = x;
-        goalMsg.target_pose.pose.position.y = y; 
+        goalMsg.target_pose.pose.position.y = y;
 
-        goalMsg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(0);
+        goalMsg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(-1.57);
 
         std::stringstream infoGoal;
 
         time_t _now = time(0);
         tm *ltm = localtime(&_now);
-        infoGoal << "[" << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec 
+        infoGoal << "[" << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec
         << "]Sending goal " << x << " " << y << " " << 0;
 
         std::cout << infoGoal.str() << std::endl;
+
         _ac->sendGoal(goalMsg);
         _ac->waitForResult();
-        _ac->getState();
+        std::cerr << "result: " << _ac->getResult() << std::endl;
+        std::cerr << "result: " << _ac->getState().getText() << std::endl;
         if(_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
+          // set the bin cell as unavailable
           ROS_INFO("Goal Reached");
+          _result.state = "SUCCEEDED";
           break;
-        }
-        else {
-          ROS_ERROR("Goal failed, checking next goal");
+        } else if (processed_centroids == _centroids.size()) {
+          ROS_ERROR("No plan possible, map fully explorated");
+          _result.state = "ABORTED";
+          _isActive = false;
+          break;
+        } else {
+          ROS_ERROR("Goal failed, checking for next goal");
+          ++processed_centroids;
+          _result.state = "NOT REACHED";
         }
       }
-
-      if (_as->isNewGoalAvailable()) {
-        _result.state = "PREEMPTED";
-        break;
-      }
-      
-      _result.state = "SUCCEEDED";
-      _numExplorationIterations--;
       break;
     }
   }
@@ -183,7 +178,7 @@ void ExplorerServer::requestFrontiers() {
   try {
     _listener->waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
     _listener->lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation);
-  } catch(tf::TransformException ex) {
+  } catch(tf::TransformException& ex) {
     std::cout << "[explorer_server] exception: " << ex.what() << std::endl;
   }
 
@@ -272,53 +267,9 @@ void ExplorerServer::setROSParams() {
   
   _private_nh.param("regionSize", _thresholdRegionSize, 15);
   std::cerr << "frontier_detector: [int] _thresholdRegionSize: " << _thresholdRegionSize << std::endl;
-
-  std::cerr << std::endl << YELLOW << "PathsRollout Parameters:" << RESET << std::endl;
-
-  _private_nh.param("exploredArea", _thresholdExploredArea, 10);
-  std::cerr << "paths_rollout: [int] _thresholdExploredArea: " << _thresholdExploredArea << std::endl;
-
-  _private_nh.param("lambda", _lambdaDecay, 1.25f);
-  std::cerr << "paths_rollout: [float] _lambdaDecay: " << _lambdaDecay << std::endl;
-
-  _private_nh.param("mc", _nearCentroidsThreshold, 0.5f);
-  std::cerr << "paths_rollout: [float] _nearCentroidsThreshold: " << _nearCentroidsThreshold << std::endl;
-
-  _private_nh.param("Mc", _farCentroidsThreshold, 5.0f);
-  std::cerr << "paths_rollout: [float] _farCentroidsThreshold: " << _farCentroidsThreshold << std::endl;
-
-  _private_nh.param("nc", _maxCentroidsNumber, 10);
-  std::cerr << "paths_rollout: [int] _maxCentroidsNumber: " << _maxCentroidsNumber << std::endl;
-
-  _private_nh.param("iter", _numExplorationIterations, -1);
-  std::cerr << "paths_rollout: [int] _numExplorationIterations: " << _numExplorationIterations << std::endl;
-
 }
 
 void ExplorerServer::init() {
-
-  std::cerr << YELLOW << "Retrieving base_to_laser transformation" <<  RESET << std::endl;
-
-  tf::StampedTransform tf_base_to_laser;
-  std::cerr << "_base_frame: " << _base_frame << std::endl;
-  std::cerr << "_laser_frame: " << _laser_frame << std::endl;
-
-  try {
-    _listener->waitForTransform(_base_frame, _laser_frame, ros::Time(0), ros::Duration(1.0));
-    _listener->lookupTransform(_base_frame, _laser_frame, ros::Time(0), tf_base_to_laser);
-    _laserOffset  = Vector2f(tf_base_to_laser.getOrigin().x(), tf_base_to_laser.getOrigin().y()); 
-  } catch (...) {
-    _laserOffset = Vector2f(0.05, 0.0);
-    std::cout << YELLOW << "Catch exception: " << _laser_frame << " not exists. Using default values." << RESET << std::endl;
-  }
-
-  std::cerr << GREEN << "Base2laser transformation: " << _laserOffset.transpose() << RESET << std::endl;
-
-  std::cerr << YELLOW << "FakeProjector creation" << RESET << std::endl;
-
-  _projector = new FakeProjector(_maxRange, _minRange, _fov, _numRanges);
-
-  std::cerr << GREEN << "Created FakeProjector" << RESET << std::endl;
 
   std::cerr << YELLOW << "FrontierDetector creation" << RESET << std::endl;
 

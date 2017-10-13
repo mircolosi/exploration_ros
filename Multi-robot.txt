@@ -1,5 +1,0 @@
-In order to create use a multi-robot environment, you need to keep in mind the following things:
-
-- You must change the robot name in 
-	1) "maps/[world_file].world"
-	2) rviz configuartion folder and files: config/[robot_name]/rviz/diago.rviz

@@ -1,16 +1,15 @@
-#include <unistd.h>
+#include <iostream>
+#include <string>
 
 #include "ros/ros.h"
 #include "geometry_msgs/Pose2D.h"
 #include "tf/transform_listener.h"
-#include "exploration/goal_planner.h"
-#include "exploration/paths_rollout.h"
+#include "modules/frontier_detector.h"
 #include <exploration_ros/ExplorerAction.h>
 #include <exploration_ros/FrontierTrade.h>
 #include <actionlib/server/simple_action_server.h>
-#include <stdexcept>
-
-#include <sys/time.h>
+#include <actionlib/client/simple_action_client.h>
+#include <move_base_msgs/MoveBaseAction.h>
 
 using namespace srrg_core;
 using namespace Eigen;
@@ -26,6 +25,7 @@ using namespace Eigen;
 #endif 
 
 typedef actionlib::SimpleActionServer<exploration_ros::ExplorerAction> ExplorerActionServer;
+typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 class ExplorerServer {
 public:
@@ -62,23 +62,10 @@ private:
 
   std::string _action;
 
-  bool _isActive;
+  bool _isActive = true;
   bool _exploration_completed;
 
   int _thresholdRegionSize;
-  int _thresholdExploredArea;
-  float _lambdaDecay;
-  int _maxCentroidsNumber;
-  float _farCentroidsThreshold;
-  float _nearCentroidsThreshold;
-  int _numExplorationIterations;
-
-  //Laserscan FAKE projection parameters
-  Vector2f _laserOffset;
-  const float _minRange;
-  const float _maxRange;
-  const int _numRanges;
-  const float _fov;
 
   Vector2iVector _centroids;
 
@@ -92,11 +79,11 @@ private:
   std::vector<ros::ServiceClient> _frontiers_service_clients;
 
   nav_msgs::MapMetaData _map_metadata;
+  Vector3f _map_origin;
+  float _resolution;
 
   ExplorerActionServer* _as = nullptr; // NodeHandle instance must be created before this line. Otherwise strange error occurs.
   MoveBaseClient*       _ac = nullptr;
-  FakeProjector*        _projector = nullptr;
   FrontierDetector*     _frontiers_detector = nullptr;
-
 };
 

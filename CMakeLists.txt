@@ -13,8 +13,9 @@ find_package(catkin REQUIRED COMPONENTS
    message_generation
    tf
    srrg_core
-   cg_mrslam
+   srrg_core_ros
    srrg_scan_matcher
+   cg_mrslam
    move_base
    actionlib_msgs
    actionlib
