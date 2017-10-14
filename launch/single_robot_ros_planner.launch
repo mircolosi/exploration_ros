@@ -84,7 +84,7 @@
       <param name="action" value="$(arg action)" />
     </node> 
 
-<!--     <node pkg="exploration_ros" name="explorer_server" type="exploration_node" output="screen" respawn="false">  
+    <node pkg="exploration_ros" name="explorer_server" type="exploration_node" output="screen" respawn="false">  
       <param name="action"        value="$(arg action)" />
       <param name="mapFrame"      value="/$(arg robotname1)/map" /> 
       <param name="baseFrame"     value="/$(arg robotname1)/$(arg base_frame)" />  
@@ -95,7 +95,7 @@
       <param name="idRobot"       value="0" />
       <param name="nRobots"       value="$(arg nrobots)" />
       <param name="regionSize"    value="15" /> 
-    </node>  -->
+    </node> 
 
   </group>
 

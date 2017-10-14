@@ -86,8 +86,8 @@ protected:
 
   MyMatrix<signed char> _occupancy_map;
 
-  const int _minNeighborsThreshold;
-  const int _sizeThreshold;
+  const int _min_neighbors_threshold;
+  const int _size_threshold;
 
   nav_msgs::MapMetaData _map_metadata;
 
@@ -110,6 +110,7 @@ protected:
 
   tf::TransformListener _listener;
   tf::StampedTransform _map_to_base_transformation_origin;
+  Vector3f _map_origin;
   const int _bin_size = 40;
   QuadMatrix _bin_map;
 };

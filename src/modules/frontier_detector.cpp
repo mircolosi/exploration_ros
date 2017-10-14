@@ -1,7 +1,6 @@
 #include "frontier_detector.h"
-
-
 #include "srrg_ros_wrappers/ros_utils.h"
+#include <Eigen/Core>
 
 using namespace sensor_msgs;
 using namespace cv;
@@ -23,9 +22,11 @@ void FrontierDetector::mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr
 void FrontierDetector::occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg) {
   if (msg != nullptr) {
     int idx = 0;
-    _occupancy_map.resize(msg->info.height, msg->info.width);
-    for(int r = 0; r < msg->info.height; r++) {
-      for(int c = 0; c < msg->info.width; c++) {
+    const int height = msg->info.height;
+    const int width = msg->info.width;
+    _occupancy_map.resize(height, width);
+    for(int r = 0; r < height; r++) {
+      for(int c = 0; c < width; c++) {
         _occupancy_map(r,c) = msg->data[idx];
         ++idx;
       }
@@ -55,8 +56,8 @@ FrontierDetector::FrontierDetector( int thresholdSize,
                                     const std::string& marker_topic_,
                                     const std::string& map_frame_,
                                     const std::string& base_frame_,
-                                    const std::string& map_metadata_topic_) : _sizeThreshold(thresholdSize),
-                                                                          _minNeighborsThreshold(minNeighborsThreshold),
+                                    const std::string& map_metadata_topic_) : _size_threshold(thresholdSize),
+                                                                          _min_neighbors_threshold(minNeighborsThreshold),
                                                                           _frontier_topic(frontier_topic_),
                                                                           _marker_topic(marker_topic_),
                                                                           _map_frame(map_frame_),
@@ -64,14 +65,14 @@ FrontierDetector::FrontierDetector( int thresholdSize,
                                                                           _map_metadata_topic(map_metadata_topic_),
                                                                           _bin_map(_bin_size) {
 
-  _frontiers_publisher = _nh.advertise<visualization_msgs::MarkerArray>( _marker_topic,1);
+  _frontiers_publisher = _nh.advertise<visualization_msgs::MarkerArray>(_marker_topic, 1);
 
   const std::string node_namespace = ros::this_node::getNamespace();
 
-  _occupancy_map_subscriber =  _nh.subscribe<nav_msgs::OccupancyGrid>(_map_frame,1, &FrontierDetector::occupancyMapCallback, this);
+  _occupancy_map_subscriber =  _nh.subscribe<nav_msgs::OccupancyGrid>(_map_frame, 1, &FrontierDetector::occupancyMapCallback, this);
   _occupancy_map_update_subscriber = _nh.subscribe<map_msgs::OccupancyGridUpdate>(node_namespace+"/map_updates", 2, &FrontierDetector::occupancyMapUpdateCallback, this);
 
-  if (_map_metadata_topic != ""){
+  if (_map_metadata_topic != "") {
     _map_metadata_subscriber = _nh.subscribe<nav_msgs::MapMetaData>(_map_metadata_topic, 1, &FrontierDetector::mapMetaDataCallback, this);
     std::cerr << "_map_metadata_topic: " << _map_metadata_topic << std::endl;
     boost::shared_ptr<const nav_msgs::MapMetaData> map_metadata = ros::topic::waitForMessage<nav_msgs::MapMetaData>(_map_metadata_topic,ros::Duration(5.0));
@@ -86,6 +87,7 @@ FrontierDetector::FrontierDetector( int thresholdSize,
   try {
     _listener.waitForTransform(_map_frame, _base_frame, ros::Time(0), ros::Duration(5.0));
     _listener.lookupTransform(_map_frame, _base_frame, ros::Time(0), _map_to_base_transformation_origin);
+    _map_origin = srrg_core_ros::convertPose2D(_map_to_base_transformation_origin);
   } catch(tf::TransformException& ex) {
     std::cout << "[frontier_detector] exception: " << ex.what() << std::endl;
   }
@@ -115,17 +117,14 @@ void FrontierDetector::computeFrontierPoints() {
           continue;
         }
 
-        for (int i = 0; i < neighbors.size(); i++){
+        for (const Vector2i& neighbor: neighbors){
           Vector2iVector neighborsOfNeighbor;
-          getColoredNeighbors(neighbors[i], CellColor::UNKNOWN, neighborsOfNeighbor);
-          if (neighborsOfNeighbor.size() >= _minNeighborsThreshold) { //If the neighbor unknown cell is not sourrounded by free cells -> I have a frontier
+          getColoredNeighbors(neighbor, CellColor::UNKNOWN, neighborsOfNeighbor);
+          if (neighborsOfNeighbor.size() >= _min_neighbors_threshold) { //If the neighbor unknown cell is not surrounded by free cells -> I have a frontier
             _frontiers.push_back(coord);
             break;
           }
         }
-      } else if (_occupancy_map(r,c) == CellColor::OCCUPIED) {
-        float x = c*_map_metadata.resolution + _map_metadata.origin.position.x;
-        float y = r*_map_metadata.resolution + _map_metadata.origin.position.y;
       }
     }
   }
@@ -147,7 +146,8 @@ void FrontierDetector::computeFrontierRegions(){
       examined.push_back(f);
 
       for (int k = 0; k < tempRegion.size(); k ++){
-        Vector2iVector neighbor;
+        //mc get 8-neighbors
+//        Vector2iVector neighbor;
 
         for (int r = -1; r <= 1; ++r) {
           for (int c = -1; c <= 1; ++c) {
@@ -160,63 +160,61 @@ void FrontierDetector::computeFrontierRegions(){
             if (rr < 0 || rr >= _occupancy_map.rows || cc < 0 || cc >= _occupancy_map.cols) {
               continue;
             }
-            neighbor.push_back(Vector2i(rr, cc));
+
+//            neighbor.push_back(Vector2i(rr, cc));
+            Vector2i n(rr, cc);
+            if (contains(_frontiers, n) && !contains(examined, n)) {
+              examined.push_back(n);
+              tempRegion.push_back(n);
+            }
           }
         }
 
-        for (const Vector2i& n : neighbor) {
-          if (contains(_frontiers, n) && !contains(examined, n)) {
-            examined.push_back(n);
-            tempRegion.push_back(n);
-          }
-        }
+//        for (const Vector2i& n : neighbor) {
+//          if (contains(_frontiers, n) && !contains(examined, n)) {
+//            examined.push_back(n);
+//            tempRegion.push_back(n);
+//          }
+//        }
       }
 
-      if (tempRegion.size() >= _sizeThreshold){
+      if (tempRegion.size() >= _size_threshold){
         _regions.push_back(tempRegion);
-
-        for (int l = 0; l < tempRegion.size(); ++l){
-          Vector2iVector neighbors;
-          getColoredNeighbors(tempRegion[l], CellColor::UNKNOWN, neighbors);
-          for (const Vector2i& m : neighbors) {
-            float x = m[1]*_map_metadata.resolution + _map_metadata.origin.position.x;
-            float y = m[0]*_map_metadata.resolution + _map_metadata.origin.position.y;
-          }
-        }
       }
+
     }
   }
 }
 
-void FrontierDetector::computeFrontierCentroids(){
+void FrontierDetector::computeFrontierCentroids() {
 
   _centroids.clear();
 
-  for (int i = 0; i < _regions.size(); i++){
-    int accX = 0;
-    int accY = 0;
+  for (int i = 0; i < _regions.size(); ++i) {
+    Vector2i mean(0,0);
 
-    for (int j = 0; j <_regions[i].size(); j++){
-      accX += _regions[i][j].x();
-      accY += _regions[i][j].y();
+    for (int j = 0; j <_regions[i].size(); ++j) {
+      mean += _regions[i][j];
     }
 
-    int meanX = round(accX/_regions[i].size());
-    int meanY = round(accY/_regions[i].size());
+    mean /= _regions[i].size();
 
-    _centroids.push_back(Vector2i(meanX, meanY));
+    _centroids.push_back(mean);
 
   }
 
   //Make all the centroids reachable
-  for (int i = 0; i < _centroids.size(); i++) {
-    int centroid_row = _centroids[i].y();
-    int centroid_col = _centroids[i].x();
+  for (int i = 0; i < _centroids.size(); ++i) {
+    const int& centroid_row = _centroids[i].y();
+    const int& centroid_col = _centroids[i].x();
 
-    if (_occupancy_map(centroid_row, centroid_col) >= CellColor::OCCUPIED) {  //If the centroid is in a non-free cell
+    const signed char& centroid_cell = _occupancy_map(centroid_row, centroid_col);
+
+    if (centroid_cell == CellColor::OCCUPIED || centroid_cell == CellColor::UNKNOWN) {  //If the centroid is in a non-free cell
       float distance = std::numeric_limits<float>::max();
       Vector2i closestPoint;
 
+//      fix this -> centroid must lay on a free cell.
       for (int j = 0; j < _regions[i].size(); j++) {
 
         int dx = _centroids[i].x() - _regions[i][j].x();
