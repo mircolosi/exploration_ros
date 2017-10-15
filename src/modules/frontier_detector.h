@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdlib.h> 
 #include <algorithm>
+#include <list>
 
 #include "ros/ros.h"
 #include "tf/transform_listener.h"
@@ -25,6 +26,7 @@ enum CellColor {
 };
 
 typedef std::vector<Vector2iVector, Eigen::aligned_allocator<Vector2iVector> > regionVector;
+typedef std::list<Vector2i, Eigen::aligned_allocator<Vector2i> > Vector2iList;
 
 struct coordWithScore {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -62,8 +64,8 @@ public:
 
   void publishFrontiers();
 
-  inline void rankNewFrontierCentroids(const Vector2iVector& new_centroids) {
-    rankFrontierCentroids(new_centroids);
+  inline void rankNewFrontierCentroids(const Vector2iVector& new_centroids_) {
+    rankFrontierCentroids(new_centroids_);
   }
 
 protected:
@@ -71,11 +73,12 @@ protected:
   void computeFrontierRegions();
   void computeFrontierCentroids();
   void binFrontierCentroids();
-  void rankFrontierCentroids(const Vector2iVector& new_centroids =
-      Vector2iVector(0));
+  void rankFrontierCentroids(const Vector2iVector& new_centroids = Vector2iVector(0));
 
-  void getColoredNeighbors(Vector2i coord, signed char color,
-      Vector2iVector& neighbors);
+  void getColoredNeighbors(Vector2i coord, signed char color, Vector2iVector& neighbors);
+
+  void recurRegion(const Vector2iList::iterator& frontier_, Vector2iVector& region_, Vector2iList& frontiers_);
+
 
   template<class V, class E> inline bool contains(V vector, E element) {
     if (std::find(vector.begin(), vector.end(), element) != vector.end())

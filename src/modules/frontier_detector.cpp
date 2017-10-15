@@ -93,11 +93,16 @@ FrontierDetector::FrontierDetector( int thresholdSize,
   }
 }
 
-void FrontierDetector::computeFrontiers(){
+void FrontierDetector::computeFrontiers() {
+  std::cerr << "computeFrontierPoints" << std::endl;
   computeFrontierPoints();
+  std::cerr << "computeFrontierRegions" << std::endl;
   computeFrontierRegions();
+  std::cerr << "computeFrontierCentroids" << std::endl;
   computeFrontierCentroids();
+  std::cerr << "binFrontierCentroids" << std::endl;
   binFrontierCentroids();
+  std::cerr << "rankFrontierCentroids" << std::endl;
   rankFrontierCentroids();
 }
 
@@ -130,108 +135,131 @@ void FrontierDetector::computeFrontierPoints() {
   }
 }
 
+void FrontierDetector::recurRegion(const Vector2iList::iterator& frontier_it_, Vector2iVector& region_, Vector2iList& frontiers_) {
+  Vector2i frontier = *frontier_it_;
+  region_.push_back(frontier);
+  frontiers_.erase(frontier_it_);
+  for (int r = -1; r <= 1; ++r) {
+    for (int c = -1; c <= 1; ++c) {
+      if (r == 0 && c == 0) {
+        continue;
+      }
+      int rr = frontier.x()+r;
+      int cc = frontier.y()+c;
 
-void FrontierDetector::computeFrontierRegions(){
-
-  _regions.clear();
-
-  Vector2iVector examined;
-
-  for (const Vector2i& f: _frontiers){
-
-    if (!contains(examined, f)){ //I proceed only if the current coord has not been already considered
-
-      Vector2iVector tempRegion;
-      tempRegion.push_back(f);
-      examined.push_back(f);
-
-      for (int k = 0; k < tempRegion.size(); k ++){
-        //mc get 8-neighbors
-//        Vector2iVector neighbor;
-
-        for (int r = -1; r <= 1; ++r) {
-          for (int c = -1; c <= 1; ++c) {
-            if (r == 0 && c == 0) {
-              continue;
-            }
-            int rr = tempRegion[k][0]+r;
-            int cc = tempRegion[k][1]+c;
-
-            if (rr < 0 || rr >= _occupancy_map.rows || cc < 0 || cc >= _occupancy_map.cols) {
-              continue;
-            }
-
-//            neighbor.push_back(Vector2i(rr, cc));
-            Vector2i n(rr, cc);
-            if (contains(_frontiers, n) && !contains(examined, n)) {
-              examined.push_back(n);
-              tempRegion.push_back(n);
-            }
-          }
-        }
-
-//        for (const Vector2i& n : neighbor) {
-//          if (contains(_frontiers, n) && !contains(examined, n)) {
-//            examined.push_back(n);
-//            tempRegion.push_back(n);
-//          }
-//        }
+      if (rr < 0 || rr >= _occupancy_map.rows || cc < 0 || cc >= _occupancy_map.cols) {
+        continue;
       }
 
-      if (tempRegion.size() >= _size_threshold){
-        _regions.push_back(tempRegion);
+      Vector2i n(rr, cc);
+      Vector2iList::iterator it = std::find(frontiers_.begin(), frontiers_.end(), n);
+      if (it != frontiers_.end()) {
+        recurRegion(it, region_, frontiers_);
       }
-
     }
   }
 }
+
+void FrontierDetector::computeFrontierRegions() {
+  _regions.clear();
+
+  Vector2iList frontiers(_frontiers.begin(), _frontiers.end());
+
+  Vector2iList::iterator it;
+  for (it = frontiers.begin(); it != frontiers.end(); ++it) {
+    Vector2iVector region;
+    recurRegion(it, region, frontiers);
+    _regions.push_back(region);
+    it = frontiers.begin();
+  }
+}
+
+//void FrontierDetector::computeFrontierRegions(){
+//
+//  _regions.clear();
+//
+//  Vector2iVector examined;
+//
+//  for (const Vector2i& f: _frontiers){
+//
+//    if (!contains(examined, f)){ //I proceed only if the current coord has not been already considered
+//
+//      Vector2iVector tempRegion;
+//      tempRegion.push_back(f);
+//      examined.push_back(f);
+//
+//      for (int k = 0; k < tempRegion.size(); k ++){
+//        //mc get 8-neighbors
+//        for (int r = -1; r <= 1; ++r) {
+//          for (int c = -1; c <= 1; ++c) {
+//            if (r == 0 && c == 0) {
+//              continue;
+//            }
+//            int rr = tempRegion[k][0]+r;
+//            int cc = tempRegion[k][1]+c;
+//
+//            if (rr < 0 || rr >= _occupancy_map.rows || cc < 0 || cc >= _occupancy_map.cols) {
+//              continue;
+//            }
+//
+//            Vector2i n(rr, cc);
+//            if (contains(_frontiers, n) && !contains(examined, n)) {
+//              examined.push_back(n);
+//              tempRegion.push_back(n);
+//            }
+//          }
+//        }
+//      }
+//
+//      if (tempRegion.size() >= _size_threshold){
+//        _regions.push_back(tempRegion);
+//      }
+//
+//    }
+//  }
+//}
 
 void FrontierDetector::computeFrontierCentroids() {
 
   _centroids.clear();
 
   for (int i = 0; i < _regions.size(); ++i) {
-    Vector2i mean(0,0);
+    Vector2i centroid(0,0);
 
     for (int j = 0; j <_regions[i].size(); ++j) {
-      mean += _regions[i][j];
+      centroid += _regions[i][j];
     }
 
-    mean /= _regions[i].size();
+    centroid /= _regions[i].size();
 
-    _centroids.push_back(mean);
+    _centroids.push_back(centroid);
 
   }
 
   //Make all the centroids reachable
-  for (int i = 0; i < _centroids.size(); ++i) {
-    const int& centroid_row = _centroids[i].y();
-    const int& centroid_col = _centroids[i].x();
-
-    const signed char& centroid_cell = _occupancy_map(centroid_row, centroid_col);
-
-    if (centroid_cell == CellColor::OCCUPIED || centroid_cell == CellColor::UNKNOWN) {  //If the centroid is in a non-free cell
-      float distance = std::numeric_limits<float>::max();
-      Vector2i closestPoint;
-
-//      fix this -> centroid must lay on a free cell.
-      for (int j = 0; j < _regions[i].size(); j++) {
-
-        int dx = _centroids[i].x() - _regions[i][j].x();
-        int dy = _centroids[i].y() - _regions[i][j].y();
-
-        float dist = sqrt(dx*dx + dy*dy);
-
-        if (dist < distance){
-          distance = dist;
-          closestPoint = _regions[i][j];
-        }
-      }
-
-      _centroids[i] = closestPoint;
-
-    }
-  }
+//  for (int i = 0; i < _centroids.size(); ++i) {
+//
+//    const signed char& centroid_cell = _occupancy_map(_centroids[i].y(), _centroids[i].x());
+//
+//    if (centroid_cell == CellColor::OCCUPIED || centroid_cell == CellColor::UNKNOWN) {  //If the centroid is in a non-free cell
+//      float distance = std::numeric_limits<float>::max();
+//      Vector2i closestPoint;
+//
+////      fix this -> centroid must lay on a free cell.
+//      for (int j = 0; j < _regions[i].size(); j++) {
+//
+//        float dist = (_centroids[i] - _regions[i][j]).norm();
+//
+//        if (dist < distance){
+//          distance = dist;
+//          closestPoint = _regions[i][j];
+//        }
+//      }
+//
+//      _centroids[i] = closestPoint;
+//
+//    }
+//  }
 }
 
 void FrontierDetector::binFrontierCentroids() {
@@ -277,7 +305,7 @@ void FrontierDetector::binFrontierCentroids() {
   #endif
 
   _binned_centroids.clear();
-
+  int i = 0;
   for (Vector2i& centroid: _centroids) {
     const int& centroid_x = centroid.y();
     const int& centroid_y = centroid.x();
@@ -286,6 +314,50 @@ void FrontierDetector::binFrontierCentroids() {
       #ifdef VISUAL_DBG
         cv::circle(occupancy_map, cv::Point(centroid.y(), centroid.x()), 3, cv::Scalar(0,0,255), -1);
       #endif
+
+      const signed char& centroid_cell = _occupancy_map(centroid.x(), centroid.y());
+      Vector2i closest_point = centroid;
+
+      if (centroid_cell == CellColor::OCCUPIED || centroid_cell == CellColor::UNKNOWN) {  //If the centroid is in a non-free cell
+        float min_dist = std::numeric_limits<float>::max();
+        for (int j = 0; j < _regions[i].size(); j++) {
+          const float dist = (centroid - _regions[i][j]).norm();
+
+          if (dist < min_dist){
+            min_dist = dist;
+            closest_point = _regions[i][j];
+          }
+        }
+      }
+
+      centroid = closest_point;
+      ++i;
+
+      const int occupied_threshold = 2;
+      bool unusable_centroid = false;
+      // if the centroid is too close to an obstacle
+      for (int r = -occupied_threshold; r <= occupied_threshold; ++r) {
+        for (int c = -occupied_threshold; c <= occupied_threshold; ++c) {
+          if (r == 0 && c == 0) {
+            continue;
+          }
+          int rr = centroid.x()+r;
+          int cc = centroid.y()+c;
+
+          if (rr < 0 || rr >= _occupancy_map.rows || cc < 0 || cc >= _occupancy_map.cols) {
+            continue;
+          }
+
+          if (_occupancy_map(rr, cc) == CellColor::OCCUPIED) {
+            unusable_centroid = true;
+            break;
+          }
+        }
+      }
+
+      if (unusable_centroid) {
+        continue;
+      }
       _binned_centroids.push_back(centroid);
     }
 

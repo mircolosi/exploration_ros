@@ -53,7 +53,6 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
 
     _frontiers_detector->publishFrontiers();
 
-
     std::cerr << YELLOW << "Possible GOALS: " << _centroids.size() << RESET << std::endl ;
 
     //mc the map is fully explored
@@ -112,7 +111,7 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
           _result.state = "SUCCEEDED";
           break;
         } else if (processed_centroids == _centroids.size()) {
-          ROS_ERROR("No plan possible, map fully explorated");
+          ROS_ERROR("No plan possible, map fully explored");
           _result.state = "ABORTED";
           _isActive = false;
           break;
