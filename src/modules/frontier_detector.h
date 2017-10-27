@@ -2,6 +2,7 @@
 #include <stdlib.h> 
 #include <algorithm>
 #include <list>
+#include <unordered_map>
 
 #include "ros/ros.h"
 #include "tf/transform_listener.h"
@@ -17,6 +18,7 @@
 #include "sensor_msgs/PointCloud2.h"
 #include "sensor_msgs/point_cloud2_iterator.h"
 #include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/MarkerArray.h>
 
 using namespace Eigen;
 using namespace srrg_core;
@@ -27,6 +29,18 @@ enum CellColor {
 
 typedef std::vector<Vector2iVector, Eigen::aligned_allocator<Vector2iVector> > regionVector;
 typedef std::list<Vector2i, Eigen::aligned_allocator<Vector2i> > Vector2iList;
+typedef signed char Color;
+
+struct RegionElement {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  RegionElement(): coords(Vector2i(-1, -1)), parent(nullptr) {}
+
+  Vector2i coords;
+  RegionElement* parent;
+};
+typedef std::vector<RegionElement, Eigen::aligned_allocator<RegionElement> > RegionElementsVector;
+typedef std::pair<RegionElement*, Vector2iVector> RegionElementPair;
+typedef std::unordered_map<RegionElement*, Vector2iVector > RegionElementsMap;
 
 struct coordWithScore {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -47,9 +61,10 @@ public:
   void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-  FrontierDetector(int thresholdSize = 30, int minNeighborsThreshold = 4,
-      const std::string& namePoints = "points", const std::string& nameMarkers =
-          "markers", const std::string& nameMap = "map",
+  FrontierDetector(int thresholdSize = 30,
+      const std::string& namePoints = "points",
+      const std::string& nameMarkers = "markers",
+      const std::string& nameMap = "map",
       const std::string& baseFrame = "base_link",
       const std::string& nameMapMetadata = "");
 
@@ -63,6 +78,7 @@ public:
   void getMapMetaData(nav_msgs::MapMetaData& mapMetaData_);
 
   void publishFrontiers();
+  void publishRegions();
 
   inline void rankNewFrontierCentroids(const Vector2iVector& new_centroids_) {
     rankFrontierCentroids(new_centroids_);
@@ -75,19 +91,12 @@ protected:
   void binFrontierCentroids();
   void rankFrontierCentroids(const Vector2iVector& new_centroids = Vector2iVector(0));
 
-  void getColoredNeighbors(Vector2i coord, signed char color, Vector2iVector& neighbors);
+  void getColoredNeighbors(const MyMatrix<Color>& map_, const Vector2i& coord_, const Color& color_, Vector2iVector& neighbors_);
 
   void recurRegion(const Vector2iList::iterator& frontier_, Vector2iVector& region_, Vector2iList& frontiers_);
 
-
-  template<class V, class E> inline bool contains(V vector, E element) {
-    if (std::find(vector.begin(), vector.end(), element) != vector.end())
-      return true;
-    else
-      return false;
-  }
-
-  MyMatrix<signed char> _occupancy_map;
+  MyMatrix<Color> _occupancy_map;
+  MyMatrix<Color> _frontier_mask;
 
   const int _min_neighbors_threshold;
   const int _size_threshold;
@@ -107,6 +116,8 @@ protected:
 
   ros::NodeHandle _nh;
   ros::Publisher _frontiers_publisher;
+  ros::Publisher _region_publisher;
+
   ros::Subscriber _occupancy_map_subscriber;
   ros::Subscriber _occupancy_map_update_subscriber;
   ros::Subscriber _map_metadata_subscriber;

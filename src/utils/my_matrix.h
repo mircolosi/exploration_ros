@@ -24,6 +24,14 @@ struct MyMatrix {
     raw.resize(rows*cols, val_);
   }
 
+  void clear() {
+    const int tmp_rows = rows;
+    const int tmp_cols = cols;
+
+    resize(0, 0, 0);
+    resize(tmp_rows, tmp_cols, 0);
+  }
+
   T& operator()(const int& r_, const int& c_) {
     return raw[r_*cols+c_];
   }

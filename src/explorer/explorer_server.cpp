@@ -17,17 +17,18 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
   _marker_topic = "markers";
   _action = "exploration";
 
+  _ns = ros::this_node::getNamespace();
+  std::string delimiter = "_";
+  _rootns = _ns.substr(0, _ns.find(delimiter));
+  std::cerr << YELLOW << "Namespace: " << _ns << std::endl;
+
+  setROSParams();
+
   std::cerr << YELLOW << "    Waiting for the move_base action server to come up" << RESET << std::endl;
   if(!_ac->waitForServer(ros::Duration(30.0))){
     throw std::runtime_error ("No move_base server has been found. Aborting.");
   }
   std::cerr << GREEN << "    Move_base action server is ready" << RESET << std::endl;
-
-  setROSParams();
-
-  _ns = ros::this_node::getNamespace();
-  std::string delimiter = "_";
-  _rootns = _ns.substr(0, _ns.find(delimiter));
 
   init();
 
@@ -52,11 +53,11 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
     _frontiers_detector->getFrontiers(_centroids);
 
     _frontiers_detector->publishFrontiers();
-
+    _frontiers_detector->publishRegions();
     std::cerr << YELLOW << "Possible GOALS: " << _centroids.size() << RESET << std::endl ;
 
     //mc the map is fully explored
-    if (_centroids.size() == 0 ) { 
+    if (_centroids.size() == 0) {
       std::cout << GREEN << "MAP FULLY EXPLORED" << RESET << std::endl;
       _exploration_completed = true;
       break;
@@ -90,7 +91,7 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
         goalMsg.target_pose.pose.position.x = x;
         goalMsg.target_pose.pose.position.y = y;
 
-        goalMsg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(-1.57);
+        goalMsg.target_pose.pose.orientation = tf::createQuaternionMsgFromYaw(0);
 
         std::stringstream infoGoal;
 
@@ -103,14 +104,12 @@ void ExplorerServer::executeCB(const exploration_ros::ExplorerGoalConstPtr &goal
 
         _ac->sendGoal(goalMsg);
         _ac->waitForResult();
-        std::cerr << "result: " << _ac->getResult() << std::endl;
-        std::cerr << "result: " << _ac->getState().getText() << std::endl;
         if(_ac->getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
           // set the bin cell as unavailable
           ROS_INFO("Goal Reached");
           _result.state = "SUCCEEDED";
           break;
-        } else if (processed_centroids == _centroids.size()) {
+        } else if (processed_centroids == _centroids.size() - 1) {
           ROS_ERROR("No plan possible, map fully explored");
           _result.state = "ABORTED";
           _isActive = false;
@@ -272,7 +271,7 @@ void ExplorerServer::init() {
 
   std::cerr << YELLOW << "FrontierDetector creation" << RESET << std::endl;
 
-  _frontiers_detector = new FrontierDetector(_thresholdRegionSize, 4, _frontier_topic, _marker_topic, _map_frame, _base_frame);
+  _frontiers_detector = new FrontierDetector(_thresholdRegionSize, _frontier_topic, _marker_topic, _map_frame, _base_frame);
 
   std::cerr << GREEN << "Created FrontierDetector" << RESET << std::endl;
 
