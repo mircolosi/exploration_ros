@@ -13,9 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
    message_generation
    tf
    srrg_core
-   cg_mrslam
-   srrg_scan_matcher
-   move_base
+   srrg_core_ros
    actionlib_msgs
    actionlib
 )
@@ -92,7 +90,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES exploration_ros
-   CATKIN_DEPENDS message_runtime cg_mrslam
+   CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
 

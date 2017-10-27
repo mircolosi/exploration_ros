@@ -15,12 +15,6 @@ Requirements:
 		$ git clone https://gitlab.com/srrg-software/srrg_cmake_modules.git
 		$ git clone https://gitlab.com/srrg-software/srrg_core.git
 
-	After cloning these repos, we need to link them in our workspace and compile everything before continuing. 
-
-- The **srrg_scan_matcher** package
-
-		$ git clone https://gitlab.com/srrg-software/srrg_scan_matcher.git 
-
 - [ROS indigo.](http://wiki.ros.org/indigo/Installation) or [ROS Kinetic.](http://wiki.ros.org/kinetic/Installation)
 
 - The **ROS Navigation stack** 
@@ -29,13 +23,13 @@ Requirements:
 
 
 #### Optional Requirements
-The following requirements are needed only if you want to run the **mapper_node** or the **slam_node**  included in the package. 
+In order to run the launch files we needs also:
 
-- This code uses the **g2o** framework for graph optimization  
+- **g2o**
   
         $ git clone https://github.com/RainerKuemmerle/g2o.git
-
-  - Set up the following **g2o** environment variables in your ~/.bashrc:  
+	
+	- Set up the following **g2o** environment variables in your ~/.bashrc:  
 
             #set up G2O
             export G2O_ROOT=path_to_your_g2o_installation  
@@ -44,10 +38,9 @@ The following requirements are needed only if you want to run the **mapper_node*
             export LD_LIBRARY_PATH=${G2O_LIB}:${LD_LIBRARY_PATH}  
             export PATH=${G2O_BIN}:${PATH}  
 
-- This code uses **cg_mrslam** developed by M.T. Lazaro for implementing SLAM techniques 
+- **cg_mrslam** developed by M.T. Lazaro for implementing SLAM techniques 
 
         $ git clone https://github.com/mtlazaro/cg_mrslam.git
-
 
 
 - To run the simulation example it's necessary **ROS Stage**
@@ -75,8 +68,8 @@ Instructions
 - **exploration_action_client:**
  This is the action client which send to the action server an Action message in order to make it perform the desired action (exploration).
 
-- **exploration_action_node:**
- This is the action server which 
+- **exploration_node:**
+ This is the action server  
 
 For the passing parameters give a look to the launch files (e.g. [singlerobot_exploration](https://github.com/mircolosi/exploration_ros/blob/single_robot/launch/singlerobot_exploration.launch))
 
