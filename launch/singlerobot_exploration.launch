@@ -66,19 +66,11 @@
       <param name="action"        value="$(arg action)" />
       <param name="mapFrame"      value="/$(arg robotname1)/map" /> 
       <param name="baseFrame"     value="/$(arg robotname1)/$(arg base_frame)" />  
-      <param name="laserFrame"    value="/$(arg robotname1)/$(arg laser_frame)" />
-      <param name="scanTopic"     value="/$(arg robotname1)/$(arg laser_topic)" /> 
-      <param name="pointsTopic"   value="/$(arg robotname1)/points" /> 
-      <param name="markersTopic"  value="/$(arg robotname1)/markers" /> 
+      <param name="regionTopic"   value="/$(arg robotname1)/region" /> 
+      <param name="frontierPointsTopic"  value="/$(arg robotname1)/frontier_points" /> 
       <param name="idRobot"       value="0" />
       <param name="nRobots"       value="$(arg nrobots)" />
       <param name="regionSize"    value="15" /> 
-      <param name="exploredArea"  value="10" />
-      <param name="lambda"        value="1.25" /> 
-      <param name="mc"            value="0.5" /> 
-      <param name="Mc"            value="5.0" />
-      <param name="nc"            value="10" /> 
-      <param name="iter"          value="-1" /> 
     </node> 
 
   </group>

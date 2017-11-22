@@ -56,17 +56,16 @@ class FrontierDetector {
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  void occupancyMapUpdateCallback(
-      const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
+  void occupancyMapUpdateCallback(const map_msgs::OccupancyGridUpdate::ConstPtr& msg);
   void occupancyMapCallback(const nav_msgs::OccupancyGrid::ConstPtr& msg);
   void mapMetaDataCallback(const nav_msgs::MapMetaData::ConstPtr& msg);
 
-  FrontierDetector(int thresholdSize = 30,
-      const std::string& namePoints = "points",
-      const std::string& nameMarkers = "markers",
-      const std::string& nameMap = "map",
-      const std::string& baseFrame = "base_link",
-      const std::string& nameMapMetadata = "");
+  FrontierDetector(int threshold_ = 30,
+      const std::string& region_topic_ = "region",
+      const std::string& frontier_points_topic_ = "markers",
+      const std::string& map_frame_ = "map",
+      const std::string& base_frame_ = "base_link",
+      const std::string& map_metadata_ = "");
 
   void computeFrontiers();
 
@@ -108,14 +107,14 @@ protected:
   Vector2iVector _centroids;
   Vector2iVector _binned_centroids;
 
-  const std::string _frontier_topic;
-  const std::string _marker_topic;
+  const std::string _region_topic;
+  const std::string _frontier_points_topic;
   const std::string _map_frame;
   const std::string _map_metadata_topic;
   const std::string _base_frame;
 
   ros::NodeHandle _nh;
-  ros::Publisher _frontiers_publisher;
+  ros::Publisher _frontiers_points_publisher;
   ros::Publisher _region_publisher;
 
   ros::Subscriber _occupancy_map_subscriber;

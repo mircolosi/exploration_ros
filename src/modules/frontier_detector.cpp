@@ -51,22 +51,22 @@ void FrontierDetector::occupancyMapUpdateCallback(const map_msgs::OccupancyGridU
   }
 }
 
-FrontierDetector::FrontierDetector( int thresholdSize,
-                                    const std::string& frontier_topic_,
-                                    const std::string& marker_topic_,
+FrontierDetector::FrontierDetector( int threshold_,
+                                    const std::string& region_topic_,
+                                    const std::string& frontier_points_topic_,
                                     const std::string& map_frame_,
                                     const std::string& base_frame_,
-                                    const std::string& map_metadata_topic_) : _size_threshold(thresholdSize),
+                                    const std::string& map_metadata_topic_) : _size_threshold(threshold_),
                                                                           _min_neighbors_threshold(4),
-                                                                          _frontier_topic(frontier_topic_),
-                                                                          _marker_topic(marker_topic_),
+                                                                          _region_topic(region_topic_),
+                                                                          _frontier_points_topic(frontier_points_topic_),
                                                                           _map_frame(map_frame_),
                                                                           _base_frame(base_frame_),
                                                                           _map_metadata_topic(map_metadata_topic_),
                                                                           _bin_map(_bin_size) {
 
-  _frontiers_publisher = _nh.advertise<visualization_msgs::MarkerArray>(_marker_topic, 1);
-  _region_publisher = _nh.advertise<sensor_msgs::PointCloud2>(_frontier_topic, 1);
+  _frontiers_points_publisher = _nh.advertise<visualization_msgs::MarkerArray>(_frontier_points_topic, 1);
+  _region_publisher = _nh.advertise<sensor_msgs::PointCloud2>(_region_topic, 1);
 
   const std::string node_namespace = ros::this_node::getNamespace();
 
@@ -180,71 +180,6 @@ void FrontierDetector::computeFrontierRegions() {
   }
   std::cerr << "Computed " << _regions.size() << " regions" << std::endl;
 }
-
-
-//void FrontierDetector::computeFrontierRegions() {
-//  _regions.clear();
-//
-//  RegionElementsVector regions(_frontier_mask.cols*_frontier_mask.rows);
-//  for (int i = 0; i < _frontiers.size(); ++i) {
-//    const int frontier_index = _frontiers[i].x()*_frontier_mask.cols+_frontiers[i].y();
-//    regions[frontier_index].coords = _frontiers[i];
-//  }
-//
-//  for (int i = 0; i < _frontiers.size(); ++i) {
-//    Vector2iVector neighbors;
-//    int frontier_index = _frontiers[i].x()*_frontier_mask.cols+_frontiers[i].y();
-//
-//    int k = 0;
-//    for (int r = -1; r <= 1; ++r) {
-//      for (int c = -1; c <= 1; ++c) {
-//        if (k > 3) {
-//          break;
-//        }
-//        ++k;
-//
-//        int rr = _frontiers[i].x()+r;
-//        int cc = _frontiers[i].y()+c;
-//        if (rr < 0 || rr >= _frontier_mask.rows ||
-//            cc < 0 || cc >= _frontier_mask.cols) {
-//          continue;
-//        }
-//        if (_frontier_mask(rr,cc) == CellColor::OCCUPIED) {
-//          neighbors.push_back(Vector2i(rr, cc));
-//        }
-//      }
-//    }
-//
-//    if (neighbors.size() == 0) {
-//      regions[frontier_index].parent = &regions[frontier_index];
-//      continue;
-//    }
-//
-//    for (int j = 0; j < neighbors.size(); ++j) {
-//      int neighbor_index = neighbors[j].x()*_frontier_mask.cols+neighbors[j].y();
-//      if (regions[frontier_index].parent == nullptr) {
-//        regions[frontier_index].parent = regions[neighbor_index].parent;
-//      } else if (regions[frontier_index].parent != regions[neighbor_index].parent) {
-//        regions[neighbor_index].parent->parent = regions[frontier_index].parent;
-//      }
-//    }
-//  }
-//
-//  //recreate region
-//  RegionElementsMap region_map;
-//  for (int i = 0; i < _frontiers.size(); ++i) {
-//    int frontier_index = _frontiers[i].x()*_frontier_mask.cols+_frontiers[i].y();
-//    region_map[regions[frontier_index].parent].push_back(regions[frontier_index].coords);
-//  }
-//
-//  for (const RegionElementPair& pair: region_map) {
-//    if (pair.second.size() >= _size_threshold) {
-//      _regions.push_back(pair.second);
-//    }
-//  }
-//
-//  std::cerr << "_regions.size(): " << _regions.size() << std::endl;
-//}
 
 void FrontierDetector::computeFrontierCentroids() {
 
@@ -520,7 +455,7 @@ void FrontierDetector::publishFrontiers() {
 
   // marker.action = 3;  //used to clean old markers
   markersMsg.markers.push_back(marker);
-  _frontiers_publisher.publish(markersMsg);
+  _frontiers_points_publisher.publish(markersMsg);
 
   markersMsg.markers.clear();
   int size = _centroids.size();
@@ -550,7 +485,7 @@ void FrontierDetector::publishFrontiers() {
 
     markersMsg.markers.push_back(marker);
   }
-  _frontiers_publisher.publish(markersMsg);
+  _frontiers_points_publisher.publish(markersMsg);
 }
 
 void FrontierDetector::publishRegions() {

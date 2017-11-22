@@ -37,8 +37,8 @@ public:
   void preemptCB();
 
   void requestFrontiers();
-  bool sendFrontiers( exploration_ros::FrontierTrade::Request&  req,
-                      exploration_ros::FrontierTrade::Response& res);
+  bool sendFrontiers(exploration_ros::FrontierTrade::Request&  req,
+                     exploration_ros::FrontierTrade::Response& res);
 
   void setROSParams();
   virtual void init();
@@ -50,10 +50,8 @@ private:
 
   std::string _map_frame;
   std::string _base_frame;
-  std::string _laser_frame;
-  std::string _laser_topic;
-  std::string _frontier_topic;
-  std::string _marker_topic;
+  std::string _region_topic;
+  std::string _frontier_points_topic;
 
   std::string _rootns;
   std::string _ns;

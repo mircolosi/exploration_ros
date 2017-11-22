@@ -11,10 +11,8 @@ ExplorerServer::ExplorerServer(ros::NodeHandle& nh) : _nh(nh),
   _listener = new tf::TransformListener;
   _map_frame = "map";
   _base_frame = "base_frame";
-  _laser_frame = "laser_frame";
-  _laser_topic = "scan";
-  _frontier_topic = "points";
-  _marker_topic = "markers";
+  _region_topic = "region";
+  _frontier_points_topic = "frontier_points";
   _action = "exploration";
 
   _ns = ros::this_node::getNamespace();
@@ -243,17 +241,11 @@ void ExplorerServer::setROSParams() {
   _private_nh.param("baseFrame", _base_frame, std::string("base_frame"));
   std::cerr << "explorer_server: [string] _base_frame: " << _base_frame << std::endl;
   
-  _private_nh.param("laserFrame", _laser_frame, std::string("laser_frame"));
-  std::cerr << "explorer_server: [string] _laser_frame: " << _laser_frame << std::endl;
+  _private_nh.param("regionTopic", _region_topic, std::string("region"));
+  std::cerr << "explorer_server: [string] _region_topic: " << _region_topic << std::endl;
   
-  _private_nh.param("scanTopic", _laser_topic, std::string("scan"));
-  std::cerr << "explorer_server: [string] _laser_topic: " << _laser_topic << std::endl;
-  
-  _private_nh.param("pointsTopic", _frontier_topic, std::string("points"));
-  std::cerr << "explorer_server: [string] _frontier_topic: " << _frontier_topic << std::endl;
-  
-  _private_nh.param("markersTopic", _marker_topic, std::string("markers"));
-  std::cerr << "explorer_server: [string] _marker_topic: " << _marker_topic << std::endl;
+  _private_nh.param("frontierPointsTopic", _frontier_points_topic, std::string("frontier_points"));
+  std::cerr << "explorer_server: [string] _frontier_points_topic: " << _frontier_points_topic << std::endl;
 
   _private_nh.param("idRobot", _id_robot, 0);
   std::cerr << "explorer_server: [int] _id_robot: " << _id_robot << std::endl;
@@ -271,7 +263,7 @@ void ExplorerServer::init() {
 
   std::cerr << YELLOW << "FrontierDetector creation" << RESET << std::endl;
 
-  _frontiers_detector = new FrontierDetector(_thresholdRegionSize, _frontier_topic, _marker_topic, _map_frame, _base_frame);
+  _frontiers_detector = new FrontierDetector(_thresholdRegionSize, _region_topic, _frontier_points_topic, _map_frame, _base_frame);
 
   std::cerr << GREEN << "Created FrontierDetector" << RESET << std::endl;
 
