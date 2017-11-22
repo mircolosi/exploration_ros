@@ -40,7 +40,7 @@
 
 <node pkg="spqrel_navigation" type="spqrel_planner_node" name="spqrel_planner" output="screen">
       <param name="static_map_service" value="/$(arg robotname)/map"/>
-      <param name="robot_radius" value="0.2"/>
+      <param name="robot_radius" value="0.1"/>
       <param name="map_topic" value="/$(arg robotname)/map"/> 
       <param name="global_frame_id" value="/$(arg robotname)/map"/>
       <param name="base_frame_id" value="/$(arg robotname)/$(arg base_frame)"/>

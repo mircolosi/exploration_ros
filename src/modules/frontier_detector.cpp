@@ -181,6 +181,71 @@ void FrontierDetector::computeFrontierRegions() {
   std::cerr << "Computed " << _regions.size() << " regions" << std::endl;
 }
 
+// GIORGIO's way
+//void FrontierDetector::computeFrontierRegions() {
+//  _regions.clear();
+//
+//  RegionElementsVector regions(_frontier_mask.cols*_frontier_mask.rows);
+//  for (int i = 0; i < _frontiers.size(); ++i) {
+//    const int frontier_index = _frontiers[i].x()*_frontier_mask.cols+_frontiers[i].y();
+//    regions[frontier_index].coords = _frontiers[i];
+//  }
+//
+//  for (int i = 0; i < _frontiers.size(); ++i) {
+//    Vector2iVector neighbors;
+//    int frontier_index = _frontiers[i].x()*_frontier_mask.cols+_frontiers[i].y();
+//
+//    int k = 0;
+//    for (int r = -1; r <= 1; ++r) {
+//      for (int c = -1; c <= 1; ++c) {
+//        if (k > 3) {
+//          break;
+//        }
+//        ++k;
+//
+//        int rr = _frontiers[i].x()+r;
+//        int cc = _frontiers[i].y()+c;
+//        if (rr < 0 || rr >= _frontier_mask.rows ||
+//            cc < 0 || cc >= _frontier_mask.cols) {
+//          continue;
+//        }
+//        if (_frontier_mask(rr,cc) == CellColor::OCCUPIED) {
+//          neighbors.push_back(Vector2i(rr, cc));
+//        }
+//      }
+//    }
+//
+//    if (neighbors.size() == 0) {
+//      regions[frontier_index].parent = &regions[frontier_index];
+//      continue;
+//    }
+//
+//    for (int j = 0; j < neighbors.size(); ++j) {
+//      int neighbor_index = neighbors[j].x()*_frontier_mask.cols+neighbors[j].y();
+//      if (regions[frontier_index].parent == nullptr) {
+//        regions[frontier_index].parent = regions[neighbor_index].parent;
+//      } else if (regions[frontier_index].parent != regions[neighbor_index].parent) {
+//        regions[neighbor_index].parent->parent = regions[frontier_index].parent;
+//      }
+//    }
+//  }
+//
+//  //recreate region
+//  RegionElementsMap region_map;
+//  for (int i = 0; i < _frontiers.size(); ++i) {
+//    int frontier_index = _frontiers[i].x()*_frontier_mask.cols+_frontiers[i].y();
+//    region_map[regions[frontier_index].parent].push_back(regions[frontier_index].coords);
+//  }
+//
+//  for (const RegionElementPair& pair: region_map) {
+//    if (pair.second.size() >= _size_threshold) {
+//      _regions.push_back(pair.second);
+//    }
+//  }
+//
+//  std::cerr << "_regions.size(): " << _regions.size() << std::endl;
+//}
+
 void FrontierDetector::computeFrontierCentroids() {
 
   _centroids.clear();
@@ -197,31 +262,6 @@ void FrontierDetector::computeFrontierCentroids() {
     _centroids.push_back(centroid);
 
   }
-
-  //Make all the centroids reachable
-//  for (int i = 0; i < _centroids.size(); ++i) {
-//
-//    const Color& centroid_cell = _occupancy_map(_centroids[i].y(), _centroids[i].x());
-//
-//    if (centroid_cell == CellColor::OCCUPIED || centroid_cell == CellColor::UNKNOWN) {  //If the centroid is in a non-free cell
-//      float distance = std::numeric_limits<float>::max();
-//      Vector2i closestPoint;
-//
-////      fix this -> centroid must lay on a free cell.
-//      for (int j = 0; j < _regions[i].size(); j++) {
-//
-//        float dist = (_centroids[i] - _regions[i][j]).norm();
-//
-//        if (dist < distance){
-//          distance = dist;
-//          closestPoint = _regions[i][j];
-//        }
-//      }
-//
-//      _centroids[i] = closestPoint;
-//
-//    }
-//  }
 }
 
 void FrontierDetector::binFrontierCentroids() {
@@ -405,11 +445,11 @@ void FrontierDetector::rankFrontierCentroids(const Vector2iVector& new_centroids
 
     centroidScore.coord = _centroids[i];
     const float w1 = 1.0;
-    const float w2 = 0.0;
-    const float w3 = 0.0;
+    const float w2 = 1.0;
+    const float w3 = 1.0;
 
     // the score is based on the distance, the position where the centroid is locate wrt the robot (ahead is better) and the distance from an obstacle (far is better)
-                          //farther    //the one which is ahead
+                          //further    //the one which is ahead
     // TODO add region size
     centroidScore.score = w1 * distance + w2 * ahead_cost + w3 * obstacle_distance_cost;
 
